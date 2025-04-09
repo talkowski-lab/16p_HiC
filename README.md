@@ -1,4 +1,4 @@
-# 16p_HiC
+# 16p HiC Analysis
 Analysis and code of HiC data for 16p editied cell lines
 
 Current relevant file structure
