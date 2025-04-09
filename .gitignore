@@ -1,3 +1,29 @@
+# Misc
+slurm.logs/
+misc/
+
+# Data
+fastq/
+publicData/
+sample.configs/NSC.distiller.yml
+sample.configs/template.distiller.yml
+sample.configs/testing/
+
+# Results
+results/
+results.NSC/
+
+# Hidden files
+.domaincaller/
+.DS_Store
+._*
+
+# nextflow stuff
+distiller-nf/
+pipeline_info
+.nextflow*
+work*
+
 # History files
 .Rhistory
 .Rapp.history
