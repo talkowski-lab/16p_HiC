@@ -38,6 +38,7 @@ CHROMOSOMES=(
     "chrX"
     "chrY"
 )
+# Utils
 dump_all_regions() {
     hic_samples=${@}
     for sample_file in ${hic_samples[@]}; do
@@ -61,6 +62,73 @@ dump_all_regions() {
         done
     done
 }
+plot_fanc() {
+    output_dir="$1"
+    region="$2"
+    resolution="$3"
+    hic_samples=${@:4}
+    for sample_file in ${hic_samples[@]}; do
+        sample_file="$(readlink -e ${sample_file})"
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.*.mcool}"
+        output_file="${output_dir}/${sample_ID}.${resolution}.${region}.heatmap.pdf"
+        fancplot $region \
+            -vv \
+            --output ${output_file} \
+            -p triangular \
+            -u -l \
+            --title "${sample_ID} Contacts on ${region%:*}" \
+            ${sample_file}@${resolution}
+        # fancplot chr16:0mb-96mb --output ./WT_VS_DEL.Merged.100K.heatmap.pdf -p split --title 'Merged WT vs Merged DEL Contacts chr16' ../coolers_library/16pWTNSCHIC_S5S6.hg38.mapq_30.1000.mcool::resolutions/100000 ../coolers_library/16pDELNSCHIC_S1S2.hg38.mapq_30.1000.mcool::resolutions/100000
+done
+}
+# Restrict Fragment analysis
+digest_genome_arima() {
+    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
+    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${HINFI_DIGESTION}"
+    # "merge" the two digestions so every possible unique genome fragment is 
+    # represented if you were to digest a genome with both enzymes
+    bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
+}
+pairtools_restrict() {
+    output_dir=$1
+    pairs_files=${@:2}
+    for sample_file in ${pairs_files[@]}; do
+        sample_file="$(readlink -e ${sample_file})"
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.nodups.pairs.gz}"
+        output_file="${output_dir}/${sample_ID}.ARIMA.restricted.pairs"
+        pairtools restrict -f "${ARIMA_DIGESTION}" -o ${output_file} $sample_file
+    done
+}
+# QC Stats
+make_multiqc_report() {
+    report_file="${1}"
+    input_files=${2}
+    multiqc \
+        --no-ai \
+        --no-data-dir \
+        --clean-up \
+        --force \
+        --template default \
+        --filename "${report_file}" \
+        ${input_files}
+}
+make_multiqc_reports() {
+    distiller_output_dir="$(readlink -e ${1})"
+    report_dir="${distiller_output_dir}/multiqc.reports"
+    mkdir -p "${report_dir}"
+    make_multiqc_report \
+        "${report_dir}/fastqc.multiqc" \
+        ${distiller_output_dir}/fastqc/
+    make_multiqc_report \
+        "${report_dir}/fastp.multiqc" \
+        ${distiller_output_dir}/mapped_parsed_sorted_chunks/
+    make_multiqc_report \
+        "${report_dir}/pairtools.multiqc" \
+        ${distiller_output_dir}/pairs_library/
+    readlink -e ${report_dir}/*
+}
 run_qc3c() {
     output_dir=$1
     hic_bams=${@:2}
@@ -82,25 +150,6 @@ run_qc3c() {
             --output-path ${output_dir}/${sample_ID}
     done
 }
-digest_genome_arima() {
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${HINFI_DIGESTION}"
-    # "merge" the two digestions so every possible unique genome fragment is 
-    # represented if you were to digest a genome with both enzymes
-    bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
-}
-pairtools_restrict() {
-    # FRAC=0.02 # ~ 1M reads getting sampled 
-    output_dir=$1
-    pairs_files=${@:2}
-    for sample_file in ${pairs_files[@]}; do
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.nodups.pairs.gz}"
-        output_file="${output_dir}/${sample_ID}.ARIMA.restricted.pairs"
-        pairtools restrict -f "${ARIMA_DIGESTION}" -o ${output_file} $sample_file
-    done
-}
 pairtools_stats() {
     output_dir=$1
     pairs_files=${@:2}
@@ -112,26 +161,6 @@ pairtools_stats() {
         output_file="${output_dir}/${sample_ID}.scaling.tsv"
         pairtools scaling -o ${output_file} $sample_file
     done
-}
-plot_fanc() {
-    output_dir="$1"
-    region="$2"
-    resolution="$3"
-    hic_samples=${@:4}
-    for sample_file in ${hic_samples[@]}; do
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.*.mcool}"
-        output_file="${output_dir}/${sample_ID}.${resolution}.${region}.heatmap.pdf"
-        fancplot $region \
-            -vv \
-            --output ${output_file} \
-            -p triangular \
-            -u -l \
-            --title "${sample_ID} Contacts on ${region%:*}" \
-            ${sample_file}@${resolution}
-        # fancplot chr16:0mb-96mb --output ./WT_VS_DEL.Merged.100K.heatmap.pdf -p split --title 'Merged WT vs Merged DEL Contacts chr16' ../coolers_library/16pWTNSCHIC_S5S6.hg38.mapq_30.1000.mcool::resolutions/100000 ../coolers_library/16pDELNSCHIC_S1S2.hg38.mapq_30.1000.mcool::resolutions/100000
-done
 }
 # Main, determine what to do and what input to expect
 mode="$1"
@@ -147,11 +176,12 @@ case $mode in
             ${balance_flag} \
             "${MERGED_FILE}.cool"
         ;;
-    dump         ) dump_all_regions ${@:2} ;;
-    qc3          ) run_qc3c ${@:2} ;;
-    digest_genome) digest_genome_arima ;;
-    restrict     ) pairtools_restrict "${2}" ${@:3} ;;
-    stats        ) pairtools_stats ${@:2} ;;
-    plot_triangle) plot_fanc "${2}" "${3}" "${4}" ${@:5} ;;
-    *            ) echo "Invalid mode: $mode" && exit 1 ;;
+    "dump"         ) dump_all_regions ${@:2} ;;
+    "qc3"          ) run_qc3c ${@:2} ;;
+    "digest_genome") digest_genome_arima ;;
+    "restrict"     ) pairtools_restrict "${2}" ${@:3} ;;
+    "stats"        ) pairtools_stats ${@:2} ;;
+    "plot_triangle") plot_fanc "${2}" "${3}" "${4}" ${@:5} ;;
+    "multiqcs"     ) make_multiqc_reports "${2}" ;;
+    *              ) echo "Invalid mode: $mode" && exit 1 ;;
 esac
