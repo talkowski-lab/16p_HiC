@@ -122,7 +122,7 @@ pairtools_restrict() {
 # QC Stats
 make_multiqc_report() {
     report_file="${1}"
-    input_files=${2}
+    input_dir=${2}
     multiqc \
         --no-ai \
         --no-data-dir \
@@ -130,11 +130,12 @@ make_multiqc_report() {
         --force \
         --template default \
         --filename "${report_file}" \
-        ${input_files}
+        ${input_dir}
 }
 make_multiqc_reports() {
     distiller_output_dir="$(readlink -e ${1})"
-    report_dir="${distiller_output_dir}/multiqc.reports"
+    output_dir="${2}"
+    report_dir="${output_dir}/multiqc.reports"
     mkdir -p "${report_dir}"
     activate_conda 'multiqc'
     make_multiqc_report \
@@ -146,28 +147,49 @@ make_multiqc_reports() {
     make_multiqc_report \
         "${report_dir}/pairtools.multiqc" \
         ${distiller_output_dir}/pairs_library/
+    make_multiqc_report \
+        "${report_dir}/qc3C.multiqc" \
+        ${distiller_output_dir}/qc3C/
     readlink -e ${report_dir}/*
 }
 run_qc3c() {
     output_dir=$1
     hic_bams=${@:2}
+    mkdir -p "${output_dir}"
     activate_conda 'qc3C'
+    echo ${output_dir}
     for sample_file in ${hic_bams[@]}; do 
+        echo $sample_file
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.lane1.hg38.0.bam}"
         echo $sample_ID
-        # samtools sort "${bam_file}" -o "${bam_file}"
+        # Sort bamfile if not already sorted
+        if ! $(samtools view -H "${sample_file}" | grep -q "SO:queryname"); then
+            echo "Sorting bam file..."
+            samtools sort \
+                --threads ${THREADS} \
+                -n \
+                -o "${sample_file}" \
+                "${sample_file}"
+        fi
+        output_files_path="${output_dir}/${sample_ID}"
+        echo $output_files_path
+        if [[ -e "${output_files_path}/report.qc3C.json" ]]; then
+            echo "Skipping, cached results here: ${output_files_path}"
+            continue
+        fi
+        # Run QC on subsampled reads
         qc3C bam \
-            -t $(nproc --all) \
+            -t ${THREADS} \
             --fasta ${GENOME_REFERENCE} \
             -k arima \
             -q 30 \
             --seed ${SEED} \
-            --max-obs 2000000 \
-            --sample-rate 0.999 \
-            --bam ${sample_file} \
-            --output-path ${output_dir}/${sample_ID}
+            --max-obs 200000 \
+            --sample-rate 0.5 \
+            --bam "${sample_file}" \
+            --output-path "${output_files_path}"
     done
 }
 pairtools_stats() {
