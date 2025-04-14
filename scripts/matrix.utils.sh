@@ -2,6 +2,7 @@
 set -euo pipefail
 SEED=9
 THREADS=$(nproc --all)
+CONDA_DIR="$HOME/miniforge3"
 # Genomic reference files
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
 GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
@@ -39,8 +40,23 @@ CHROMOSOMES=(
     "chrY"
 )
 # Utils
+activate_conda() {
+    # activate conda env with specific tools for each task
+    case "$1" in
+        cooler)    env_name="cooltools" ;;
+        cooltools) env_name="cooltools" ;;
+        pairtools) env_name="dist2" ;;
+        qc3C)      env_name="qc3c" ;;
+        fanc)      env_name="fanc" ;;
+        multiqc)   env_name="mqc" ;;
+        *)      echo "Invalid conda env: $1" && exit 1 ;;
+    esac
+    source "${CONDA_DIR}/etc/profile.d/conda.sh"
+    conda activate "${env_name}"
+}
 dump_all_regions() {
     hic_samples=${@}
+    activate_conda 'cooler'
     for sample_file in ${hic_samples[@]}; do
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
@@ -67,6 +83,7 @@ plot_fanc() {
     region="$2"
     resolution="$3"
     hic_samples=${@:4}
+    activate_conda 'fanc'
     for sample_file in ${hic_samples[@]}; do
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
@@ -93,6 +110,7 @@ digest_genome_arima() {
 pairtools_restrict() {
     output_dir=$1
     pairs_files=${@:2}
+    activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
@@ -118,6 +136,7 @@ make_multiqc_reports() {
     distiller_output_dir="$(readlink -e ${1})"
     report_dir="${distiller_output_dir}/multiqc.reports"
     mkdir -p "${report_dir}"
+    activate_conda 'multiqc'
     make_multiqc_report \
         "${report_dir}/fastqc.multiqc" \
         ${distiller_output_dir}/fastqc/
@@ -132,6 +151,7 @@ make_multiqc_reports() {
 run_qc3c() {
     output_dir=$1
     hic_bams=${@:2}
+    activate_conda 'qc3C'
     for sample_file in ${hic_bams[@]}; do 
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
@@ -153,6 +173,7 @@ run_qc3c() {
 pairtools_stats() {
     output_dir=$1
     pairs_files=${@:2}
+    activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
