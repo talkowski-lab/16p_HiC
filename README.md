@@ -61,10 +61,9 @@ $ ./scripts/run.distiller.sh
 ```
 This is 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
-
 ### Running qc3C profiling
 
-Use the `qc3C` tool in bam mode to profile quality metrics for our HiC samples.
+Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
 
 ```bash
 $ ./scripts/matrix.utils.sh qc3c                             # run qc3C with specified params
@@ -75,7 +74,7 @@ $ ./scripts/matrix.utils.sh qc3c                             # run qc3C with spe
 ```
 ### Generate MultiQC reports
 
-Distiller outputs multiple QC reports/files per sample than can each be aggregated into its own qc report with all samples together. This is how we generate all those reports
+distiller-nf outputs multiple QC reports/files per sample than can each be aggregated into a single multiqc report [docs](https://docs.seqera.io/multiqc). This is how we generate all those reports
 
 ```bash
 $ ./scripts/matrix.utils.sh multiqcs             # generate multiqc reports for different outputs from distiller,qc3C
@@ -83,4 +82,20 @@ $ ./scripts/matrix.utils.sh multiqcs             # generate multiqc reports for 
         ./results.NSC/                           # all multiqc data is under here in specific directories
 # copy pastable
 ./scripts/matrix.utils.sh multiqcs ./results.NSC/sample.QC/multiqc.reports/ ./results.NSC/
+```
+### Restriction Fragment Analysis
+
+We use `pairtools restrict` [docs](https://pairtools.readthedocs.io/en/latest/examples/pairtools_restrict_walkthrough.html) to annotate restriction fragments for each HiC read and use this for quality control.
+
+The fist step is to generate the digested reference bed file for our data. This script Assumes genome fasta + bwa index are in the directory `${REF_DIR}`, specified as a variable in `./scripts/matrix.utils.sh`. 
+
+```bash
+# Generate multi-digested reference since we use ARIMA kit for HiC 
+$ ./scripts/matrix.utils.sh digest_genome
+# Annotate restriction fragments to reads with pairtools
+$ ./scripts/matrix.utils.sh restrict                        # run pairtools restrict
+        ./results.NSC/sample.QC/restriction.analysis/       # output dir
+        ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz # pairsfiles for each sample
+# copy pastable
+./scripts/matrix.utils.sh restrict ./results.NSC/sample.QC/restriction.analysis/ ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz
 ```
