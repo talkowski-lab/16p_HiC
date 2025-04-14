@@ -1,7 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-SEED=9
-THREADS=$(nproc --all)
 CONDA_DIR="$HOME/miniforge3"
 # Genomic reference files
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
@@ -13,32 +11,8 @@ REF_NAME="${REF_DIR%%.fasta}"
 DPNII_DIGESTION="${REF_DIR}/${REF_NAME}.DpnII.digested.bed"
 HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
 ARIMA_DIGESTION="${REF_DIR}/hg38.ARIMA.restricted.bed"
-CHROMOSOMES=(
-    "chr1"
-    "chr2"
-    "chr3"
-    "chr4"
-    "chr5"
-    "chr6"
-    "chr7"
-    "chr8"
-    "chr9"
-    "chr10"
-    "chr11"
-    "chr12"
-    "chr13"
-    "chr14"
-    "chr15"
-    "chr16"
-    "chr17"
-    "chr18"
-    "chr19"
-    "chr20"
-    "chr21"
-    "chr22"
-    "chrX"
-    "chrY"
-)
+SEED=9
+THREADS="16" 
 # Utils
 activate_conda() {
     # activate conda env with specific tools for each task
@@ -55,7 +29,9 @@ activate_conda() {
     conda activate "${env_name}"
 }
 dump_all_regions() {
-    hic_samples=${@}
+    output_dir="${1}"
+    hic_samples=${@:2}
+    mkdir -p "${output_dir}"
     activate_conda 'cooler'
     for sample_file in ${hic_samples[@]}; do
         sample_file="$(readlink -e ${sample_file})"
@@ -63,7 +39,7 @@ dump_all_regions() {
         sample_ID="${sample_ID%%.mcool}"
         for uri in $(cooler ls ${sample_file}); do
         for chr in ${CHROMOSOMES[@]}; do
-            output_file="${OUTPUT_DIR}/${sample_ID}.${resolution}.${region}.txt"
+            output_file="${output_dir}/${sample_ID}.${resolution}.${region}.txt"
             [[ -f "$output_file" ]] && continue
             basename "${output_file}"
             cooler dump \
@@ -83,6 +59,7 @@ plot_fanc() {
     region="$2"
     resolution="$3"
     hic_samples=${@:4}
+    mkdir -p "${output_dir}"
     activate_conda 'fanc'
     for sample_file in ${hic_samples[@]}; do
         sample_file="$(readlink -e ${sample_file})"
@@ -101,15 +78,19 @@ done
 }
 # Restrict Fragment analysis
 digest_genome_arima() {
+    # The cooler^1 docs shows that to analyze a multi-enzyme digestion you can "partition" the two individual digestion, as bedops^2 does.
+    ## 1: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
+    ## 2: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
+    activate_conda 'cooler'
     cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
     cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${HINFI_DIGESTION}"
-    # "merge" the two digestions so every possible unique genome fragment is 
-    # represented if you were to digest a genome with both enzymes
+    # "merge" the two digestions i.e. list all genome fragments has with a breakpoint at cut sites for 1 of any enzyme supplied
     bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
 }
 pairtools_restrict() {
     output_dir=$1
     pairs_files=${@:2}
+    mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
         sample_file="$(readlink -e ${sample_file})"
@@ -208,7 +189,7 @@ pairtools_stats() {
 # Main, determine what to do and what input to expect
 mode="$1"
 case $mode in 
-    merge        )
+    "merge")
         MERGED_FILE="${2}"
         HIC_SAMPLES=${@:3}
         [[ -f "$MERGED_FILE" ]] && continue
@@ -219,12 +200,12 @@ case $mode in
             ${balance_flag} \
             "${MERGED_FILE}.cool"
         ;;
-    "dump"         ) dump_all_regions ${@:2} ;;
-    "qc3"          ) run_qc3c ${@:2} ;;
+    "dump")          dump_all_regions ${@:2} ;;
     "digest_genome") digest_genome_arima ;;
-    "restrict"     ) pairtools_restrict "${2}" ${@:3} ;;
-    "stats"        ) pairtools_stats ${@:2} ;;
-    "plot_triangle") plot_fanc "${2}" "${3}" "${4}" ${@:5} ;;
-    "multiqcs"     ) make_multiqc_reports "${2}" ;;
-    *              ) echo "Invalid mode: $mode" && exit 1 ;;
+    "restrict")      pairtools_restrict ${@:2} ;; 
+    "qc3c")          run_qc3c ${@:2} ;; 
+    "stats")         pairtools_stats ${@:2} ;; 
+    "multiqcs")      make_multiqc_reports ${@:2} ;; 
+    "plot_triangle") plot_fanc ${@:2} ;; 
+    *)               echo "Invalid mode: $mode" && exit 1 ;;
 esac
