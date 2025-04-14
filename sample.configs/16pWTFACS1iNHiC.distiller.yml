@@ -26,7 +26,7 @@ input:
     raw_reads_paths:
         # substitute the location of your fastq files:
         # an example of a 1-lane library:
-        16p.WTFACS1.iN.HiC:
+        16p.WT.FACS1.iN.HiC:
           lane1:
             - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pWTFACS1iNHiC_S3_L003_R1_001.fastq.gz
             - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pWTFACS1iNHiC_S3_L003_R2_001.fastq.gz
@@ -174,10 +174,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results.iN/processed_fastqs'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results.iN/mapped_parsed_sorted_chunks'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results.iN/fastqc'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results.iN/pairs_library'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results.iN/coolers_library'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results.iN/coolers_library_group'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results.iN/stats_library_group'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.WT.FACS1.iN.HiC'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.WT.FACS1.iN.HiC'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.WT.FACS1.iN.HiC'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.WT.FACS1.iN.HiC'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.WT.FACS1.iN.HiC'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.WT.FACS1.iN.HiC'
+        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.WT.FACS1.iN.HiC'

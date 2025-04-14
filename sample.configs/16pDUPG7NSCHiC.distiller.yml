@@ -26,7 +26,7 @@ input:
     raw_reads_paths:
         # substitute the location of your fastq files:
         # an example of a 1-lane library:
-        16p.DUPG7.NSC.HiC:
+        16p.DUP.G7.NSC.HiC:
           lane1:
             - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pDUPG7NSCHiC_S2_L003_R1_001.fastq.gz
             - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pDUPG7NSCHiC_S2_L003_R2_001.fastq.gz
@@ -173,10 +173,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results.NSC/processed_fastqs/16p.DUPG7.NSC.HiC'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results.NSC/mapped_parsed_sorted_chunks/16p.DUPG7.NSC.HiC'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results.NSC/fastqc/16p.DUPG7.NSC.HiC'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results.NSC/pairs_library/16p.DUPG7.NSC.HiC'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results.NSC/coolers_library/16p.DUPG7.NSC.HiC'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results.NSC/coolers_library_group/16p.DUPG7.NSC.HiC'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results.NSC/stats_library_group/16p.DUPG7.NSC.HiC'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.DUP.G7.NSC.HiC'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.DUP.G7.NSC.HiC'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.DUP.G7.NSC.HiC'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.DUP.G7.NSC.HiC'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.DUP.G7.NSC.HiC'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.DUP.G7.NSC.HiC'
+        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.DUP.G7.NSC.HiC'
