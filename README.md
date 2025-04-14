@@ -5,26 +5,42 @@ Analysis and code of HiC data for 16p editied cell lines
 File tree
 ```
 ./
-├── distiller-nf                    # installed distiller nextflow pipeline
-├── fastq                           # fastq files of HiC data for all samples (paired-end)
-├── publicData                      # Public HiC data that may be used for comparison
-├── reference.files                 # reference files, mostly conda envs for tools used
+├── publicData      # Public HiC data that may be used for comparison
+├── distiller-nf    # installed distiller nextflow pipeline
+├── reference.files # reference files, mostly conda envs for tools used
 │   ├── cooltools.env.yml
 │   ├── distiller.env.yml
 │   ├── TADLib.env.yml
 │   └── README.md
-├── results.NSC                     # HiC results produced by distiller pipeline and downstream analyses
+├── fastq           # fastq files of HiC data for all samples (paired-end)
+│   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
+│   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz
+│   ├── 22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R1_001.fastq.gz
+│   ├── 22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R2_001.fastq.gz
+│   ├── 22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R1_001.fastq.gz
+│   ├── 22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R2_001.fastq.gz
+│   └── ...
+├── sample.configs  # Config files supplied to distiller to generate HiC matrices
+│   ├── 16p.DELA3.NSC.HiC.distiller.yml
+│   ├── 16p.DELB8.NSC.HiC.distiller.yml
+│   ├── 16p.DELH10.NSC.HiC.distiller.yml
+│   └── ...
+├── results.NSC     # HiC results produced by distiller pipeline and downstream analyses
 │   ├── coolers_library
+│   │   ├── 16p.DELA3.NSC.HiC
+│   │   ├── 16p.DELB8.NSC.HiC
+│   │   ├── 16p.DELH10.NSC.HiC
+│   │   └── ...
 │   ├── fastqc
+│   │   └── ...
 │   ├── mapped_parsed_sorted_chunks
+│   │   └── ...
 │   └── pairs_library
-├── sample.configs                  # Config files supplied to distiller to generate HiC matrices    
+│       └── ...
 ├── sample.metadata.tsv             # metadata for all HiC samples
-└── scripts                         # all code
+└── scripts                         # code
 ```
 ## Producing Results
-
-### Notes
 
 ### Running distiller pipeline
 
