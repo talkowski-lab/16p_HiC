@@ -29,7 +29,7 @@ activate_conda() {
     conda activate "${env_name}"
 }
 dump_all_regions() {
-    output_dir="${1}"
+    output_dir="$(readlink -e "${1}")"
     hic_samples=${@:2}
     mkdir -p "${output_dir}"
     activate_conda 'cooler'
@@ -42,12 +42,12 @@ dump_all_regions() {
             output_file="${output_dir}/${sample_ID}.${resolution}.${region}.txt"
             [[ -f "$output_file" ]] && continue
             basename "${output_file}"
-            cooler dump \
-                --nproc $THREADS \
-                --range "${chr}" \
-                -t pixels \
-                --join \
-                --no-balance \
+            cooler dump                \
+                --nproc $THREADS       \
+                --range "${chr}"       \
+                --table pixels         \
+                --join                 \
+                --no-balance           \
                 --out "${output_file}" \
                 "$uri"
         done
@@ -56,12 +56,14 @@ dump_all_regions() {
 }
 plot_fanc() {
     output_dir="$1"
+    output_dir="$(readlink -e "${1}")"
     region="$2"
     resolution="$3"
     hic_samples=${@:4}
     mkdir -p "${output_dir}"
     activate_conda 'fanc'
     for sample_file in ${hic_samples[@]}; do
+        [[ ${sample_file} == *.mcool ]] && continue
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.*.mcool}"
@@ -88,16 +90,20 @@ digest_genome_arima() {
     bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
 }
 pairtools_restrict() {
-    output_dir=$1
+    output_dir="$(readlink -e "${1}")"
     pairs_files=${@:2}
     mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
+        [[ ${sample_file} == *.nodups.pairs.gz ]] && continue
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.nodups.pairs.gz}"
+        sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
         output_file="${output_dir}/${sample_ID}.ARIMA.restricted.pairs"
-        pairtools restrict -f "${ARIMA_DIGESTION}" -o ${output_file} $sample_file
+        pairtools restrict               \
+            --frags "${ARIMA_DIGESTION}" \
+            --output ${output_file}      \
+            ${sample_file}
     done
 }
 # QC Stats
@@ -132,12 +138,31 @@ make_multiqc_reports() {
         "${report_dir}/qc3C.multiqc" \
         ${distiller_output_dir}/qc3C/
     readlink -e ${report_dir}/*
+# QC Stats
+pairtools_stats() {
+    output_dir="$(readlink -e "${1}")"
+    pairs_files=${@:2}
+    activate_conda 'pairtools'
+    for sample_file in ${pairs_files[@]}; do
+        [[ ${sample_file} == *.nodups.pairs.gz ]] && continue
+        sample_file="$(readlink -e ${sample_file})"
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
+        pairtools scaling \
+            --output "${output_dir}/${sample_ID}.scaling.tsv" \
+            ${sample_file}
+        pairtools stats \
+            --bytile-dups \
+            --with-chromsizes \
+            --output "${output_dir}/${sample_ID}.stats.tsv" \
+            ${sample_file}
+    done
 }
 run_qc3c() {
-    output_dir=$1
+    output_dir="$(readlink -e "${1}")"
     hic_bams=${@:2}
-    mkdir -p "${output_dir}"
     activate_conda 'qc3C'
+    mkdir -p "${output_dir}"
     echo ${output_dir}
     for sample_file in ${hic_bams[@]}; do 
         echo $sample_file
@@ -148,43 +173,32 @@ run_qc3c() {
         # Sort bamfile if not already sorted
         if ! $(samtools view -H "${sample_file}" | grep -q "SO:queryname"); then
             echo "Sorting bam file..."
-            samtools sort \
+            samtools sort            \
                 --threads ${THREADS} \
-                -n \
-                -o "${sample_file}" \
+                -n                   \
+                -o "${sample_file}"  \
                 "${sample_file}"
         fi
+        # Skip if qc3C result already exists
         output_files_path="${output_dir}/${sample_ID}"
         echo $output_files_path
         if [[ -e "${output_files_path}/report.qc3C.json" ]]; then
             echo "Skipping, cached results here: ${output_files_path}"
             continue
         fi
-        # Run QC on subsampled reads
-        qc3C bam \
-            -t ${THREADS} \
+        # Run QC on 200,000 subsampled reads, all mapq > 30
+        qc3C bam                        \
+            --threads ${THREADS}        \
             --fasta ${GENOME_REFERENCE} \
-            -k arima \
-            -q 30 \
-            --seed ${SEED} \
-            --max-obs 200000 \
-            --sample-rate 0.5 \
-            --bam "${sample_file}" \
+            --library-kit arima         \
+            --min-mapq 30               \
+            --seed ${SEED}              \
+            --max-obs 200000            \
+            --sample-rate 0.5           \
+            --bam "${sample_file}"      \
             --output-path "${output_files_path}"
     done
 }
-pairtools_stats() {
-    output_dir=$1
-    pairs_files=${@:2}
-    activate_conda 'pairtools'
-    for sample_file in ${pairs_files[@]}; do
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.0.pairsam.gz}"
-        sample_ID="${sample_ID/lane1./}"
-        output_file="${output_dir}/${sample_ID}.scaling.tsv"
-        pairtools scaling -o ${output_file} $sample_file
-    done
 }
 # Main, determine what to do and what input to expect
 mode="$1"
@@ -200,12 +214,14 @@ case $mode in
             ${balance_flag} \
             "${MERGED_FILE}.cool"
         ;;
-    "dump")          dump_all_regions ${@:2} ;;
-    "digest_genome") digest_genome_arima ;;
-    "restrict")      pairtools_restrict ${@:2} ;; 
-    "qc3c")          run_qc3c ${@:2} ;; 
-    "stats")         pairtools_stats ${@:2} ;; 
-    "multiqcs")      make_multiqc_reports ${@:2} ;; 
-    "plot_triangle") plot_fanc ${@:2} ;; 
+    merge_NIBPLWAPL) merge_NIPBLWAPL_matrices ;;
+    merge_16p)       merge_16p_matrices ;;
+    dump)            dump_all_regions ${@:2} ;;
+    plot_triangle)   plot_fanc ${@:2} ;;
+    digest_genome)   digest_genome_arima ;;
+    restrict)        pairtools_restrict ${@:2} ;;
+    qc3C)            run_qc3c ${@:2} ;;
+    stats)           pairtools_stats ${@:2} ;;
+    multiqcs)        make_multiqc_reports ${@:2} ;;
     *)               echo "Invalid mode: $mode" && exit 1 ;;
 esac
