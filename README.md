@@ -4,41 +4,65 @@ Analysis and code of HiC data for 16p editied cell lines
 
 File tree
 ```
+# Note ... indicates that thee files exist for all samples, truncated for brevity
 ./
-├── publicData      # Public HiC data that may be used for comparison
-├── distiller-nf    # installed distiller nextflow pipeline
-├── reference.files # reference files, mostly conda envs for tools used
+├── publicData          # Public HiC data 
+├── distiller-nf        # distiller nextflow installation
+├── notebooks           # results+figures
+├── scripts             # scripts+notebook backends
+├── reference.files     # mostly conda envs, coordinates etc.
 │   ├── cooltools.env.yml
 │   ├── distiller.env.yml
 │   ├── TADLib.env.yml
 │   └── README.md
-├── fastq           # fastq files of HiC data for all samples (paired-end)
+├── sample.metadata.tsv # metadata for all HiC samples
+├── fastq               # Raw reads for HiC samples
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz
-│   ├── 22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R1_001.fastq.gz
-│   ├── 22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R2_001.fastq.gz
-│   ├── 22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R1_001.fastq.gz
-│   ├── 22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R2_001.fastq.gz
-│   └── ...
-├── sample.configs  # Config files supplied to distiller to generate HiC matrices
+│   └── ....fastq.gz
+├── sample.configs      # Config files for distiller
 │   ├── 16p.DELA3.NSC.HiC.distiller.yml
-│   ├── 16p.DELB8.NSC.HiC.distiller.yml
-│   ├── 16p.DELH10.NSC.HiC.distiller.yml
-│   └── ...
-├── results.NSC     # HiC results produced by distiller pipeline and downstream analyses
-│   ├── coolers_library
-│   │   ├── 16p.DELA3.NSC.HiC
-│   │   ├── 16p.DELB8.NSC.HiC
-│   │   ├── 16p.DELH10.NSC.HiC
-│   │   └── ...
-│   ├── fastqc
-│   │   └── ...
-│   ├── mapped_parsed_sorted_chunks
-│   │   └── ...
-│   └── pairs_library
-│       └── ...
-├── sample.metadata.tsv             # metadata for all HiC samples
-└── scripts                         # code
+│   └── ....distiller.yml
+└── results.NSC         # all HiC results
+    ├── sample.QC
+    │   └── multiqc.reports 
+    │       ├── fastp.multiqc.html
+    │       ├── fastqc.multiqc.html
+    │       ├── pairtools.multiqc.html
+    │       └── qc3C.multiqc.html
+    ├── coolers_library
+    │   ├── 16p.DEL.A3.NSC.HiC/
+    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.cool
+    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.mcool
+    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.cool
+    │   │   └── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.mcool
+    │   └── .../
+    ├── fastqc
+    │   ├── 16p.DEL.A3.NSC.HiC/
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.html
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.zip
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.1_fastqc.html
+    │   │   └── 16p.DEL.A3.NSC.HiC.lane1.0.1_fastqc.zip
+    │   └── .../
+    ├── mapped_parsed_sorted_chunks
+    │   ├── 16p.DEL.A3.NSC.HiC/
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.fastp.json
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.fastp.html
+    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.pairsam.gz
+    │   │   └── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.bam
+    │   └── .../
+    └── pairs_library
+        ├── 16p.DEL.A3.NSC.HiC/
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dedup.stats
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dups.bam
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dups.pairs.gz
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.nodups.bam
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.nodups.pairs.gz
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.unmapped.bam
+        │   ├── 16p.DEL.A3.NSC.HiC.hg38.unmapped.pairs.gz
+        │   └── 16p.DEL.A3.NSC.HiC.hg38.nodups.pairs.gz.px2
+        └── .../
+
 ```
 ## Producing Results
 
