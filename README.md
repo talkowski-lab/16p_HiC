@@ -85,6 +85,36 @@ $ ./scripts/run.distiller.sh
 ```
 This is 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
+### Merging Matrices
+
+For some subsequent steps we will analyze matrices formed by merging all biological/technical replicates for a given Edit+Genotype+CellType (e.g. 16p+WT+NSC).
+Merging her means summing all the total number of contacts over all samples for each bin-bin pair (matrix entry) and is handled by [cooler](https://cooler.readthedocs.io/en/latest/cli.html#cooler-merge).
+We separately create merged matrices for MAPQ filtered and unfiltered contacts for each 
+
+```bash
+# Wrapper command to merge specific matrices for each genotype
+$ ./scripts/matrix.utils.sh merge_16p 
+```
+which produces the following files
+```
+results.NSC 
+└── coolers_library
+    ├── 16p.WT.Merged.NSC.HiC/
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.cool
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.cool
+    │   └── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+    ├── 16p.DEL.Merged.NSC.HiC/
+    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.mapq_30.1000.cool
+    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
+    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.no_filter.1000.cool
+    │   └── 16p.DEL.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+    └── 16p.DUP.Merged.NSC.HiC/
+        ├── 16p.DUP.Merged.NSC.HiC.hg38.mapq_30.1000.cool
+        ├── 16p.DUP.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
+        ├── 16p.DUP.Merged.NSC.HiC.hg38.no_filter.1000.cool
+        └── 16p.DUP.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+```
 ### Running qc3C profiling
 
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
