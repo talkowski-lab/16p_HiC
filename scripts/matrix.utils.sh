@@ -7,19 +7,19 @@ GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.s
 GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 # Reference files for pairtools restrict using ARIMA HiC kit
 REF_NAME=$(basename $GENOME_REFERENCE)
-REF_NAME="${REF_DIR%%.fasta}"
+REF_NAME="${REF_NAME%%.fasta}"
 DPNII_DIGESTION="${REF_DIR}/${REF_NAME}.DpnII.digested.bed"
 HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
-ARIMA_DIGESTION="${REF_DIR}/hg38.ARIMA.restricted.bed"
 SEED=9
 THREADS="16" 
+ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
 # Utils
 activate_conda() {
     # activate conda env with specific tools for each task
     case "$1" in
         cooler)    env_name="cooltools" ;;
         cooltools) env_name="cooltools" ;;
-        pairtools) env_name="dist2" ;;
+        pairtools) env_name="pairtools" ;;
         qc3C)      env_name="qc3c" ;;
         fanc)      env_name="fanc" ;;
         multiqc)   env_name="mqc" ;;
@@ -55,7 +55,6 @@ dump_all_regions() {
     done
 }
 plot_fanc() {
-    output_dir="$1"
     output_dir="$(readlink -e "${1}")"
     region="$2"
     resolution="$3"
@@ -63,7 +62,7 @@ plot_fanc() {
     mkdir -p "${output_dir}"
     activate_conda 'fanc'
     for sample_file in ${hic_samples[@]}; do
-        [[ ${sample_file} == *.mcool ]] && continue
+        [[ ${sample_file} == *.mcool ]] || continue
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.*.mcool}"
@@ -84,9 +83,12 @@ digest_genome_arima() {
     ## 1: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
     ## 2: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
     activate_conda 'cooler'
+    echo "Creating DpnII Ref at: ${DPNII_DIGESTION}"
     cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
+    echo "Creating HinfI Ref at: ${HINFI_DIGESTION}"
     cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${HINFI_DIGESTION}"
     # "merge" the two digestions i.e. list all genome fragments has with a breakpoint at cut sites for 1 of any enzyme supplied
+    echo "\"Merging\" digestions at: ${ARIMA_DIGESTION}"
     bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
 }
 pairtools_restrict() {
@@ -95,7 +97,7 @@ pairtools_restrict() {
     mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
-        [[ ${sample_file} == *.nodups.pairs.gz ]] && continue
+        [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
@@ -142,20 +144,30 @@ make_multiqc_reports() {
 pairtools_stats() {
     output_dir="$(readlink -e "${1}")"
     pairs_files=${@:2}
+    mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
-        [[ ${sample_file} == *.nodups.pairs.gz ]] && continue
-        sample_file="$(readlink -e ${sample_file})"
+        [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
+        sample_file="$(readlink -e "${sample_file}")"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
-        pairtools scaling \
-            --output "${output_dir}/${sample_ID}.scaling.tsv" \
-            ${sample_file}
-        pairtools stats \
-            --bytile-dups \
-            --with-chromsizes \
-            --output "${output_dir}/${sample_ID}.stats.tsv" \
-            ${sample_file}
+        echo ${sample_ID}
+        # calculate dist/freq scaling
+        scale_file="${output_dir}/${sample_ID}.scaling.tsv"
+        if ! [[ -f ${scale_file} ]]; then
+            pairtools scaling            \
+                --output "${scale_file}" \
+                "${sample_file}"
+        fi
+        # calculate pair stats
+        stats_file="${output_dir}/${sample_ID}.stats.tsv"
+        if ! [[ -f ${scale_file} ]]; then
+            pairtools stats              \
+                --bytile-dups            \
+                --with-chromsizes        \
+                --output "${stats_file}" \
+                "${sample_file}"
+        fi
     done
 }
 run_qc3c() {
@@ -221,7 +233,7 @@ case $mode in
     digest_genome)   digest_genome_arima ;;
     restrict)        pairtools_restrict ${@:2} ;;
     qc3C)            run_qc3c ${@:2} ;;
-    stats)           pairtools_stats ${@:2} ;;
+    # stats)           pairtools_stats ${@:2} ;;
     multiqcs)        make_multiqc_reports ${@:2} ;;
     *)               echo "Invalid mode: $mode" && exit 1 ;;
 esac
