@@ -1,6 +1,7 @@
 library(tidyverse)
 library(glue)
-BASE_PATH='/data/talkowski/Samples/16p_HiC'
+source('locations.R', chdir=TRUE)
+print(BASE_DIR) # /data/talkowski/Samples/16p_HiC
 # List all available fastq files
 glue('{BASE_PATH}/fastq') %>% 
     list.files(pattern='*16p.*.fastq.gz') %>%
