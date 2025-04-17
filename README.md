@@ -128,7 +128,14 @@ $ ./scripts/matrix.utils.sh qc3c                             # run qc3C with spe
 ```
 ### Generate MultiQC reports
 
-distiller-nf outputs multiple QC reports/files per sample than can each be aggregated into a single multiqc report [docs](https://docs.seqera.io/multiqc). This is how we generate all those reports
+distiller-nf outputs multiple QC reports/files per sample than can each be aggregated into a single multiqc report [docs](https://docs.seqera.io/multiqc). 
+In the two previous steps we have also generated stats files which can be aggretaed via multiqc into their own reports. 
+Ultimately we can generate 3 multiqc reports 
+
+- `fastqc`: Quality statistics for reads
+- `fastp`: Trimming+MAPQ statistics for filtered reads that were aligned
+- `qc3C`: Quality statistics from sub-sampled aligned reads
+- `pairtools stats`: Summary statistics of processed HiC pairs
 
 ```bash
 $ ./scripts/matrix.utils.sh multiqcs             # generate multiqc reports for different outputs from distiller,qc3C
