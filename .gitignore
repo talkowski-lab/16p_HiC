@@ -1,17 +1,17 @@
 # Misc
 slurm.logs/
 misc/
+core.*
+hs_*.log
 
 # Data
 fastq/
 publicData/
-sample.configs/NSC.distiller.yml
-sample.configs/template.distiller.yml
-sample.configs/testing/
 
 # Results
 results/
 results.NSC/
+old.results
 
 # Hidden files
 .domaincaller/
@@ -19,6 +19,9 @@ results.NSC/
 ._*
 
 # nextflow stuff
+sample.configs/NSC.distiller.yml
+sample.configs/template.distiller.yml
+sample.configs/testing/
 distiller-nf/
 pipeline_info
 .nextflow*
@@ -73,4 +76,3 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
-old.results
