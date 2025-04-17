@@ -1,32 +1,47 @@
 # #!/bin/bash
 set -euo pipefail
-# Conda envs for each tool
-declare -rA CONDA_ENVS=(["cooltools"]="cooltools" ["hiTAD"]="TADLib")
 # Arrowhead params
 JUICER_JAR="/data/talkowski/Samples/WAPL_NIPBL/HiC/distiller-nf/juicer_tools_1.22.01.jar"
 JAVA_CMD="java -jar -Xmx48000m -Djava.awt.headless=true -jar ${JUICER_JAR}"
-ARROWHEAD_CONDA_ENV="dist2"
 ARROWHEAD_WINDOW_SIZES=(4000 2000)
 ARROWHEAD_BALANCINGS=(KR VC NONE)
 # hiTAD params
-HITAD_CONDA_ENV="cooltools"
 declare -rA HITAD_WEIGHTS=(["ICE"]="weight"  ["Raw"]="RAW")
 # cooltools insulation params
-COOLTOOLS_CONDA_ENV="cooltools"
 COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
 COOLTOOLS_MFVP=(0.33 0.66 0.9)
 COOLTOOLS_THRESHOLD=(Li 0)
-declare -A COOLTOOLS_WEIGHTS=(["ICE"]="weight"  ["Raw"]="")
+declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight"  ["Raw"]="")
+# Default script arguments
+BASE_DIR="/data/talkowski/Samples/16p_HiC"
+OUTPUT_DIR="${BASE_DIR}/results/TADs"
+LOG_DIR="${BASE_DIR}/slurm.logs"
+RESOLUTIONS=(100000 50000 10000 5000)
+# Default SLURM params
+USE_SLURM=0
+PARTITION="short"
+MEM_GB=30
+NTASKS_PER_NODE=2
+CPUS=2
 # Functions
 help() {
-    echo 
-"USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample2.mcool ...
+    echo "USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample2.mcool ...
             -s | --use-slurm
             -r | --resolution
             -o | --output-dir
             -l | --log-dir
             -h | --help"
     exit 0
+}
+activate_conda() {
+    # activate conda env with specific tools for each task
+    case "$1" in
+        arrowhead) env_name="dist2" ;;
+        cooltools) env_name="cooltools" ;;
+        hiTAD)     env_name="TADLib" ;;
+        *)         echo "Invalid conda env: $1" && exit 1 ;;
+    esac
+    echo "source ${CONDA_DIR}/etc/profile.d/conda.sh; conda activate ${env_name}"
 }
 get_sample_ID() {
     sample_ID="$(basename ${sample_file})"
@@ -53,14 +68,13 @@ run_arrowhead() {
     balancing="$3"
     resolution="$4"
     window_size="$5"
-    cmd="source $(conda info --base)/etc/profile.d/conda.sh \
-    conda activate ${ARROWHEAD_CONDA_ENV} \
-    ${JAVA_CMD} arrowhead    \
-        --threads ${NTASKS_PER_NODE} \
-        -k ${balancing}      \
-        -r ${resolution}     \
-        -m ${window_size}    \
-           ${hic_file}       \
+    cmd="${CONDA_ENV_CMD}
+    ${JAVA_CMD} arrowhead
+        --threads ${NTASKS_PER_NODE}
+        -k ${balancing}
+        -r ${resolution}
+        -m ${window_size}
+           ${hic_file}
            ${output_file}"
 }
 run_hitad() {
@@ -195,17 +209,6 @@ main() {
     done
     # echo "All jobs submitted on queue ${PARTITION} with ${MEM_GB}Gb, ${NTASKS_PER_NODE} threads per job"
 }
-# Default args
-BASE_DIR="/data/talkowski/Samples/16p_HiC"
-OUTPUT_DIR="${BASE_DIR}/results/TADs"
-LOG_DIR="${BASE_DIR}/slurm.logs"
-RESOLUTIONS=(100000 50000 10000 5000)
-# SLURM params
-USE_SLURM=0
-PARTITION="short"
-MEM_GB=30
-NTASKS_PER_NODE=2
-CPUS=2
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
 VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem -- "$@")
@@ -256,17 +259,20 @@ done
 # Print args
 METHOD="${1}"
 HIC_SAMPLES=${@:2}
+CONDA_ENV_CMD="$(activate_conda ${method})"
 echo "
 Using TAD caller:       ${METHOD}
 Using resolution(s):    ${RESOLUTIONS[@]}
-Using output directory: ${OUTPUT_DIR}
-Using log directory:    ${LOG_DIR}"
-# Check if a specific conda env is required
-if [ ! -n "${CONDA_ENVS[$METHOD]}" ];then
-    CONDA_ENV_CMD=""
-else 
-    
-    CONDA_ENV_CMD="source "${HOME}/miniforge3/etc/profile.d/conda.sh"; conda activate ${CONDA_ENVS[${METHOD}]}"
-fi
+Using output directory: ${OUTPUT_DIR}"
+if [[ $USE_SLURM -eq 1 ]]; then
+echo "Submitting each TAD annotation as a slurm job with the following params
+Log directory:           ${LOG_DIR}
+Submitting to partition: ${PARTITION}
+Mem per job:             ${MEM_GB}Gb
+NTasks per node per job: ${NTASKS_PER_NODE}
+CPUs per task per job:   ${CPUS}"
+else
+    echo "Not using SLURM, running TAD annotations in current shell"
+fi 
 # Run 
 main 
