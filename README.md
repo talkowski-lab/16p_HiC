@@ -160,3 +160,20 @@ $ ./scripts/matrix.utils.sh restrict                        # run pairtools rest
 # copy pastable
 ./scripts/matrix.utils.sh restrict ./results.NSC/sample.QC/restriction.analysis/ ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz
 ```
+
+### HiCRep Analysis
+
+We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
+
+```bash
+# Compare all pairs of matrices where all contacts have both mates MAPQ > 30
+$ ./scripts/run.hicrep.sh 
+        ./results//hicrep
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v "Merged")
+# Compare all pairs of matrices with no MAPQ filtering
+$ ./scripts/run.hicrep.sh 
+        ./results/hicrep
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool" | grep -v "Merged")
+```
+
+After this there is a `.Rnw` notebook that coallates these files into a single neat dataframe that is used for plotting.

@@ -4,7 +4,6 @@ library(furrr)
 library(ggh4x)
 library(hictkR)
 library(ggnewscale)
-# library(parallel)
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R')
@@ -229,17 +228,6 @@ hicrep_results %>%
     # dplyr::count(ReadFilter, Resolution, is.Downsampled, Genotype.Pair) %>%
     # dplyr::count(is.Downsampled, Genotype.Pair) %>%
     print(n=Inf)
-is_h_ideal <- function(Resolution, h){
-    if (Resolution %in% names(RESOLUTION_IDEAL_h)) {
-        if (RESOLUTION_IDEAL_h[[Resolution]] == h) {
-            return('Ideal')
-        } else {
-            return('Non.Ideal')
-        }
-    } else {
-        return('No Ideal H')
-    }
-}
 plot_df <- 
     hicrep_results %>%
     filter(ReadFilter != 'mixed') %>% 
