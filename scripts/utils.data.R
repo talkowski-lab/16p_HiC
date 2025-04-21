@@ -131,7 +131,6 @@ load_all_sparse_matrix_files <- function(
             )
     ) 
 }
-
 summarize_contacts_per_bin <- function(
     mcool_file,
     resolution,
@@ -338,4 +337,55 @@ load_pairtools_stats <- function(
             'chr.stats'=chr.stats.df
         )
     )
+}
+# Plot Matrix QC stuff
+plot_bin_totals_stats  <- function(plot.df){
+    plot.df %>%
+    ggplot(
+        aes(
+            x=SampleID,
+            y=total,
+            color=SampleID
+        )
+    ) +
+    geom_jitter(size=2) +
+    geom_boxplot(oulier=NA) +
+    facet_wrap2(~ Chr, scales='fixed') +
+    labs(title=glue('{plot.df$normalization[[1]]} normalized count @ {plot.df$resolution[[1]] / 1000}Kb')) +
+    add_ggtheme()
+}
+plot_distance_freqs <- function(
+    plot.df,
+    y_val='value',
+    ...){
+    plot.df %>%
+    ggplot(aes(x=Category, y=.data[[y_val]], fill=SampleID)) +
+    geom_col(position='dodge') +
+    scale_y_continuous(breaks=seq(0, max(plot.df[[y_val]]), 5)) +
+    # scale_y_continuous(breaks=~ seq(.x, .y, 5)) +
+    labs(y='% Unique Read Pairs') +
+    theme(axis.text.x=element_text(hjust=1, angle=35)) +
+    add_ggtheme()
+}
+plot_totals_across_chr16 <- function(
+    plot.df,
+    ...){
+    elise.start=29488679; elise.end=30188679
+    breaks=
+        seq(
+            min(plot.df$bin.start),
+            max(plot.df$bin.start),
+            (max(plot.df$bin.start) - min(plot.df$bin.start)) / 12
+        )
+    labels=glue('{format(breaks / 1000, scientific=FALSE, trim=TRUE, digits=1)}Kb')
+    plot.df %>%
+    ggplot(aes(x=bin.start, color=SampleID)) +
+    geom_path(aes(y=total)) +
+    facet_grid2(cols=vars(normalization), rows=vars(resolution), scales='free_y', independent='y') +
+    # geom_rect(ymin=-Inf, ymax=Inf, xmin=elise.start, xmax=elise.end, fill='grey', alpha=0.1, show.legend=FALSE) +
+    geom_vline(xintercept=c(elise.start, elise.end), linetype='dashed', linewidth=0.1) +
+    scale_x_continuous(breaks=breaks, labels=labels) +
+    labs(x='Chromosome bin') +
+    theme(legend.position='top', axis.text.x=element_text(angle=35, hjust=1)) +
+    add_ggtheme()
 }

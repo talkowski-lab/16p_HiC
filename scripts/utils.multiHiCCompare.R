@@ -159,4 +159,268 @@ load_all_multiHiCCompare_results <- function(
             )
     )
 }
-
+###############
+# Plot Results
+multiHiCCompare_genome_volcano_plot <- function(
+    plot_df,
+    output_file,
+    color='distance.discrete',
+    shape='Comparison',
+    scales='fixed',
+    pal.direction=-1,
+    pal='A',
+    size=1,
+    alpha=0.6,
+    ncol=1,
+    width=7,
+    height=7,
+    ...){
+    g <- 
+        ggplot(plot_df) +
+        geom_jitter(
+            aes(
+                x=logFC,
+                y=log.p.adj,
+                color=.data[[color]],
+                shape=.data[[shape]]
+                # color=Comparison, size=distance.kb
+            ), 
+            alpha=alpha
+        ) +
+        {
+            if (is.numeric(plot_df[[color]])) {
+                scale_color_viridis(direction=pal.direction, option=pal)
+            } else {
+                scale_color_viridis(direction=pal.direction, option=pal, discrete=TRUE)
+            }
+        } +
+        facet_wrap(
+            ~ Resolution,
+            ncol=ncol,
+            scales=scales
+        ) +
+        geom_hline(yintercept=-log10(1e-8), linetype='dashed', color='black') +
+        labs(
+            title=glue('All Genome Bins with Differential Contacts'),
+            color='Contact Distance (Kb)'
+        ) +
+        scale_y_continuous(
+            expand=c(0.01, 0.01, 0.01, 0.01),
+            limits=c(0, NA)
+        ) +
+        theme(
+            axis.text.x=element_text(angle=45),
+            legend.position='right'
+        ) +
+        add_ggtheme()
+    ggsave( 
+        filename=output_file,
+        plot=g,
+        width=width,
+        height=height,
+        units='in'
+    )
+}
+multiHiCCompare_allChromosome_volcano_plot <- function(
+    plot_df,
+    output_file,
+    color='distance.discrete',
+    shape='Comparison',
+    scales='free_y',
+    pal='A',
+    pal.direction=-1,
+    size=1,
+    alpha=0.6,
+    ncol=1,
+    width=7,
+    height=7,
+    ...){
+    g <- 
+        ggplot(plot_df) +
+        geom_jitter(
+            aes(
+                x=logFC,
+                y=log.p.adj,
+                color=.data[[color]],
+                shape=.data[[shape]]
+                # color=Comparison, size=distance.kb
+            ), 
+            alpha=alpha
+        ) +
+        {
+            if (is.numeric(plot_df[[color]])) {
+                scale_color_viridis(direction=pal.direction, option=pal)
+            } else {
+                scale_color_viridis(direction=pal.direction, option=pal, discrete=TRUE)
+            }
+        } +
+        facet_wrap(
+            ~ Chr,
+            ncol=ncol,
+            scales=scales
+        ) +
+        # geom_hline(yintercept=-log10(1e-8), linetype='dashed', color='black') +
+        labs(
+            title=glue('All Genome Bins with Differential Contacts'),
+            color='Contact Distance (Kb)'
+        ) +
+        scale_y_continuous(
+            expand=c(0.01, 0.01, 0.01, 0.01),
+            limits=c(0, NA)
+        ) +
+        theme(
+            strip.text=element_text(size = 20, face='bold'),
+            axis.text.x=element_text(angle=45),
+            legend.position='right'
+        ) +
+        add_ggtheme()
+    ggsave( 
+        filename=output_file,
+        plot=shift_legend(g),
+        width=width,
+        height=height,
+        units='in'
+    )
+}
+multiHiCCompare_chromosome_volcano_plot <- function(
+    plot_df,
+    chr,
+    output_file,
+    color='distance.discrete',
+    shape='Comparison',
+    size=1,
+    alpha=0.6,
+    scales='fixed',
+    ncol=1,
+    width=7,
+    height=7,
+    ...){
+    g <- 
+        ggplot(plot_df) +
+        geom_jitter(
+            aes(
+                x=logFC,
+                y=log.p.adj,
+                color=.data[[color]],
+                shape=.data[[shape]]
+            ), 
+            alpha=alpha,
+            size=size
+        ) +
+        facet_wrap(
+            ~ Resolution,
+            ncol=ncol,
+            scales=scales
+        ) +
+        labs(
+            title=glue('Chr{chr} Bins with Differential Contacts'),
+            color='Contact Distance (Kb)'
+        ) +
+        scale_y_continuous(
+            expand=c(0.01, 0.01, 0.01, 0.01),
+            limits=c(0, NA)
+        ) +
+        theme(
+            axis.text.x=element_text(angle=45),
+            legend.position='right'
+        ) +
+        add_ggtheme()
+    ggsave( 
+        filename=output_file,
+        plot=g,
+        width=width,
+        height=height,
+        units='in'
+    )
+}
+multiHiCCompare_manhattan_plot <- function(
+    plot_df, 
+    chr,
+    Resolution,
+    y_axis='region1.bin',
+    n.breaks=50,
+    width=7,
+    height=15,
+    output_file,
+    ...){
+    g <- 
+        ggplot(plot_df) +
+        geom_jitter(
+            aes(
+                x=value,
+                y=.data[[y_axis]],
+                color=Comparison
+            ), 
+        ) +
+        facet_wrap(
+            ~ statistic,
+            nrow=1,
+            scales='free_x'
+        ) +
+        labs(
+            title=glue('Chr{chr} Bins with Differential Contacts'),
+            x=glue('Chr{chr} bins at {Resolution}  resolution')
+        ) +
+        scale_y_continuous(
+            n.breaks=n.breaks,
+            expand=c(0.01, 0.01, 0.01, 0.01),
+            limits=c(0, NA)
+        ) +
+        theme(
+            axis.text.x=element_text(angle=45),
+            legend.position='right'
+        ) +
+        add_ggtheme()
+    ggsave( 
+        filename=output_file,
+        plot=g,
+        width=width,
+        height=height,
+        units='in'
+    )
+}
+multiHiCCompare_genome_scatter_plot <- function(
+    plot_df,
+    size=1,
+    alpha=0.6,
+    ncol=1,
+    width=7,
+    height=7,
+    output_file,
+    ...){
+    g <- 
+        ggplot(plot_df) +
+        geom_point(
+            aes(
+                x=distance.value,
+                y=logFC,
+                shape=Comparison
+            ), 
+            alpha=alpha,
+            size=size
+        ) +
+        facet_wrap(
+            ~ distance.unit,
+            nrow=1,
+            scales='free_x'
+        ) +
+        labs(
+            title=glue('Differential Contacts Genome-wide'),
+            x='Bin Distance'
+        ) +
+        scale_y_continuous(
+            expand=c(0.01, 0.01, 0.01, 0.01),
+            limits=c(0, NA)
+        ) +
+        theme(
+            legend.position='right'
+        ) +
+        add_ggtheme()
+    ggsave( 
+        filename=output_file,
+        plot=g,
+        width=width,
+        height=height,
+        units='in'
+    )
+}
