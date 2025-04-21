@@ -1,0 +1,64 @@
+load_all_hicrep_results <- function(){
+    # Load all files generated from ./scripts/run.hicrep.sh
+    HICREP_DIR %>% 
+    list.files(
+        recursive=TRUE,
+        pattern='*-hicrep.txt',
+        full.names=FALSE
+    ) %>%
+    tibble(fileinfo=.) %>%
+    mutate(filepath=file.path(HICREP_DIR, fileinfo)) %>%
+    # Get hicrep params
+    separate_wider_delim(
+        fileinfo,
+        delim='/',
+        names=c(HICREP_PARAM_NAMES, 'file.pair')
+    ) %>% 
+    # Load hicrep scores for each comparison
+    mutate(
+        hicrep.results=
+            purrr::pmap(
+                .l=.,
+                function(filepath, ...){
+                    read_tsv(
+                        filepath,
+                        skip=2,
+                        show_col_types=FALSE,
+                        col_names=c('hicrep.score')
+                    ) %>% 
+                    add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
+                }
+            )
+    ) %>%
+    unnest(hicrep.results) %>% 
+    select(-c(filepath))
+}
+
+plot_hicrep_results <- function(hicrep_results, size=0.7){
+    hicrep_results %>%
+    ggplot(
+        aes(
+            x=Genotype.Pair,
+            y=hicrep.score,
+            fill=is.Downsampled
+        )
+    ) +
+    geom_boxplot(outlier.size=0.5) +
+    geom_jitter(
+        data=. %>% filter(h.ideal == 'Ideal'),
+        aes(
+            x=Genotype.Pair,
+            y=hicrep.score,
+            # color=h.ideal,
+            fill=is.Downsampled
+        ),
+        color='green',
+        size=size
+    ) +
+    facet_grid2(rows=vars(Resolution), cols=vars(ReadFilter), scales='fixed') +
+    theme(
+        legend.position='top', 
+        axis.text.x=element_text(angle=45, hjust=1)
+    ) +
+    add_ggtheme()
+}
