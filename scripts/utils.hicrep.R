@@ -9,7 +9,6 @@ HICREP_PARAM_NAMES <-
         'is.downsampled',
         'window.size'
     )
-
 load_all_hicrep_results <- function(){
     # Load all files generated from ./scripts/run.hicrep.sh
     HICREP_DIR %>% 
@@ -113,29 +112,32 @@ load_all_hicrep_results <- function(){
     unnest(hicrep.results) %>% 
     select(-c(filepath))
 }
-
-plot_hicrep_results <- function(hicrep_results, size=0.7){
+plot_hicrep_boxplot <- function(hicrep_results, size=0.7){
     hicrep_results %>%
     ggplot(
         aes(
-            x=Genotype.Pair,
+            x=Genotype,
             y=hicrep.score,
-            fill=is.Downsampled
+            fill=is.downsampled,
+            shape=ReadFilter
         )
     ) +
     geom_boxplot(outlier.size=0.5) +
     geom_jitter(
         data=. %>% filter(h.ideal == 'Ideal'),
         aes(
-            x=Genotype.Pair,
+            x=Genotype,
             y=hicrep.score,
-            # color=h.ideal,
-            fill=is.Downsampled
+            fill=is.downsampled
         ),
         color='green',
         size=size
     ) +
-    facet_grid2(rows=vars(Resolution), cols=vars(ReadFilter), scales='fixed') +
+    facet_grid2(
+        rows=vars(Resolution),
+        cols=vars(Celltype),
+        scales='fixed'
+    ) +
     theme(
         legend.position='top', 
         axis.text.x=element_text(angle=45, hjust=1)

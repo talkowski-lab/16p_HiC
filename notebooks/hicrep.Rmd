@@ -14,7 +14,7 @@ output:
 # Prepare data
 
 Set up file locations
-```{r}
+```{r results=FALSE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
@@ -24,10 +24,13 @@ Load dependencies
 library(tidyverse)
 library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 source(file.path(BASE_DIR, 'scripts/utils.hicrep.R'))
+library(ggplot2)
+library(ggh4x)
 ```
 Load hicrep data
-```{r results='hide'}
+```{r results=FALSE, message=FALSE, warning=FALSE}
 hicrep.results <- 
     check_cached_results( 
         HICREP_RESULTS_FILE,
@@ -71,6 +74,27 @@ hicrep.results %>%
 plot.df <- 
     hicrep.results %>%
     mutate(resolution=as.integer(resolution)) %>% 
+    rowwise() %>% 
+    mutate(
+        Genotype=
+            case_when(
+                grepl('vs', Genotype) ~ Genotype,
+                TRUE ~ paste(Genotype, 'vs', Genotype, collapse=" ")
+            )
+    ) %>% 
+    ungroup() %>% 
+    mutate(
+        sample1.is.new=grepl('(G7|p46|H10) vs', SampleNumber),
+        sample2.is.new=grepl('vs (G7|p46|H10)', SampleNumber),
+        SampleNovelty=
+            case_when(
+                sample1.is.new & sample2.is.new ~ 'both.new',
+                sample1.is.new & !sample2.is.new ~ 'one.new',
+                !sample1.is.new & sample2.is.new ~ 'one.new',
+                !sample1.is.new & !sample2.is.new ~ 'both.old',
+                TRUE ~ 'error'
+            )
+    ) %>% 
     left_join(
         RESOLUTION_NAMES,
         by=join_by(resolution == Resolution)
@@ -80,3 +104,55 @@ plot.df <-
 ```
 
 Boxplot of hicrep scores by various levels
+```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
+size=0.8
+plot.df %>% 
+ggplot(
+    aes(
+        x=Genotype,
+        y=hicrep.score,
+        fill=is.downsampled,
+        color=ReadFilter
+    )
+) +
+geom_boxplot(outlier.size=0.5) +
+geom_jitter(
+    data=. %>% filter(chr == 'chr16'),
+    aes(
+        x=Genotype,
+        y=hicrep.score,
+        fill=is.downsampled
+    ),
+    alpha=0.6,
+    color='purple',
+    size=size
+) +
+facet_grid2(
+    rows=vars(resolution),
+    cols=vars(Celltype),
+    scales='fixed'
+) +
+theme(legend.position='top') +
+add_ggtheme()
+```
+
+Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
+```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
+plot.df %>% 
+ggplot(
+    aes(
+        x=SampleNovelty,
+        y=hicrep.score,
+        fill=is.downsampled,
+        color=ReadFilter
+    )
+) +
+geom_boxplot(outlier.size=0.5) +
+facet_grid2(
+    rows=vars(resolution),
+    cols=vars(Celltype),
+    scales='fixed'
+) +
+theme(legend.position='top') +
+add_ggtheme()
+```
