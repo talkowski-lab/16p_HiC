@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
+# Technical Args
 CONDA_DIR="$HOME/miniforge3"
+SEED=9  # Random seed for qc3C
+THREADS="32" 
 # Genomic reference files
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
 GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
@@ -10,8 +13,6 @@ REF_NAME=$(basename $GENOME_REFERENCE)
 REF_NAME="${REF_NAME%%.fasta}"
 DPNII_DIGESTION="${REF_DIR}/${REF_NAME}.DpnII.digested.bed"
 HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
-SEED=9
-THREADS="16" 
 ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
 # HiC matrix relevant args
 HIC_16p_RESULTS_DIR="/data/talkowski/Samples/16p_HiC"
@@ -34,9 +35,9 @@ activate_conda() {
     conda activate "${env_name}"
 }
 dump_all_regions() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     hic_samples=${@:2}
-    mkdir -p "${output_dir}"
     activate_conda 'cooler'
     for sample_file in ${hic_samples[@]}; do
         sample_file="$(readlink -e ${sample_file})"
@@ -60,11 +61,11 @@ dump_all_regions() {
     done
 }
 plot_fanc() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     region="$2"
     resolution="$3"
     hic_samples=${@:4}
-    mkdir -p "${output_dir}"
     activate_conda 'fanc'
     for sample_file in ${hic_samples[@]}; do
         [[ ${sample_file} == *.mcool ]] || continue
@@ -97,9 +98,9 @@ digest_genome_arima() {
     bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
 }
 pairtools_restrict() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     pairs_files=${@:2}
-    mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
         [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
@@ -231,9 +232,9 @@ matrix_coverage() {
     done
 }
 pairtools_stats() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     pairs_files=${@:2}
-    mkdir -p "${output_dir}"
     activate_conda 'pairtools'
     for sample_file in ${pairs_files[@]}; do
         [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
@@ -248,22 +249,22 @@ pairtools_stats() {
                 --output "${scale_file}" \
                 "${sample_file}"
         fi
-        # calculate pair stats
-        stats_file="${output_dir}/${sample_ID}.stats.tsv"
-        if ! [[ -f ${scale_file} ]]; then
-            pairtools stats              \
-                --bytile-dups            \
-                --with-chromsizes        \
-                --output "${stats_file}" \
-                "${sample_file}"
-        fi
+        # # calculate pair stats
+        # stats_file="${output_dir}/${sample_ID}.stats.tsv"
+        # if ! [[ -f ${scale_file} ]]; then
+        #     pairtools stats              \
+        #         --bytile-dups            \
+        #         --with-chromsizes        \
+        #         --output "${stats_file}" \
+        #         "${sample_file}"
+        # fi
     done
 }
 run_qc3c() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     hic_bams=${@:2}
     activate_conda 'qc3C'
-    mkdir -p "${output_dir}"
     echo ${output_dir}
     for sample_file in ${hic_bams[@]}; do 
         echo $sample_file
@@ -318,9 +319,9 @@ make_multiqc_report() {
         --file-list "${tmp_file}"
 }
 make_multiqc_reports() {
+    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     distiller_dir="$(readlink -e ${2})"
-    mkdir -p "${output_dir}"
     activate_conda 'multiqc'
     # make each multi-sample report by datatype
     make_multiqc_report                \
