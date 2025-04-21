@@ -23,7 +23,7 @@ File tree
 ├── sample.configs      # Config files for distiller
 │   ├── 16p.DELA3.NSC.HiC.distiller.yml
 │   └── ....distiller.yml
-└── results.NSC         # all HiC results
+└── results         # all HiC results
     ├── sample.QC
     │   └── multiqc.reports 
     │       ├── fastp.multiqc.html
@@ -97,7 +97,7 @@ $ ./scripts/matrix.utils.sh merge_16p
 ```
 which produces the following files
 ```
-results.NSC 
+results 
 └── coolers_library
     ├── 16p.WT.Merged.NSC.HiC/
     │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.cool
@@ -121,10 +121,10 @@ Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to pro
 
 ```bash
 $ ./scripts/matrix.utils.sh qc3c                             # run qc3C with specified params
-        ./results.NSC/sample.QC/qc3C/                        # output dir
-        results.NSC/mapped_parsed_sorted_chunks/16p.**/*.bam # bam files produced by distiller for each sample
+        ./results/sample.QC/qc3C/                        # output dir
+        results/mapped_parsed_sorted_chunks/16p.**/*.bam # bam files produced by distiller for each sample
 # copy pastable
-./scripts/matrix.utils.sh qc3c ./results.NSC/sample.QC/qc3C/ results.NSC/mapped_parsed_sorted_chunks/16p.**/*.bam
+./scripts/matrix.utils.sh qc3c ./results/sample.QC/qc3C/ results/mapped_parsed_sorted_chunks/16p.**/*.bam
 ```
 ### Generate MultiQC reports
 
@@ -139,10 +139,10 @@ Ultimately we can generate 3 multiqc reports
 
 ```bash
 $ ./scripts/matrix.utils.sh multiqcs             # generate multiqc reports for different outputs from distiller,qc3C
-        ./results.NSC/sample.QC/multiqc.reports/ # output dir
-        ./results.NSC/                           # all multiqc data is under here in specific directories
+        ./results/sample.QC/multiqc.reports/ # output dir
+        ./results/                           # all multiqc data is under here in specific directories
 # copy pastable
-./scripts/matrix.utils.sh multiqcs ./results.NSC/sample.QC/multiqc.reports/ ./results.NSC/
+./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
 ```
 ### Restriction Fragment Analysis
 
