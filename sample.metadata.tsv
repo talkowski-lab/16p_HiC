@@ -1,4 +1,4 @@
-Sequencing.Run	Lane	Investigator.ID	Sample.Info	Fastq.R1	Fastq.R2	Date	Edit	Genotype	Sample.Number	Celltype	Sample.ID	Sample.Name
+Sequencing.Run	Lane	Investigator.ID	Sample.Info	Fastq.R1	Fastq.R2	Date	Edit	Genotype	SampleNumber	Celltype	Sample.ID	Sample.Name
 22LCC2LT4	3	2148261314	16pDELA3NSCHiC	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz	01/30/2025	16p	DEL	A3	NSC	16p.DEL.A3.NSC	DEL.A3
 22LCC2LT4	3	2148261314	16pDELB8NSCHiC	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R1_001.fastq.gz	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R2_001.fastq.gz	01/30/2025	16p	DEL	B8	NSC	16p.DEL.B8.NSC	DEL.B8
 22LCC2LT4	3	2148261314	16pDUPC5NSCHiC	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDUPC5NSCHiC_S3_L003_R1_001.fastq.gz	/data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDUPC5NSCHiC_S3_L003_R2_001.fastq.gz	01/30/2025	16p	DUP	C5	NSC	16p.DUP.C5.NSC	DUP.C5

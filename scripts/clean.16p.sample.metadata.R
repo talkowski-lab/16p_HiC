@@ -1,8 +1,8 @@
 library(tidyverse)
 library(glue)
 library(here)
-source(file.path(here(), 'scripts/locations.R'), chdir=TRUE)
-print(BASE_DIR) # /data/talkowski/Samples/16p_HiC
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
 SAMPLE_INFO_REGEX <- 
     sprintf(
         "(?<Edit>%s)(?<Genotype>%s)(?<SampleNumber>[a-zA-Z0-9]+)(?<Celltype>%s)HiC",
@@ -55,7 +55,6 @@ mutate(
         as_tibble()
 ) %>% 
 unnest(Parsed.Sample.Info) %>% 
-rename(Sample.Number=SampleNumber) %>% 
 mutate(
     Edit=factor(Edit, levels=EDITS),
     Genotype=factor(Genotype, GENOTYPES),
@@ -63,8 +62,8 @@ mutate(
 ) %>%
 # Convienience/Cleaning
 mutate(
-    Sample.ID=glue('{Edit}.{Genotype}.{Sample.Number}.{Celltype}'),
-    Sample.Name=glue('{Genotype}.{Sample.Number}')
+    Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}'),
+    Sample.Name=glue('{Genotype}.{SampleNumber}')
 ) %>% 
 select(-c(Sample_Name)) %>% 
 write_tsv(SAMPLE_METADATA_TSV)
