@@ -209,6 +209,27 @@ merge_NIPBLWAPL_matrices() {
     done
 }
 # QC Stats
+matrix_coverage() {
+    mkdir -p "${1}"
+    output_dir="$(readlink -e "${1}")"
+    hic_matrices=${@:2}
+    activate_conda 'cooltools'
+    for sample_file in ${hic_matrices[@]}; do
+        [[ ${sample_file} == *.cool ]] || continue
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.mcool}"
+        sample_file="$(readlink -e "${sample_file}")"
+        cooltools coverage \
+            --nproc ${THREADS} \
+            --output "${output_dir}/${sample_ID}.raw.coverage.tsv" \
+            ${sample_file}
+        cooltools coverage \
+            --nproc ${THREADS} \
+            --clr_weight_name 'weight' \
+            --output "${output_dir}/${sample_ID}.balanced.coverage.tsv" \
+            ${sample_file}
+    done
+}
 pairtools_stats() {
     output_dir="$(readlink -e "${1}")"
     pairs_files=${@:2}
