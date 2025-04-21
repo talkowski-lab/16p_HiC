@@ -1,22 +1,6 @@
-suppressMessages(library(magrittr))
-suppressMessages(library(tictoc))
-suppressMessages(library(tidyverse))
-source(glue('{BASE_DIR}/scripts/locations.R'))
-source(glue('{BASE_DIR}/scripts/utils.plot.R'))
-source(glue('{BASE_DIR}/scripts/utils.TADs.R'))
-CHROMOSOMES <- c(paste0('chr', 1:22), 'chrX', 'chrY', 'chrM')
-RESOLUTION_NAMES <- 
-    tribble(
-       ~ Resolution, ~ Resolution.name, 
-       '5000','5Kb',
-       '10000','10Kb',
-       '50000','50Kb',
-       '100000','100Kb',
-       '500000','500Kb',
-       '1000000','1Mb'
-    ) %>%
-    mutate(Resolution.name=factor(Resolution.name, c('5Kb', '10Kb', '50Kb', '100Kb', '500Kb', '1Mb')))
-       
+library(magrittr)
+library(tictoc)
+library(tidyverse)
 ###############
 # Misc
 check_cached_results <- function(
@@ -166,10 +150,8 @@ load_sample_metadata <- function(clean=TRUE){
         }
     }
 }
-###############
-# Load Data
 load_chr_sizes <- function(){
-    '/data/talkowski/tools/ref/Hi-c_ref/hg38.reduced.chrom.sizes' %>%
+    CHROMOSOME_SIZES_FILE %>% 
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
 load_mcool_file <- function(
@@ -206,7 +188,7 @@ load_all_sparse_matrix_files <- function(
     ) %>%
     tibble(filename=.) %>% 
     mutate(
-        filepath=glue('{matrix_dir}/{filename}'),
+        filepath=file.path(matrix_dir, filename),
         filename=
             filename %>% 
             str_remove('.txt')
@@ -223,8 +205,9 @@ load_all_sparse_matrix_files <- function(
                 'Resolution',
                 'Chromosome'
             )
-    ) #%>%
+    ) 
 }
+
 summarize_contacts_per_bin <- function(
     mcool_file,
     resolution,
@@ -278,9 +261,7 @@ summarize_contacts_per_bin <- function(
     #  2. get frequency table for all contacts where right bin == bin_x
     #  3. concat both tables for bin_x i.e. # of times bin_x forms a contact
     inner_join(
-        A.interactions,
-        B.interactions,
-        by=join_by(id.chr, id.bin),
+        A.interactions, B.interactions, by=join_by(id.chr, id.bin),
         suffix=c('.A', '.B')
     ) %>%
     # Compute summary stats per bin for all observed pairs
@@ -432,46 +413,5 @@ load_pairtools_stats <- function(
             'distance.stats'=dist.stats.df,
             'chr.stats'=chr.stats.df
         )
-    )
-}
-###############
-# DEPRECATED
-DEP_load_16p_sample_metadata <- function(){
-    COOLERS_DIR %>%
-    list.files(
-        pattern='*.mapq_30.1000.mcool',
-        full.names=TRUE
-    ) %>% 
-    tibble(mcool_file=.) %>%
-    mutate(
-        filename=basename(mcool_file),
-        SampleMatrix=str_remove(filename, '.mcool')
-    ) %>% 
-    separate_wider_delim(
-        filename,
-        delim=fixed('.'),
-        names=c('SampleID', NA, 'ReadFilter', NA, NA)
-    ) %>%
-    mutate(
-        Genotype=
-            case_when(
-                str_detect(SampleID, '^16pWT') ~ 'WT',
-                str_detect(SampleID, '^16pDEL') ~ 'DEL',
-                str_detect(SampleID, '^16pDUP') ~ 'DUP',
-                TRUE ~ 'Unknown'
-            ) %>%
-            factor(levels=c('WT', 'DEL', 'DUP')),
-        is.merged=grepl('S[0-9]S[0-9]$', SampleID),
-        Replicate.ID=
-            case_when(
-                is.merged ~ 'Merged',
-                TRUE ~ SampleID %>%
-                       str_extract('^16p.*_S([1-6])\\.*', group=1) %>% 
-                       as.integer() %>% 
-                       { 2 - . %% 2 } %>%
-                       as.character() %>%
-                       paste0('Rep', .)
-            ) %>% 
-            factor(levels=c('Rep1', 'Rep2', 'Merged'))
     )
 }

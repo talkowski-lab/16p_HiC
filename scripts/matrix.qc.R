@@ -5,28 +5,19 @@ library(ggh4x)
 library(hictkR)
 library(ggnewscale)
 # library(parallel)
+library(here)
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R')
+source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 ###############
 # Dirs
-# BASE_DIR="/data/talkowski/Samples/16p_HiC"
-BASE_DIR="/home/sidreed/TalkowskiLab/Projects/HiC/remote.16p"
-source(glue('{BASE_DIR}/scripts/utils.data.R'))
-PAIRS_DIR=glue('{BASE_DIR}/results/mapped_parsed_sorted_chunks')
-RESULTS_DIR=glue('{MATRIX_QC_DIR}/bin.summaries')
-PLOT_DIR=glue('{MATRIX_QC_DIR}/plots')
+# print(BASE_DIR) # /data/talkowski/Samples/16p_HiC
+# RESULTS_DIR=glue('{MATRIX_QC_DIR}/bin.summaries')
+RESULTS_DIR=HICREP_DIR
+PLOT_DIR=file.path(HICREP_DIR, 'plots')
 ###############
 # Params
-RESOLUTIONS=c(10000, 50000, 100000, 500000, 1000000)
-RESOLUTION_IDEAL_h <- 
-    c(
-        '10000'=20,
-        '25000'=10,
-        '40000'=5,
-        '100000'=3,
-        '500000'=2,
-        '500000'=1,
-        '1000000'=1,
-        '1000000'=0
-    )
+# RESOLUTIONS=c(10000, 50000, 100000, 500000, 1000000)
 NORMALIZATIONS=c('cis.ice', 'NONE')
 ###############
 # Load pairtools stats
