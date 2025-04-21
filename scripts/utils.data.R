@@ -44,107 +44,31 @@ check_cached_results <- function(
     if (return_data) return(results) else return(invisible(NULL))
 }
 ###############
-# Sample Metadata
-get_genotype <- function(SampleID){
-    case_when(
-        str_detect(SampleID, '^16pWT')  ~ 'WT',
-        str_detect(SampleID, '^16pDEL') ~ 'DEL',
-        str_detect(SampleID, '^16pDUP') ~ 'DUP',
-        TRUE ~ 'Unknown'
-    )
-}
-get_celltype <- function(SampleID){
-    case_when(
-        str_detect(SampleID, 'NSCHiC$') ~ 'NSC',
-        str_detect(SampleID, 'iNHiC$')   ~ 'iN',
-        TRUE ~ 'Unknown'
-    )
-}
-make_sample_metadata <- function(output_file=SAMPLE_METADATA_TSV){
-    FASTQ_DIR  %>% 
-    # List all fastq files (2 per sample)
-    list.files(pattern='*16p*.fastq.gz') %>%
-    tibble(filename=.) %>%
-    mutate(fastq=glue('{FASTQ_DIR}/{filename}')) %>%
-    # extact info from filename
-    separate_wider_delim(
-        filename,
-        delim='_',
-        too_few='align_start',
-        names=
-            c(
-                'Sequencing.Run',
-                'Lane',
-                'Investigator.ID',
-                'Sample.Name',
-                NA,
-                NA,
-                'fastq_side',
-                NA
-            )
-    ) %>%
-    # 1 row per sample, with R1,R2 files as columns
-    pivot_wider(
-        names_from=fastq_side,
-        values_from=fastq 
-    ) %>% 
-    # Get date experiments were submitted
-    left_join(
-        glue('{BASE_DIR}/dragen.stats/sample.metadata.tsv') %>%
-        read_csv() %>%
-        select(c(Sample_ID, Sample_Name, Date)),
-        by=join_by(Sample.Name == Sample_Name)
-    ) %>% 
-    rename('Sample.ID'=Sample_ID) %>%
-    # extract more info from Sample Name
-    mutate(
-        CellType=
-            get_celltype(Sample.Name) %>% 
-            factor(levels=c('NSC', 'iN')),
-        Genotype=
-            get_genotype(Sample.Name) %>% 
-            factor(levels=c('WT', 'DEL', 'DUP'))
-    ) %>%
-    write_tsv(output_file)
-}
+# Load Data
 load_sample_metadata <- function(clean=TRUE){
-    COOLERS_DIR %>%
-    list.files(
-        pattern='*.mapq_30.1000.mcool',
-        full.names=TRUE
-    ) %>% 
-    tibble(mcool_file=.) %>%
-    mutate(
-        filename=basename(mcool_file),
-        Sample.Matrix=str_remove(filename, '.mcool')
-    ) %>% 
-    separate_wider_delim(
-        filename,
-        delim=fixed('.'),
-        names=c('Sample.ID', NA, 'ReadFilter', NA, NA)
-    ) %>%
-    mutate(
-        is.merged=grepl('S[0-9]S[0-9]$', Sample.ID),
-        Replicate.ID=
-            case_when(
-                is.merged ~ 'Merged',
-                TRUE ~ Sample.ID %>%
-                       str_extract('^16p.*_S([1-6])\\.*', group=1) %>% 
-                       as.integer() %>% 
-                       { 2 - . %% 2 } %>%
-                       as.character() %>%
-                       paste0('Rep', .)
-            ) %>% 
-            factor(levels=c('Rep1', 'Rep2', 'Merged')),
-        Sample.ID=str_remove(Sample.ID, '_S[0-9].*$')
-    ) %>% 
-    left_join(
-        read_tsv(SAMPLE_METADATA_TSV),
-        by=join_by(Sample.ID == Sample.Name)
-    ) %>%
+    SAMPLE_METADATA_FILE %>%
+    read_tsv() %>%
     {
         if (clean) {
-            select(., -c(R1, R2, Lane, Investigator.ID))
+            select(
+                ., 
+                -c(
+                    # Sequencing.Run,
+                    Lane,
+                    Investigator.ID,
+                    Sample.Info,
+                    Fastq.R1,
+                    Fastq.R2
+                    # Date,
+                    # Edit,
+                    # Genotype,
+                    # Sample.Number,
+                    # Celltype,
+                    # Sample.ID,
+                    # Sample.Name,
+                )
+            )
+
         } else {
             .
         }
