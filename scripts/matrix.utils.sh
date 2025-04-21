@@ -216,19 +216,31 @@ matrix_coverage() {
     hic_matrices=${@:2}
     activate_conda 'cooltools'
     for sample_file in ${hic_matrices[@]}; do
-        [[ ${sample_file} == *.cool ]] || continue
+        [[ ${sample_file} == *.mcool ]] || continue
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
         sample_file="$(readlink -e "${sample_file}")"
-        cooltools coverage \
-            --nproc ${THREADS} \
-            --output "${output_dir}/${sample_ID}.raw.coverage.tsv" \
-            ${sample_file}
-        cooltools coverage \
-            --nproc ${THREADS} \
-            --clr_weight_name 'weight' \
-            --output "${output_dir}/${sample_ID}.balanced.coverage.tsv" \
-            ${sample_file}
+        for uri in $(cooler ls ${sample_file}); do 
+            resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
+            file_name="${output_dir}/${sample_ID}.${resolution}"
+            raw_output_file="${file_name}.raw.coverage.tsv"
+            if ! [[ -e ${raw_output_file} ]]; then
+                echo ${raw_output_file}
+                cooltools coverage \
+                    --nproc ${THREADS} \
+                    --output ${raw_output_file} \
+                    ${uri}
+            fi
+            balanced_output_file="${file_name}.balanced.coverage.tsv"
+            if ! [[ -e ${balanced_output_file} ]]; then
+                echo ${balanced_output_file}
+                cooltools coverage \
+                    --nproc ${THREADS} \
+                    --clr_weight_name 'weight' \
+                    --output ${balanced_output_file} \
+                    ${uri}
+            fi
+        done
     done
 }
 pairtools_stats() {
@@ -353,6 +365,7 @@ case $mode in
     plot_triangle)   plot_fanc ${@:2} ;;
     digest_genome)   digest_genome_arima ;;
     restrict)        pairtools_restrict ${@:2} ;;
+    coverage)        matrix_coverage ${@:2} ;;
     qc3C)            run_qc3c ${@:2} ;;
     # stats)           pairtools_stats ${@:2} ;;
     multiqcs)        make_multiqc_reports ${@:2} ;;
