@@ -1,3 +1,15 @@
+library(tictoc)
+library(glue)
+# Match ideal smoothing param to specified resolution based on this
+# https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
+HICREP_PARAM_NAMES <- 
+    c(
+        'resolution',
+        'h',
+        'is.downsampled',
+        'window.size'
+    )
+
 load_all_hicrep_results <- function(){
     # Load all files generated from ./scripts/run.hicrep.sh
     HICREP_DIR %>% 
@@ -13,6 +25,74 @@ load_all_hicrep_results <- function(){
         fileinfo,
         delim='/',
         names=c(HICREP_PARAM_NAMES, 'file.pair')
+    ) %>% 
+    rowwise() %>% 
+    mutate(
+        across(
+            HICREP_PARAM_NAMES,
+            ~ str_remove(
+                .x,
+                pattern=glue('({paste(HICREP_PARAM_NAMES, collapse="|")})_')
+            )
+        )
+    ) %>% 
+    separate_wider_delim(
+        file.pair,
+        delim='-',
+        names=
+            c(
+                'A',
+                'B',
+                NA
+            )
+    ) %>% 
+    # Get sample info for each pair
+    separate_wider_delim(
+        c(A, B),
+        delim=fixed('.'),
+        names_sep='.',
+        names=
+            c(
+                "Edit", 
+                "Genotype",
+                "SampleNumber",
+                "Celltype",
+                NA,
+                NA,
+                "ReadFilter",
+                NA
+            )
+    ) %>%
+    # Group HiCRep comparisons by mis/matching sample attributes
+    pivot_longer(
+        c(starts_with('A.'), starts_with('B.')),
+        names_to='Sample.Attribute',
+        values_to='Value'
+    ) %>% 
+    separate_wider_delim(
+        Sample.Attribute,
+        delim=fixed('.'),
+        names=c('Sample.Index', 'Sample.Attribute')
+    ) %>%
+    pivot_wider(
+        names_from=Sample.Index,
+        values_from=Value
+    ) %>% 
+    rowwise() %>% 
+    mutate(
+        SamplePairType=
+            case_when(
+                A == B ~ A,
+                A != B ~ 
+                    c(A, B) %>% 
+                    sort() %>%  
+                    paste(collapse=" vs ")
+            )
+    ) %>% 
+    select(-c(A, B)) %>%
+    pivot_wider(
+        names_from=Sample.Attribute,
+        values_from=SamplePairType
     ) %>% 
     # Load hicrep scores for each comparison
     mutate(
