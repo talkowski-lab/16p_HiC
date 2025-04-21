@@ -57,7 +57,7 @@ RESOLUTION_NAMES <-
     ) %>%
     mutate(Resolution.name=factor(Resolution.name, levels=Resolution.name))
 RESOLUTIONS <- 
-    RESOLUTION_NAMES$RESOLUTIONS
+    RESOLUTION_NAMES$Resolution
 RESOLUTION_IDEAL_H <- 
     tribble(
        ~Resolution, ~Ideal_H, 

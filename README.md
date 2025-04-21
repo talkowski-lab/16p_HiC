@@ -6,38 +6,42 @@ File tree
 ```
 # Note ... indicates that thee files exist for all samples, truncated for brevity
 ./
-├── publicData          # Public HiC data 
-├── distiller-nf        # distiller nextflow installation
-├── notebooks           # results+figures
-├── scripts             # scripts+notebook backends
-├── reference.files     # mostly conda envs, coordinates etc.
+├── publicData.              # Public HiC data 
+├── distiller-nf/            # distiller nextflow installation
+├── notebooks/               # results+figures
+├── scripts/                 # scripts+notebook backends
+├── reference.files/         # mostly conda envs, coordinates etc.
 │   ├── cooltools.env.yml
 │   ├── distiller.env.yml
 │   ├── TADLib.env.yml
 │   └── README.md
-├── sample.metadata.tsv # metadata for all HiC samples
-├── fastq               # Raw reads for HiC samples
+├── sample.metadata.tsv     # metadata for all HiC samples
+├── fastq/                  # Raw reads for HiC samples
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz
 │   └── ....fastq.gz
-├── sample.configs      # Config files for distiller
+├── sample.configs/         # Config files for distiller
 │   ├── 16p.DELA3.NSC.HiC.distiller.yml
 │   └── ....distiller.yml
-└── results         # all HiC results
-    ├── sample.QC
-    │   └── multiqc.reports 
-    │       ├── fastp.multiqc.html
-    │       ├── fastqc.multiqc.html
-    │       ├── pairtools.multiqc.html
-    │       └── qc3C.multiqc.html
-    ├── coolers_library
+└── results/                # all HiC results
+    ├── sample.QC/
+    │   ├── multiqc.reports/
+    │   │   ├── fastp.multiqc.html
+    │   │   ├── fastqc.multiqc.html
+    │   │   ├── pairtools.multiqc.html
+    │   │   └── qc3C.multiqc.html
+    │   └── qc3C/
+    │       ├── 16p.DEL.A3.NSC.HiC/
+    │       │   └── report.qc3C.json 
+    │       └── ../
+    ├── coolers_library/
     │   ├── 16p.DEL.A3.NSC.HiC/
     │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.cool
     │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.mcool
     │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.cool
     │   │   └── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.mcool
     │   └── .../
-    ├── fastqc
+    ├── fastqc/
     │   ├── 16p.DEL.A3.NSC.HiC/
     │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.html
     │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.zip
@@ -85,6 +89,7 @@ $ ./scripts/run.distiller.sh
 ```
 This is 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
+
 ### Merging Matrices
 
 For some subsequent steps we will analyze matrices formed by merging all biological/technical replicates for a given Edit+Genotype+CellType (e.g. 16p+WT+NSC).
@@ -105,22 +110,16 @@ results
     │   ├── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.cool
     │   └── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.mcool
     ├── 16p.DEL.Merged.NSC.HiC/
-    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.mapq_30.1000.cool
-    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
-    │   ├── 16p.DEL.Merged.NSC.HiC.hg38.no_filter.1000.cool
-    │   └── 16p.DEL.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+    │   └── ...
     └── 16p.DUP.Merged.NSC.HiC/
-        ├── 16p.DUP.Merged.NSC.HiC.hg38.mapq_30.1000.cool
-        ├── 16p.DUP.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
-        ├── 16p.DUP.Merged.NSC.HiC.hg38.no_filter.1000.cool
-        └── 16p.DUP.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+        └── ...
 ```
 ### Running qc3C profiling
 
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
 
 ```bash
-$ ./scripts/matrix.utils.sh qc3c                             # run qc3C with specified params
+$ ./scripts/matrix.utils.sh qc3c                         # run qc3C with specified params
         ./results/sample.QC/qc3C/                        # output dir
         results/mapped_parsed_sorted_chunks/16p.**/*.bam # bam files produced by distiller for each sample
 # copy pastable
@@ -138,12 +137,31 @@ Ultimately we can generate 3 multiqc reports
 - `pairtools stats`: Summary statistics of processed HiC pairs
 
 ```bash
-$ ./scripts/matrix.utils.sh multiqcs             # generate multiqc reports for different outputs from distiller,qc3C
+$ ./scripts/matrix.utils.sh multiqcs         # generate multiqc reports for different outputs from distiller,qc3C
         ./results/sample.QC/multiqc.reports/ # output dir
         ./results/                           # all multiqc data is under here in specific directories
 # copy pastable
 ./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
 ```
+### HiCRep Analysis
+
+We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
+
+```bash
+# Compare all pairs of matrices where all contacts have both mates MAPQ > 30
+$ ./scripts/run.hicrep.sh 
+        ./results/hicrep/
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v "Merged")
+# Compare all pairs of matrices with no MAPQ filtering
+$ ./scripts/run.hicrep.sh 
+        ./results/hicrep/
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool" | grep -v "Merged")
+```
+
+After this there is a `.Rnw` notebook that coallates these files into a single neat dataframe that is used for plotting.
+
+## Misc
+
 ### Restriction Fragment Analysis
 
 We use `pairtools restrict` [docs](https://pairtools.readthedocs.io/en/latest/examples/pairtools_restrict_walkthrough.html) to annotate restriction fragments for each HiC read and use this for quality control.
@@ -161,19 +179,3 @@ $ ./scripts/matrix.utils.sh restrict                        # run pairtools rest
 ./scripts/matrix.utils.sh restrict ./results.NSC/sample.QC/restriction.analysis/ ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz
 ```
 
-### HiCRep Analysis
-
-We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
-
-```bash
-# Compare all pairs of matrices where all contacts have both mates MAPQ > 30
-$ ./scripts/run.hicrep.sh 
-        ./results//hicrep
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v "Merged")
-# Compare all pairs of matrices with no MAPQ filtering
-$ ./scripts/run.hicrep.sh 
-        ./results/hicrep
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool" | grep -v "Merged")
-```
-
-After this there is a `.Rnw` notebook that coallates these files into a single neat dataframe that is used for plotting.
