@@ -13,6 +13,11 @@ HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
 SEED=9
 THREADS="16" 
 ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
+# HiC matrix relevant args
+HIC_16p_RESULTS_DIR="/data/talkowski/Samples/16p_HiC"
+HIC_NIPBLWAPL_RESULTS_DIR="/data/talkowski/Samples/WAPL_NIPBL/HiC"
+MAPQ_FITERS=("mapq_30" "no_filter")
+RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
 # Utils
 activate_conda() {
     # activate conda env with specific tools for each task
@@ -108,6 +113,100 @@ pairtools_restrict() {
             ${sample_file}
     done
 }
+# Merging matrices 
+merge_matrices() {
+    # Arg list
+    output_dir="${1}"
+    merged_name="${2}"
+    filter_status="${3}"
+    hic_matrices=${@:4}
+    output_dir="${output_dir}/${merged_name}"
+    mkdir -p "${output_dir}"
+    # Merge contacts
+    cool_file="${output_dir}/${merged_name}.hg38.${filter_status}.1000.cool"
+    if ! [[ -f "${cool_file}" ]]; then
+        cooler merge       \
+            "${cool_file}" \
+            ${hic_matrices[@]}
+    fi
+    # Bin + balance merged matrix at all specified resolutions
+    mcool_file="${cool_file%%.cool}.mcool"
+    if ! [[ -f "${mcool_file}" ]]; then
+        cooler zoomify                     \
+            --nproc ${THREADS}             \
+            --resolutions "${RESOLUTIONS}" \
+            --balance                      \
+            --out "${mcool_file}"          \
+            "${cool_file}"
+    fi
+}
+merge_16p_matrices() {
+    activate_conda 'cooler'
+    cooler_dir="${HIC_16p_RESULTS_DIR}/results.NSC/coolers_library"
+    # Merge matrices with and without MAPQ filtering
+    for filter_name in ${MAPQ_FITERS[@]}; do 
+        # WTs
+        merge_matrices            \
+            "${cooler_dir}"       \
+            16p.WT.Merged.NSC.HiC \
+            ${filter_name}        \
+            ${cooler_dir}/16p.WT.{p46,FACS1,p49}.NSC.HiC/*.${filter_name}.1000.cool
+        # DELs
+        merge_matrices             \
+            "${cooler_dir}"        \
+            16p.DEL.Merged.NSC.HiC \
+            ${filter_name}         \
+            ${cooler_dir}/16p.DEL.{A3,B8,H10}.NSC.HiC/*.${filter_name}.1000.cool
+        # DUPs
+        merge_matrices             \
+            "${cooler_dir}"        \
+            16p.DUP.Merged.NSC.HiC \
+            ${filter_name}         \
+            ${cooler_dir}/16p.DUP.{C5,D12,G7}.NSC.HiC/*.${filter_name}.1000.cool
+    done
+}
+merge_NIPBLWAPL_matrices() {
+    activate_conda 'cooler'
+    cooler_dir="${HIC_NIPBLWAPL_RESULTS_DIR}/results.iN/coolers_library"
+    # Merge matrices with and without MAPQ filtering
+    for filter_name in ${MAPQ_FITERS[@]}; do 
+        # NIBPL WTs 
+        merge_matrices             \
+            "${cooler_dir}"        \
+            NIBPL.WT.Merged.iN.HiC \
+            ${filter_name}         \
+            ${cooler_dir}/NIPBL.WT.{P1A1,P2B6,P2F4}.iN.HiC/*.${filter_name}.1000.cool
+        # NIBPL DELs 
+        merge_matrices              \
+            "${cooler_dir}"         \
+            NIBPL.DEL.Merged.iN.HiC \
+            ${filter_name}          \
+            ${cooler_dir}/NIPBL.DEL.{P1H10,P2E1,P2E6}.iN.HiC/*.${filter_name}.1000.cool
+        # WAPL WTs
+        merge_matrices            \
+            "${cooler_dir}"       \
+            WAPL.WT.Merged.iN.HiC \
+            ${filter_name}        \
+            ${cooler_dir}/WAPL.WT.{P1B10,P1E5,P2F2}.iN.HiC/*.${filter_name}.1000.cool
+        # WAPL DELs
+        merge_matrices             \
+            "${cooler_dir}"        \
+            WAPL.DEL.Merged.iN.HiC \
+            ${filter_name}         \
+            ${cooler_dir}/WAP.DEL.{P1B5,P1E9,P2C4}.iN.HiC/*.${filter_name}.1000.cool
+        # All WTs 
+        merge_matrices           \
+            "${cooler_dir}"      \
+            All.WT.Merged.iN.HiC \
+            ${filter_name}       \
+            ${cooler_dir}/NIPBL.WT.{P1A1,P2B6,P2F4}.iN.HiC/*.${filter_name}.1000.cool ${cooler_dir}/WAPL.WT.{P1B10,P1E5,P2F2}.iN.HiC/*.${filter_name}.1000.cool
+        # # All DELs 
+        # merge_matrices             \
+        #     "${cooler_dir}"        \
+        #     \
+        #     ${filter_name}         \
+        #     ${cooler_dir}//*.${filter_name}.1000.cool
+    done
 }
 # QC Stats
 pairtools_stats() {
@@ -226,17 +325,6 @@ make_multiqc_reports() {
 # Main, determine what to do and what input to expect
 mode="$1"
 case $mode in 
-    "merge")
-        MERGED_FILE="${2}"
-        HIC_SAMPLES=${@:3}
-        [[ -f "$MERGED_FILE" ]] && continue
-        cooler merge "${MERGED_FILE}.cool" ${HIC_SAMPLES[@]}
-        cooler zoomify \
-            --out "${MERGED_FILE}.mcool" \
-            --resolutions "${RESOLUTIONS}" \
-            ${balance_flag} \
-            "${MERGED_FILE}.cool"
-        ;;
     merge_NIBPLWAPL) merge_NIPBLWAPL_matrices ;;
     merge_16p)       merge_16p_matrices ;;
     dump)            dump_all_regions ${@:2} ;;
