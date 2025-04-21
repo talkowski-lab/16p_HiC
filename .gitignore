@@ -12,6 +12,7 @@ publicData/
 results/
 results.NSC/
 old.results
+*.html
 
 # Hidden files
 .domaincaller/
