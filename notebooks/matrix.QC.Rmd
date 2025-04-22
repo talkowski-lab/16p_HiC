@@ -1,0 +1,234 @@
+---
+title: "QC stats for 16p HiC samples"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+        theme: paper
+        code_folding: hide
+        df_print: paged
+---
+
+# Prepare data
+
+Set up file locations
+```{r results=FALSE}
+library(here)
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+# SAMPLE_QC_DIR <- file.path(RESULTS_DIR, 'sample.QC')
+```
+Load dependencies
+```{r}
+library(tidyverse)
+library(magrittr)
+source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
+library(ggplot2)
+library(ggh4x)
+library(ggnewscale)
+```
+Load output of `pairtools stats` 
+```{r results=FALSE, message=FALSE, warning=FALSE, rows.print=5}
+sample.metadata <- load_sample_metadata()
+pair.stats.list <- load_pairtools_stats(pairs_dir=PAIRS_DIR)
+```
+
+# Plot pair categories
+
+Prepare ploting df
+```{r}
+# Plot distance by by frequency for QC reasons
+plot.df <- 
+    pair.stats.list$general.stats %>% 
+    select(-c(category)) %>% 
+    filter(stat %in% c('trans', 'cis')) %>% 
+    dplyr::rename('interaction'=stat) %>% 
+    add_column(range.start=0) %>% 
+    bind_rows(pair.stats.list$distance.stats) %>% 
+    mutate(
+        range.end=ifelse(is.na(range.end), Inf, range.end),
+        Category=
+            case_when(
+                orientation =='-+'   & range.end < 1001  ~ 'self-circle', 
+                orientation =='+-'   & range.end < 1001  ~ 'dangling-end', 
+                range.start >= 20000                     ~ 'Long.Range  >  20Kb',
+                range.start >=  1000 & range.start < 20001 ~ 'Short.Range <= 20Kb',
+                range.end   <=  1000                     ~ 'Too.Short   <=  1Kb',
+                interaction == 'cis' & range.end == Inf ~ 'Cis.Total',
+                interaction == 'trans'                   ~ 'Trans',
+            )
+    ) %>%
+    mutate(
+        Category=
+            factor(
+                Category,
+                levels=
+                    c(
+                        'self-circle', 
+                        'dangling-end', 
+                        'Too.Short   <=  1Kb',
+                        'Short.Range <= 20Kb',
+                        'Long.Range  >  20Kb',
+                        'Cis.Total',
+                        'Trans'
+                    )
+            )
+    ) %>% 
+    group_by(SampleID, Category) %>% 
+    summarize(
+        value=sum(value),
+        # total per sample
+        total.unique.contacts=unique(total.unique.contacts)
+    ) %>% 
+    mutate(frac=100 * (value / total.unique.contacts))
+```
+
+Plot pair distance vs frequency
+```{r} 
+plot.df  %>%
+    plot_distance_freqs(y_val='frac') %>%
+    ggsave(
+        glue('{PLOT_DIR}/distance.contact.frequency.barplot.pdf'),
+        .,
+        height=6,
+        width=10,
+        units='in'
+    )
+```
+
+Plot heatmap of trans interactions
+```{r}
+pair.stats.list$chr.stats %>% 
+    mutate(
+        pair.types=
+            case_when( 
+                grepl('(_|EBV)', chr1) | grepl('(_|EBV)', chr2) ~ 'artifact',
+                chr1 == chr2 ~ 'cis',
+                chr1 != chr2 ~ 'trans'
+            )
+    ) %>%
+    group_by(SampleID, pair.types) %>% 
+    dplyr::summarize(sum=sum(value))
+plot.df  <- 
+    pair.stats.list$chr.stats %>% 
+    filter( 
+        if_all(
+            starts_with('chr'),
+            ~ !grepl('(_|EBV)', .x)
+        )
+    ) %>% 
+    mutate(across(starts_with('chr'), ~ factor(.x, levels=CHROMOSOMES))) %>% 
+    rowwise() %>%
+    mutate(
+        `% Total Contacts`=100 * (value / total.unique.contacts),
+        `log10(Contacts)`=log10(value)
+    ) #%>%
+    # pivot_longer(c(contacts, pct), names_to='metric', values_to='value')
+plot_heatmap <- function(plot.df, fill_var){
+    plot.df %>%
+    ggplot(aes(x=chr1, y=chr2,)) +
+    geom_tile(aes(fill=.data[[fill_var]])) +
+    scale_fill_gradient(low='grey90', high='red') +
+    facet_wrap(~ SampleID) +
+    theme(legend.position='top', axis.text.x=element_text(angle=45, hjust=1)) +
+    add_ggtheme()
+}
+plot.df %>% 
+    plot_heatmap(fill_var="log10(Contacts)") %>% 
+    ggsave(
+        glue('{PLOT_DIR}/chrom.Inter.Intra.log10.heatmap.pdf'),
+        .,
+        height=6,
+        width=10,
+        units='in'
+    )
+plot.df %>% 
+    plot_heatmap(fill_var="% Total Contacts") %>% 
+    ggsave(
+        glue('{PLOT_DIR}/chrom.Inter.Intra.pct.heatmap.pdf'),
+        .,
+        height=6,
+        width=10,
+        units='in'
+    )
+```
+
+# Plot Genome Coverage of HiC Contacts
+```{r}
+coverage.df <- 
+    load_sample_metadata() %>% 
+    add_column(dummy=1) %>% 
+    full_join(
+        expand_grid(
+            normalization=NORMALIZATIONS,
+            resolution=RESOLUTIONS,
+            dummy=1
+        ),
+        by='dummy',
+        relationship='many-to-many',
+    ) %>%  
+    mutate(results_file=glue('{RESULTS_DIR}/{format(resolution, trim=TRUE, scientific=FALSE)}/{normalization}/{Sample.Matrix}-bin_summaries.tsv')) %>% 
+    select(-c(dummy)) %>% 
+    arrange(desc(resolution), desc(normalization), Sample.ID) %>%
+    # filter(resolution %in% c('gw.ice')) %>% 
+    # filter(resolution < 50000) %>% 
+    mutate(
+        bin.summaries=
+            pmap(
+                .l=.,
+                .f=check_cached_results,
+                force_redo=FALSE,
+                return_data=TRUE,
+                show_col_types=FALSE,
+                results_fnc=summarize_contacts_per_bin,
+                cluster=NULL,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(bin.summaries) %>% 
+    pivot_wider(names_from=stat, values_from=value) %>% 
+    select(-c(results_file, mcool_file))
+```
+
+# Plot coverage across genomic bins
+
+Plot coverage (raw+balanced) across genomic bins at various resolutions
+```{r}
+# bin.summaries %>% dplyr::count(SampleID, ReadFilter, normalization, resolution, Chr)
+bin.summaries %>% head(2) %>% t()
+plot.df <- 
+    bin.summaries %>%
+    select(-c(ReadFilter, SampleMatrix)) %>% 
+    # filter(resolution == 10000) %>%
+    # filter(normalization == 'NONE') %>% 
+    # filter(SampleID == "16pDELA3NSCHiC_S1") %>% 
+    mutate(Chr=factor(Chr, levels=CHROMOSOMES)) %>% 
+    group_by(normalization, resolution, SampleID) %>% 
+    arrange(Chr, bin.start) %>%
+    mutate(bin.id=row_number()) %>%
+    ungroup() %>%
+    mutate(resolution=glue('{format(resolution / 1000, scientific=FALSE, trim=TRUE)}Kb')) %>% 
+    mutate(resolution=factor(resolution, levels=RESOLUTIONS))
+    mutate(normalization=case_when(normalization == 'NONE' ~ 'Raw', normalization == 'cis.ice' ~ 'ICE'))
+plot.df %>% arrange(SampleID, Chr, bin.start) %>% head(2) %>% t()
+plot.df %>% 
+    filter(!is.merged) %>% 
+    plot_bin_totals_stats() %>%
+    ggsave(glue('{PLOT_DIR}/genome.bin_totals.boxplot.pdf'), ., width=10, height=10, units='in')
+plot.df %>%
+    filter(!is.merged) %>% 
+    filter(normalization != 'cis.vc') %>% 
+    filter(Chr == 'chr16') %>% 
+    # filter(bin.start < 38e6 & bin.start > 20e6) %>% 
+    filter(bin.start < 38e6 & bin.start > 0) %>% 
+    plot_totals_across_chr16() %>% 
+    ggsave(glue('{PLOT_DIR}/chr16.lineplot.pdf'), ., width=10, height=7, units='in')
+plot.df %>%
+    filter(!is.merged) %>% 
+    filter(normalization != 'cis.vc') %>% 
+    plot_bin_stats_across_region() %>% 
+    ggsave(glue('{PLOT_DIR}/genome.lineplot.pdf'), ., width=10, height=10, units='in')
+```
