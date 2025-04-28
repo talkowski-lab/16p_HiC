@@ -110,8 +110,10 @@ plot.df <-
 plot.df  %>% plot_distance_freqs(y_val='frac')
 ```
 
-Plot heatmap of trans interactions
-```{r}
+## Plot heatmap of cis/trans interactions
+
+```{r, include=FALSE}
+message('Print reads mapping to unused chromosomes')
 pair.stats.list$chr.stats %>% 
     mutate(
         pair.types=
@@ -121,49 +123,56 @@ pair.stats.list$chr.stats %>%
                 chr1 != chr2 ~ 'trans'
             )
     ) %>%
-    group_by(SampleID, pair.types) %>% 
+    group_by(Sample.ID, pair.types) %>% 
     dplyr::summarize(sum=sum(value))
+```
+
+```{r, include=FALSE}
 plot.df  <- 
     pair.stats.list$chr.stats %>% 
+    rename('contacts'=value) %>% 
     filter( 
         if_all(
             starts_with('chr'),
             ~ !grepl('(_|EBV)', .x)
         )
     ) %>% 
-    mutate(across(starts_with('chr'), ~ factor(.x, levels=CHROMOSOMES))) %>% 
-    rowwise() %>%
     mutate(
-        `% Total Contacts`=100 * (value / total.unique.contacts),
-        `log10(Contacts)`=log10(value)
-    ) #%>%
-    # pivot_longer(c(contacts, pct), names_to='metric', values_to='value')
-plot_heatmap <- function(plot.df, fill_var){
+        across(
+            starts_with('chr'),
+            ~ factor(.x, levels=CHROMOSOMES)
+        )
+    ) %>% 
+    group_by(Sample.ID) %>% 
+    mutate(
+        `% Total Contacts`=100 * (contacts / total.unique.contacts),
+        `log10(Contacts)`=log10(contacts)
+    ) %>%
+    ungroup() %>% 
+    pivot_longer(
+        c(`% Total Contacts`, `log10(Contacts)`),
+        names_to='metric',
+        values_to='value'
+    )
+```
+
+```{r results='asis'}
+tmp_plot <- function(plot.df){
+    col_name <- plot.df$metric %>% unique() %>% first()
     plot.df %>%
-    ggplot(aes(x=chr1, y=chr2,)) +
-    geom_tile(aes(fill=.data[[fill_var]])) +
-    scale_fill_gradient(low='grey90', high='red') +
-    facet_wrap(~ SampleID) +
-    theme(legend.position='top', axis.text.x=element_text(angle=45, hjust=1)) +
-    add_ggtheme()
+    pivot_wider(
+        names_from=metric,
+        values_from=value
+    ) %>% 
+    plot_cistrans_chromosome_heatmap(fill_var=col_name)
 }
 plot.df %>% 
-    plot_heatmap(fill_var="log10(Contacts)") %>% 
-    ggsave(
-        glue('{PLOT_DIR}/chrom.Inter.Intra.log10.heatmap.pdf'),
-        .,
-        height=6,
-        width=10,
-        units='in'
-    )
-plot.df %>% 
-    plot_heatmap(fill_var="% Total Contacts") %>% 
-    ggsave(
-        glue('{PLOT_DIR}/chrom.Inter.Intra.pct.heatmap.pdf'),
-        .,
-        height=6,
-        width=10,
-        units='in'
+    filter(metric == "% Total Contacts") %>% 
+    make_tab_per_group(
+        group_col='Sample.ID',
+        col_header=FALSE,
+        max_lvl=3,
+        plot_fnc=tmp_plot
     )
 ```
 
