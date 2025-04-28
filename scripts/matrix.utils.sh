@@ -130,6 +130,19 @@ digest_genome_arima() {
     echo "\"Merging\" digestions at: ${ARIMA_DIGESTION}"
     bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
 }
+digest_genome_hic3() {
+    # The cooler^1 docs shows that to analyze a multi-enzyme digestion you can "partition" the two individual digestion, as bedops^2 does.
+    ## 1: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
+    ## 2: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
+    activate_conda 'cooler'
+    echo "Creating DpnII Ref at: ${DPNII_DIGESTION}"
+    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
+    echo "Creating DdeI Ref at: ${DDEI_DIGESTION}"
+    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${DDEI_DIGESTION}"
+    # "merge" the two digestions i.e. list all genome fragments has with a breakpoint at cut sites for 1 of any enzyme supplied
+    echo "\"Merging\" digestions at: ${HIC3_DIGESTION}"
+    bedops --partition "${DPNII_DIGESTION}" "${DDEI_DIGESTION}" >| "${HIC3_DIGESTION}"
+}
 pairtools_restrict() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
