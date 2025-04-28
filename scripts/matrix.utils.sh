@@ -321,9 +321,10 @@ pairtools_stats() {
 run_qc3c() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
-    hic_bams=${@:2}
+    enzyme1=${2}
+    enzyme2=${3}
+    hic_bams=${@:4}
     activate_conda 'qc3C'
-    echo ${output_dir}
     for sample_file in ${hic_bams[@]}; do 
         echo $sample_file
         sample_file="$(readlink -e ${sample_file})"
@@ -342,15 +343,16 @@ run_qc3c() {
         # Skip if qc3C result already exists
         output_files_path="${output_dir}/${sample_ID}"
         echo $output_files_path
-        if [[ -e "${output_files_path}/report.qc3C.json" ]]; then
-            echo "Skipping, cached results here: ${output_files_path}"
-            continue
-        fi
+        # if [[ -e "${output_files_path}/report.qc3C.json" ]]; then
+        #     echo "Skipping, cached results here: ${output_files_path}"
+        #     continue
+        # fi
         # Run QC on 200,000 subsampled reads, all mapq > 30
         qc3C bam                        \
             --threads ${THREADS}        \
             --fasta ${GENOME_REFERENCE} \
-            --library-kit arima         \
+            --enzyme ${enzyme1}         \
+            --enzyme ${enzyme2}         \
             --min-mapq 30               \
             --seed ${SEED}              \
             --max-obs 200000            \
