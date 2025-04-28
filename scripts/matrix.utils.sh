@@ -12,11 +12,24 @@ REF_NAME="${REF_NAME%%.fasta}"
 DPNII_DIGESTION="${REF_DIR}/${REF_NAME}.DpnII.digested.bed"
 HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
 ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
-# HiC matrix relevant args
-HIC_16p_RESULTS_DIR="/data/talkowski/Samples/16p_HiC"
-HIC_NIPBLWAPL_RESULTS_DIR="/data/talkowski/Samples/WAPL_NIPBL/HiC"
-MAPQ_FITERS=("mapq_30" "no_filter")
+DDEI_DIGESTION="${REF_DIR}/${REF_NAME}.DdeI.digested.bed"
+HIC3_DIGESTION="${REF_DIR}/${REF_NAME}.HIC3.digested.bed"
+# MAPQ_FITERS=("mapq_30" "no_filter")
+MAPQ_FITERS=("mapq_30")
 RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
+# 1000     #   1Kb
+# 2000     #   2Kb
+# 5000     #   5Kb
+# 10000    #  10Kb
+# 25000    #  25Kb
+# 50000    #  50Kb
+# 100000   # 100Kb
+# 250000   # 250Kb
+# 500000   # 500Kb
+# 1000000  #   1Mb
+# 2500000  # 2.5Mb
+# 5000000  #   5Mb
+# 10000000 #  10Mb
 # Utils
 help() {
     case ${1} in 
@@ -169,27 +182,22 @@ merge_matrices() {
     hic_matrices=${@:4}
     output_dir="${output_dir}/${merged_name}"
     mkdir -p "${output_dir}"
+    echo ${hic_matrices[@]}
     # Merge contacts
     cool_file="${output_dir}/${merged_name}.hg38.${filter_status}.1000.cool"
-    if ! [[ -f "${cool_file}" ]]; then
-        cooler merge       \
-            "${cool_file}" \
-            ${hic_matrices[@]}
-    fi
+        cooler merge "${cool_file}" ${hic_matrices[@]}
     # Bin + balance merged matrix at all specified resolutions
     mcool_file="${cool_file%%.cool}.mcool"
-    if ! [[ -f "${mcool_file}" ]]; then
         cooler zoomify                     \
             --nproc ${THREADS}             \
             --resolutions "${RESOLUTIONS}" \
             --balance                      \
             --out "${mcool_file}"          \
             "${cool_file}"
-    fi
 }
 merge_16p_matrices() {
+    cooler_dir="$(readlink -e "${1}")"
     activate_conda 'cooler'
-    cooler_dir="${HIC_16p_RESULTS_DIR}/results.NSC/coolers_library"
     # Merge matrices with and without MAPQ filtering
     for filter_name in ${MAPQ_FITERS[@]}; do 
         # WTs
@@ -268,8 +276,8 @@ matrix_coverage() {
         sample_file="$(readlink -e "${sample_file}")"
         for uri in $(cooler ls ${sample_file}); do 
             resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
-            file_name="${output_dir}/${sample_ID}.${resolution}"
-            raw_output_file="${file_name}.raw.coverage.tsv"
+            raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
+            raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
             if ! [[ -e ${raw_output_file} ]]; then
                 echo ${raw_output_file}
                 cooltools coverage \
@@ -277,7 +285,8 @@ matrix_coverage() {
                     --output ${raw_output_file} \
                     ${uri}
             fi
-            balanced_output_file="${file_name}.balanced.coverage.tsv"
+            balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
+            balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
             if ! [[ -e ${balanced_output_file} ]]; then
                 echo ${balanced_output_file}
                 cooltools coverage \
