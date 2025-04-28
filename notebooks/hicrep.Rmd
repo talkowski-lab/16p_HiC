@@ -35,6 +35,7 @@ source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 source(file.path(BASE_DIR, 'scripts/utils.hicrep.R'))
 library(ggplot2)
 library(ggh4x)
+library(purrr)
 ```
 Load hicrep data
 ```{r results=FALSE, message=FALSE, warning=FALSE}
@@ -46,7 +47,6 @@ hicrep.results <-
         results_fnc=load_all_hicrep_results
     )
 ```
-
 Print sample rows
 ```{r rows.print=5}
 hicrep.results %>% 
@@ -59,7 +59,7 @@ How many different parameter combinations we tried
 ```{r rows.print=5}
 hicrep.results %>%
     filter(chr == 'chr16') %>% 
-    dplyr::count(!!!syms(HICREP_PARAM_NAMES))
+    dplyr::count(!!!syms(c(HICREP_PARAM_NAMES, 'ReadFilter')))
 ```
 
 How many different pairs of sample matrices were compared
@@ -67,17 +67,33 @@ How many different pairs of sample matrices were compared
 hicrep.results %>%
     filter(chr == 'chr16') %>% 
     dplyr::count(
-        Edit,
         Genotype,
-        Celltype,
         SampleNumber,
-        ReadFilter
+        Celltype,
+        Edit
     )
 ```
 
-# Plot distributions of HiCRep scores 
+All sample pairs + conditions where HiCRep scores were calculated
+```{r rows.print=5}
+hicrep.results %>%
+    dplyr::count(
+        !!!syms(
+            c(
+                HICREP_PARAM_NAMES,
+                'Genotype',
+                'SampleNumber',
+                'ReadFilter',
+                'Celltype',
+                'Edit'
+            )
+        )
+    )
+```
 
-```{r include=FALSE}
+# Plot distributions of HiCRep scores {.tabset}
+
+Prepare data for plotting
 ```{r prep_plot_df, include=FALSE}
 plot.df <- 
     hicrep.results %>%
@@ -91,6 +107,7 @@ plot.df <-
             )
     ) %>% 
     ungroup() %>% 
+    mutate(chr=factor(chr, levels=CHROMOSOMES)) %>% 
     mutate(
         sample1.is.new=grepl('(G7|p46|H10) vs', SampleNumber),
         sample2.is.new=grepl('vs (G7|p46|H10)', SampleNumber),
@@ -111,6 +128,8 @@ plot.df <-
     rename(resolution=Resolution.name)
 ```
 
+## Compare Differences between Genotypes
+
 Boxplot of hicrep scores by various levels
 ```{r new_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
@@ -121,7 +140,12 @@ plot.df %>%
     )
 ```
 
+## Plot first 6 processed samples only
+
+Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
+```{r old_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
+    filter(SampleNovelty == 'Old vs Old') %>% 
     plot_hicrep_boxplot(
         'Genotype',
         mark_chr16=TRUE,
@@ -129,6 +153,7 @@ plot.df %>%
     )
 ```
 
+## Compare Differences between New/Old samples
 
 How many new vs old samples pairs being compared
 ```{r novel_table, rows.print=6}
