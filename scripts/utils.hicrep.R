@@ -117,35 +117,47 @@ load_all_hicrep_results <- function(
     unnest(hicrep.results) %>% 
     select(-c(filepath))
 }
-plot_hicrep_boxplot <- function(hicrep_results, size=0.7){
-    hicrep_results %>%
-    ggplot(
-        aes(
-            x=Genotype,
-            y=hicrep.score,
-            fill=is.downsampled,
-            shape=ReadFilter
-        )
-    ) +
-    geom_boxplot(outlier.size=0.5) +
-    geom_jitter(
-        data=. %>% filter(h.ideal == 'Ideal'),
-        aes(
-            x=Genotype,
-            y=hicrep.score,
-            fill=is.downsampled
-        ),
-        color='green',
-        size=size
-    ) +
-    facet_grid2(
-        rows=vars(Resolution),
-        cols=vars(Celltype),
-        scales='fixed'
-    ) +
-    theme(
-        legend.position='top', 
-        axis.text.x=element_text(angle=45, hjust=1)
-    ) +
-    add_ggtheme()
+
+plot_hicrep_boxplot <- function(
+    hicrep_results,
+    sample_group='Genotype',
+    facet_row='resolution',
+    facet_col='Celltype', 
+    mark_chr16=FALSE,
+    size=0.7){
+    figure <- 
+        hicrep_results %>%
+        ggplot(
+            aes(
+                x=.data[[sample_group]],
+                y=hicrep.score,
+                fill=is.downsampled,
+                color=ReadFilter
+            )
+        ) +
+        geom_boxplot(outlier.size=0.5) +
+        facet_grid2(
+            rows=vars(!!!sym(facet_row)),
+            cols=vars(!!!sym(facet_col)),
+            scales='fixed'
+        ) +
+        scale_y_continuous(labels=function(x) format(x, digits=2)) +
+        theme(legend.position='top') +
+        add_ggtheme()
+    if (mark_chr16) {
+        figure <- 
+            figure +
+            geom_jitter(
+                data=. %>% filter(chr == 'chr16'),
+                aes(
+                    x=.data[[sample_group]],
+                    y=hicrep.score,
+                    fill=is.downsampled
+                ),
+                alpha=0.6,
+                color='purple',
+                size=size
+            )
+    }
+    figure
 }

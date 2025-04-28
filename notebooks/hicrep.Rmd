@@ -112,36 +112,21 @@ plot.df <-
 ```
 
 Boxplot of hicrep scores by various levels
-```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
-size=0.8
+```{r new_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
-ggplot(
-    aes(
-        x=Genotype,
-        y=hicrep.score,
-        fill=is.downsampled,
-        color=ReadFilter
+    plot_hicrep_boxplot(
+        'Genotype',
+        mark_chr16=TRUE,
+        size=0.7
     )
-) +
-geom_boxplot(outlier.size=0.5) +
-geom_jitter(
-    data=. %>% filter(chr == 'chr16'),
-    aes(
-        x=Genotype,
-        y=hicrep.score,
-        fill=is.downsampled
-    ),
-    alpha=0.6,
-    color='purple',
-    size=size
-) +
-facet_grid2(
-    rows=vars(resolution),
-    cols=vars(Celltype),
-    scales='fixed'
-) +
-theme(legend.position='top') +
-add_ggtheme()
+```
+
+plot.df %>% 
+    plot_hicrep_boxplot(
+        'Genotype',
+        mark_chr16=TRUE,
+        size=0.7
+    )
 ```
 
 Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
