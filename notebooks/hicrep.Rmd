@@ -153,14 +153,26 @@ plot.df %>%
     )
 ```
 
+## HiCRep scores per chromosome 
+
+See if there are any trends in HiCRep scores across chromosomes and if they are influenced by HiCRep params or samples genotype
+```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7}
+resolution_boxplot_fnc <- function(plot.df){
+    plot.df %>% 
+    plot_hicrep_boxplot(
+        'chr',
+        facet_row='Genotype',
+        facet_col='Celltype', 
+        mark_chr16=FALSE,
+        size=0.7
+    ) + 
+    geom_hline(yintercept=0.95, linetype='solid', linewidth=0.15) +
+    theme(axis.text.x=element_text(angle=45, hjust=1))
+}
+plot.df %>%
+    make_tab_per_group(
+        group_col='resolution',
+        col_header=FALSE,
+        plot_fnc=resolution_boxplot_fnc
     )
-) +
-geom_boxplot(outlier.size=0.5) +
-facet_grid2(
-    rows=vars(resolution),
-    cols=vars(Celltype),
-    scales='fixed'
-) +
-theme(legend.position='top') +
-add_ggtheme()
 ```
