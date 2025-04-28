@@ -89,3 +89,31 @@ shift_legend <- function(p){
 
     return(gp)
 }
+
+make_tab_per_group <- function(
+    plot.df, 
+    group_col,
+    plot_fnc,
+    col_header=TRUE,
+    max_lvl=3,
+    ...){
+
+    cat("\n\n")
+    max_header <- rep('#', max_lvl) %>% paste0(collapse="")
+    cat(max_header, ifelse(col_header, group_col, ""), "{.tabset}", "\n\n")
+    tab_header <- paste0(max_header, '#')
+    group_values <- 
+        plot.df[[group_col]] %>% 
+        as.factor() %>% 
+        droplevels() %>%
+        levels()
+    for (group_value in group_values){
+        cat(tab_header, group_value, "\n\n")
+        figure <- 
+            plot.df %>%
+            filter(get({{group_col}}) == group_value) %>%
+            plot_fnc(...)
+        print(figure)
+        cat("\n\n")
+    }
+}
