@@ -1,0 +1,288 @@
+# Load various QC data files/sets of files
+load_pairtools_stats <- function(
+    stats_file_suffix='.HiC.hg38.dedup.stats',
+    ...){
+    # Load all stats
+    all.stats.df <- 
+        PAIRS_DIR  %>%
+        list.files(
+            full.names=FALSE,
+            recursive=TRUE,
+            pattern=glue('*{stats_file_suffix}')
+        ) %>%
+        tibble(fileinfo=.) %>% 
+        mutate(filepath=file.path(PAIRS_DIR, fileinfo)) %>% 
+        mutate(Sample.ID=str_remove(basename(fileinfo), stats_file_suffix)) %>% 
+        select(-c(fileinfo)) %>% 
+        mutate(
+            stats=
+                purrr::pmap(
+                    .l=.,
+                    function(filepath, ...){
+                        filepath %>% 
+                        read_tsv(
+                            show_col_types=FALSE,
+                            col_names=c('stat', 'value')
+                        )
+                    }
+                )
+        ) %>%
+        select(-c(filepath)) %>%
+        unnest(stats)
+    # Get total number of contacts per sample
+    total.contacts.df <- 
+        all.stats.df %>% 
+        filter(!grepl('/', stat)) %>%
+        filter(stat == 'total_nodups') %>% 
+        select(Sample.ID, value) %>%
+        dplyr::rename('total.unique.contacts'=value)
+    # Matrix-wide stats
+    general.stats.df <- 
+        all.stats.df %>% 
+        filter(!grepl('/', stat)) %>%
+        mutate(
+            category=
+                case_when(
+                    grepl('total', stat) ~ 'Reads', 
+                    TRUE ~ 'Contacts'
+                )
+        ) %>% 
+        left_join(
+            total.contacts.df,
+            by='Sample.ID'
+        )
+    # stats about contact distances
+    dist.stats.df <- 
+        all.stats.df %>% 
+        filter(grepl('^dist_freq', stat)) %>%
+        separate_wider_delim(
+            stat,
+            delim='/',
+            names=
+                c(
+                    'interaction',
+                    'range',
+                    'orientation'
+                )
+        ) %>%
+        mutate(range=str_remove(range, fixed('+'))) %>% 
+        separate_wider_delim(
+            range,
+            delim='-',
+            names=c('range.start', 'range.end'),
+            too_few='align_start'
+        ) %>%
+        mutate(across(starts_with('range'), ~ as.integer(.x))) %>% 
+        mutate(interaction='cis') %>%
+        left_join(total.contacts.df, by='Sample.ID')
+    # Contact Frequency Stats per Chromosome
+    chr.stats.df <- 
+        all.stats.df %>% 
+        filter(grepl('^chrom_freq', stat)) %>%
+        separate_wider_delim(
+            stat,
+            delim='/',
+            names=
+                c(
+                    'stat',
+                    'chr1',
+                    'chr2'
+                )
+        ) %>% 
+        left_join(total.contacts.df, by='Sample.ID')
+    # Return named list of all stuff
+    return(
+        list(
+            'general.stats'=general.stats.df,
+            'distance.stats'=dist.stats.df,
+            'chr.stats'=chr.stats.df
+        )
+    )
+}
+
+load_genome_coverage <- function(
+    input_dir=COVERAGE_DIR,
+    suffix='coverage.tsv',
+    param_names=c('weight', 'resolution'),
+    delim='-',
+    resolutions=NULL){
+    # input_dir=COVERAGE_DIR; suffix='coverage.tsv'; param_names=c('weight', 'resolution'); delim='-'; resolutions=c(1000, 100000)
+    input_dir %>%
+    list.files(
+        pattern=glue('*{suffix}'),
+        recursive=TRUE,
+        full.names=FALSE
+    ) %>% 
+    tibble(fileinfo=.) %>%
+    mutate(filepath=file.path(input_dir, fileinfo)) %>%
+    mutate(fileinfo=str_remove(fileinfo, glue('{delim}{suffix}'))) %>% 
+    separate_wider_delim(
+        fileinfo,
+        delim='/',
+        names=
+            c(
+                param_names, 
+                'filename'
+            )
+    ) %>% 
+    mutate(
+        across(
+            all_of(param_names),
+            ~ str_remove(
+                .x,
+                pattern=glue('({paste(param_names, collapse="|")})_')
+            )
+        )
+    ) %>% 
+    separate_wider_delim(
+        filename,
+        delim='.',
+        names=c(
+            'Edit',
+            'Genotype',
+            'SampleNumber',
+            'Celltype',
+            NA,
+            NA,
+            'ReadFilter',
+            NA
+        )
+    ) %>% 
+    mutate(
+        Sample.ID=
+            c(
+                'Edit',
+                'Genotype',
+                'SampleNumber',
+                'Celltype'
+            ) %>% 
+            paste(collapse='.')
+    ) %>% 
+    { 
+        if (is.null(resolutions)) { 
+            . 
+        } else { 
+            filter(., resolution %in% resolutions) 
+        } 
+    } %>%
+    mutate(
+        coverage=
+            purrr::pmap(
+                .l=.,
+                .f=function(filepath, ...){
+                    read_tsv(
+                        filepath,
+                        show_col_types=FALSE,
+                        progress=FALSE
+                    )
+                }
+            )
+    ) %>%
+    unnest(coverage) %>%
+    rename(
+        'chr'=chrom,
+        'coverage.cis'=cov_cis,
+        'coverage.total'=cov_tot,
+    ) %>% 
+    mutate(chr=factor(chr, levels=CHROMOSOMES)) %>%  
+    pivot_longer(
+        starts_with('coverage'),
+        names_to='metric',
+        names_prefix='coverage.',
+        values_to='coverage'
+    )
+}
+
+# Plot Matrix QC stuff
+plot_bin_totals_stats  <- function(
+    plot.df,
+    ...){
+    plot.df %>%
+    ggplot(
+        aes(
+            x=Sample.ID,
+            y=total,
+            color=Sample.ID
+        )
+    ) +
+    geom_jitter(size=2) +
+    geom_boxplot(oulier=NA) +
+    facet_wrap2(~ Chr, scales='fixed') +
+    labs(title=glue('{plot.df$normalization[[1]]} normalized count @ {plot.df$resolution[[1]] / 1000}Kb')) +
+    add_ggtheme()
+}
+
+plot_distance_freqs <- function(
+    plot.df,
+    y_val='value',
+    ...){
+    plot.df %>%
+    ggplot(
+        aes(
+            x=Category,
+            y=.data[[y_val]],
+            fill=Sample.ID
+        )
+    ) +
+    geom_col(position = "dodge") +
+    scale_y_continuous(
+        breaks=seq(0, max(plot.df[[y_val]]), 5)
+    ) +
+    # scale_y_continuous(breaks=~ seq(.x, .y, 5)) +
+    labs(y=y_val) +
+    theme(
+        axis.text.x=element_text(hjust=1, angle=35)
+    ) +
+    add_ggtheme()
+}
+
+plot_cistrans_chromosome_heatmap <- function(
+    plot.df,
+    fill_var,
+    ...){
+    plot.df %>%
+    ggplot(
+        aes(
+            x=chr1,
+            y=chr2
+        )
+    ) +
+    geom_tile(
+        aes(
+            fill=.data[[fill_var]]
+        )
+    ) +
+    scale_fill_gradient(
+        low='grey90',
+        high='red'
+    ) +
+    facet_wrap(~ Sample.ID) +
+    theme(
+        legend.position='top',
+        axis.text.x=element_text(angle=45, hjust=1)
+    ) +
+    add_ggtheme()
+}
+
+plot_totals_across_chr16 <- function(
+    plot.df,
+    ...){
+    elise.start=29488679; elise.end=30188679
+    breaks=
+        seq(
+            min(plot.df$bin.start),
+            max(plot.df$bin.start),
+            (max(plot.df$bin.start) - min(plot.df$bin.start)) / 12
+        )
+    labels=glue('{format(breaks / 1000, scientific=FALSE, trim=TRUE, digits=1)}Kb')
+    plot.df %>%
+    ggplot(aes(x=bin.start, color=Sample.ID)) +
+    geom_path(aes(y=total)) +
+    facet_grid2(cols=vars(normalization), rows=vars(resolution), scales='free_y', independent='y') +
+    # geom_rect(ymin=-Inf, ymax=Inf, xmin=elise.start, xmax=elise.end, fill='grey', alpha=0.1, show.legend=FALSE) +
+    geom_vline(xintercept=c(elise.start, elise.end), linetype='dashed', linewidth=0.1) +
+    scale_x_continuous(breaks=breaks, labels=labels) +
+    labs(x='Chromosome bin') +
+    theme(legend.position='top', axis.text.x=element_text(angle=35, hjust=1)) +
+    add_ggtheme()
+}
