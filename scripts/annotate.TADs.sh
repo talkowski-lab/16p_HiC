@@ -12,20 +12,9 @@ COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp
 COOLTOOLS_MFVP=(0.33 0.66 0.9)
 COOLTOOLS_THRESHOLD=(Li 0)
 declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight"  ["Raw"]="")
-# Default script arguments
-BASE_DIR="/data/talkowski/Samples/16p_HiC"
-OUTPUT_DIR="${BASE_DIR}/results/TADs"
-LOG_DIR="${BASE_DIR}/slurm.logs"
-RESOLUTIONS=(100000 50000 10000 5000)
-# Default SLURM params
-USE_SLURM=0
-PARTITION="short"
-MEM_GB=30
-NTASKS_PER_NODE=2
-CPUS=2
 # Functions
 help() {
-    echo "USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample2.mcool ...
+    echo "USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample{2..N}.mcool 
             -s | --use-slurm
             -r | --resolution
             -o | --output-dir
@@ -153,18 +142,16 @@ run_cooltools_insulation() {
         fi
         # Specify TAD calling cmd + options
         if [ -n "${COOLTOOLS_WEIGHTS[${weight_name}]}" ]; then
-            weight_flag="--clr-weight-name ${COOLTOOLS_WEIGHTS[${weight_name}]}"
+            weight_flag="--clr-weight-name ${COOLTOOLS_WEIGHTS[${weight_name}]} "
         else
             weight_flag=""
         fi
         mkdir -p "${output_dir}"
-        cmd="cooltools insulation                                     
+        cmd="cooltools insulation ${weight_flag}--verbose
                 --nproc ${NTASKS_PER_NODE}                                   
                 --append-raw-scores                                   
-                --verbose                                             
                 --window-pixels                                       
                 --min-frac-valid-pixels ${mfvp}                       
-                ${weight_flag}
                 --ignore-diags 2 
                 --threshold ${threshold}                              
                 --output ${output_TAD_file} 
@@ -209,6 +196,17 @@ main() {
     done
     # echo "All jobs submitted on queue ${PARTITION} with ${MEM_GB}Gb, ${NTASKS_PER_NODE} threads per job"
 }
+# Default script arguments
+BASE_DIR="/data/talkowski/Samples/16p_HiC"
+OUTPUT_DIR="${BASE_DIR}/results/TADs"
+LOG_DIR="${BASE_DIR}/slurm.logs"
+RESOLUTIONS=(100000 50000 25000 10000)
+# Default SLURM params
+USE_SLURM=0
+PARTITION="short"
+MEM_GB=30
+NTASKS_PER_NODE=2
+CPUS=2
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
 VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m:a: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir -- "$@")
@@ -251,6 +249,10 @@ while [ : ]; do
             LOG_DIR="${2}" 
             shift 2
             ;;
+        -a|--anaconda-dir)
+            CONDA_DIR="${2}"
+            shift 2
+            ;;
         -h|--help) 
             help 
             ;;
@@ -263,7 +265,6 @@ done
 # Print args
 METHOD="${1}"
 HIC_SAMPLES=${@:2}
-CONDA_ENV_CMD="$(activate_conda ${METHOD})"
 echo "
 Using TAD caller:       ${METHOD}
 Using resolution(s):    ${RESOLUTIONS[@]}
@@ -279,4 +280,7 @@ else
     echo "Not using SLURM, running TAD annotations in current shell"
 fi 
 # Run 
+CONDA_ENV_CMD="$(activate_conda ${METHOD})"
+mkdir -p ${OUTPUT_DIR}
+OUTPUT_DIR="$(readlink -e ${OUTPUT_DIR})"
 main 
