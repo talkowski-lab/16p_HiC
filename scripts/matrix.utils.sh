@@ -1,9 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 # Technical Args
-CONDA_DIR="$HOME/miniforge3"
 SEED=9  # Random seed for qc3C
-THREADS="32" 
 # Genomic reference files
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
 GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
@@ -20,6 +18,41 @@ HIC_NIPBLWAPL_RESULTS_DIR="/data/talkowski/Samples/WAPL_NIPBL/HiC"
 MAPQ_FITERS=("mapq_30" "no_filter")
 RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
 # Utils
+help() {
+    case ${1} in 
+        dump)
+            args="TODO"
+            ;;
+        plot_triangle)
+            args="TODO"
+            ;;
+        digest_genome)
+            args=""
+            ;;
+        restrict)
+            args="\${OUTPUT_DIR} sample1.hg38.nodups.pairs.gz sample{2..N}.hg38.nodups.pairs.gz"
+            ;;
+        merge_NIBPLWAPL) 
+            args="\${COOLER_DIR}"
+            ;;
+        merge_16p)
+            args="\${COOLER_DIR}"
+            ;;
+        coverage)
+            args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool"
+            ;;
+        qc3C)
+            args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam"
+            ;;
+        multiqcs)
+            args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}"
+            ;;
+        *) 
+            echo "Invalid mode: $mode" && exit 1 
+            ;;
+    esac
+    echo "Usage: ${0} ${1} ${args}"
+}
 activate_conda() {
     # activate conda env with specific tools for each task
     case "$1" in
@@ -357,17 +390,53 @@ make_multiqc_reports() {
     readlink -e ${output_dir}/*
 }
 # Main, determine what to do and what input to expect
-mode="$1"
-case $mode in 
-    merge_NIBPLWAPL) merge_NIPBLWAPL_matrices ;;
-    merge_16p)       merge_16p_matrices ;;
-    dump)            dump_all_regions ${@:2} ;;
-    plot_triangle)   plot_fanc ${@:2} ;;
-    digest_genome)   digest_genome_arima ;;
-    restrict)        pairtools_restrict ${@:2} ;;
-    coverage)        matrix_coverage ${@:2} ;;
-    qc3C)            run_qc3c ${@:2} ;;
-    # stats)           pairtools_stats ${@:2} ;;
-    multiqcs)        make_multiqc_reports ${@:2} ;;
-    *)               echo "Invalid mode: $mode" && exit 1 ;;
-esac
+main() {
+    mode="$1"
+    case $mode in 
+        merge_NIBPLWAPL) merge_NIPBLWAPL_matrices ${2} ;;
+        merge_16p)       merge_16p_matrices ${2} ;;
+        dump)            dump_all_regions ${@:2} ;;
+        plot_triangle)   plot_fanc ${@:2} ;;
+        digest_genome)   
+            digest_genome_arima
+            digest_genome_hic3
+            ;;
+        restrict)        pairtools_restrict ${@:2} ;;
+        coverage)        matrix_coverage ${@:2} ;;
+        qc3C)            run_qc3c ${@:2} ;;
+        # stats)           pairtools_stats ${@:2} ;;
+        multiqcs)        make_multiqc_reports ${@:2} ;;
+        *)               echo "Invalid mode: $mode" && exit 1 ;;
+    esac
+}
+# Default script arguments
+CONDA_DIR="$HOME/miniforge3"
+THREADS="32" 
+# Handle CLI args
+[[ $? -ne 0 ]] && echo "No Args" && exit 1
+VALID_ARGS=$(getopt -o ha:t: --long help,anaconda-dir,threads -- "$@")
+eval set -- "$VALID_ARGS"
+while [ : ]; do
+    case "$1" in
+        -a|--anaconda-dir)
+            CONDA_DIR="${2}"
+            shift 2
+            ;;
+        -t|--threads)
+            THREADS="${2}"
+            shift 2
+            ;;
+        -h|--help) 
+            help 
+            ;;
+        --)
+            shift 
+            break
+            ;;
+    esac
+done
+if [[ $# -eq 1 ]]; then
+    help ${1}
+else 
+    main ${@}
+fi
