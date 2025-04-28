@@ -96,10 +96,10 @@ plot.df <-
         sample2.is.new=grepl('vs (G7|p46|H10)', SampleNumber),
         SampleNovelty=
             case_when(
-                sample1.is.new & sample2.is.new ~ 'both.new',
-                sample1.is.new & !sample2.is.new ~ 'one.new',
-                !sample1.is.new & sample2.is.new ~ 'one.new',
-                !sample1.is.new & !sample2.is.new ~ 'both.old',
+                 sample1.is.new &  sample2.is.new ~ 'New vs New',
+                 sample1.is.new & !sample2.is.new ~ 'New vs Old',
+                !sample1.is.new &  sample2.is.new ~ 'New vs Old',
+                !sample1.is.new & !sample2.is.new ~ 'Old vs Old',
                 TRUE ~ 'error'
             )
     ) %>% 
@@ -129,15 +129,30 @@ plot.df %>%
     )
 ```
 
-Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
-```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
+
+How many new vs old samples pairs being compared
+```{r novel_table, rows.print=6}
 plot.df %>% 
-ggplot(
-    aes(
-        x=SampleNovelty,
-        y=hicrep.score,
-        fill=is.downsampled,
-        color=ReadFilter
+    filter(chr == 'chr16') %>% 
+    group_by(
+        resolution,
+        h,
+        is.downsampled,
+        window.size,
+        ReadFilter
+    ) %>% 
+    dplyr::count(SampleNovelty)
+```
+Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
+```{r novel_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
+plot.df %>% 
+    plot_hicrep_boxplot(
+        'SampleNovelty',
+        mark_chr16=TRUE,
+        size=0.7
+    )
+```
+
     )
 ) +
 geom_boxplot(outlier.size=0.5) +
