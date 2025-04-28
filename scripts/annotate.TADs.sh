@@ -211,10 +211,14 @@ main() {
 }
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem -- "$@")
+VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m:a: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir -- "$@")
 eval set -- "$VALID_ARGS"
 while [ : ]; do
     case "$1" in
+        -a|--anaconda-dir)
+            CONDA_DIR="${2}"
+            shift 2
+            ;;
         -r|--resolution)
             RESOLUTIONS=($(echo "${2}" | cut -d',' --output-delimiter=' ' -f1-))
             shift 2
@@ -259,7 +263,7 @@ done
 # Print args
 METHOD="${1}"
 HIC_SAMPLES=${@:2}
-CONDA_ENV_CMD="$(activate_conda ${method})"
+CONDA_ENV_CMD="$(activate_conda ${METHOD})"
 echo "
 Using TAD caller:       ${METHOD}
 Using resolution(s):    ${RESOLUTIONS[@]}
