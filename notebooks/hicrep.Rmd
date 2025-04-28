@@ -10,11 +10,18 @@ output:
         code_folding: hide
         df_print: paged
 ---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
 
 # Prepare data
 
 Set up file locations
-```{r results=FALSE}
+```{r results='hide', echo=TRUE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
@@ -71,6 +78,7 @@ hicrep.results %>%
 # Plot distributions of HiCRep scores 
 
 ```{r include=FALSE}
+```{r prep_plot_df, include=FALSE}
 plot.df <- 
     hicrep.results %>%
     mutate(resolution=as.integer(resolution)) %>% 
