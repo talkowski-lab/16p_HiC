@@ -9,35 +9,40 @@ HICREP_PARAM_NAMES <-
         'is.downsampled',
         'window.size'
     )
-load_all_hicrep_results <- function(){
-    # Load all files generated from ./scripts/run.hicrep.sh
-    HICREP_DIR %>% 
+
+load_all_hicrep_results <- function(
+    input_dir=HICREP_DIR,
+    param_names=HICREP_PARAM_NAMES,
+    suffix='hicrep.txt',
+    delim='-'){
+    # Load all files generated from ./scripts/run.hicrep.shS
+    input_dir %>% 
     list.files(
         recursive=TRUE,
-        pattern='*-hicrep.txt',
+        pattern=glue('*{suffix}'),
         full.names=FALSE
     ) %>%
     tibble(fileinfo=.) %>%
-    mutate(filepath=file.path(HICREP_DIR, fileinfo)) %>%
+    mutate(filepath=file.path(input_dir, fileinfo)) %>%
     # Get hicrep params
     separate_wider_delim(
         fileinfo,
         delim='/',
-        names=c(HICREP_PARAM_NAMES, 'file.pair')
+        names=c(param_names, 'file.pair')
     ) %>% 
     rowwise() %>% 
     mutate(
         across(
-            HICREP_PARAM_NAMES,
+            param_names,
             ~ str_remove(
                 .x,
-                pattern=glue('({paste(HICREP_PARAM_NAMES, collapse="|")})_')
+                pattern=glue('({paste(param_names, collapse="|")})_')
             )
         )
     ) %>% 
     separate_wider_delim(
         file.pair,
-        delim='-',
+        delim=delim,
         names=
             c(
                 'A',
