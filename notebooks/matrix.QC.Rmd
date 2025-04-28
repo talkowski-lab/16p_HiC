@@ -18,29 +18,48 @@ Set up file locations
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
-# SAMPLE_QC_DIR <- file.path(RESULTS_DIR, 'sample.QC')
 ```
 Load dependencies
 ```{r}
 library(tidyverse)
 library(magrittr)
+library(glue)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 library(ggplot2)
 library(ggh4x)
 library(ggnewscale)
 ```
-Load output of `pairtools stats` 
-```{r results=FALSE, message=FALSE, warning=FALSE, rows.print=5}
+Load sample metadata
+```{r message=FALSE, rows.print=5}
 sample.metadata <- load_sample_metadata()
-pair.stats.list <- load_pairtools_stats(pairs_dir=PAIRS_DIR)
+sample.metadata
 ```
+Load output of `pairtools stats` 
+```{r rows.print=5}
+pair.stats.list <- load_pairtools_stats()
+pair.stats.list$general.stats
+pair.stats.list$distance.stats
+pair.stats.list$chr.stats
+```
+Load genome coverage from `cooltools coverage`
+```{r rows.print=5}
+genome.coverage <- 
+    check_cached_results( 
+        results_file=COVERAGE_DATA_FILE,
+        force_redo=FALSE,
+        return_data=TRUE,
+        results_fnc=load_genome_coverage,
+        resolutions=c(1000, 100000)
+    )
+genome.coverage
+```
+# Plot pair categories {.tabset}
 
-# Plot pair categories
+## Plot pair distance vs frequency
 
-Prepare ploting df
-```{r}
-# Plot distance by by frequency for QC reasons
+```{r include=FALSE}
 plot.df <- 
     pair.stats.list$general.stats %>% 
     select(-c(category)) %>% 
@@ -52,13 +71,13 @@ plot.df <-
         range.end=ifelse(is.na(range.end), Inf, range.end),
         Category=
             case_when(
-                orientation =='-+'   & range.end < 1001  ~ 'self-circle', 
-                orientation =='+-'   & range.end < 1001  ~ 'dangling-end', 
-                range.start >= 20000                     ~ 'Long.Range  >  20Kb',
+                orientation =='-+'   & range.end < 1001    ~ 'self-circle', 
+                orientation =='+-'   & range.end < 1001    ~ 'dangling-end', 
+                range.start >= 20000                       ~ 'Long.Range  >  20Kb',
                 range.start >=  1000 & range.start < 20001 ~ 'Short.Range <= 20Kb',
-                range.end   <=  1000                     ~ 'Too.Short   <=  1Kb',
-                interaction == 'cis' & range.end == Inf ~ 'Cis.Total',
-                interaction == 'trans'                   ~ 'Trans',
+                range.end   <=  1000                       ~ 'Too.Short   <=  1Kb',
+                interaction == 'cis' & range.end == Inf    ~ 'Cis.Total',
+                interaction == 'trans'                     ~ 'Trans',
             )
     ) %>%
     mutate(
@@ -77,26 +96,18 @@ plot.df <-
                     )
             )
     ) %>% 
-    group_by(SampleID, Category) %>% 
+    group_by(Sample.ID, Category) %>% 
     summarize(
         value=sum(value),
         # total per sample
         total.unique.contacts=unique(total.unique.contacts)
     ) %>% 
+    ungroup() %>% 
     mutate(frac=100 * (value / total.unique.contacts))
 ```
 
-Plot pair distance vs frequency
-```{r} 
-plot.df  %>%
-    plot_distance_freqs(y_val='frac') %>%
-    ggsave(
-        glue('{PLOT_DIR}/distance.contact.frequency.barplot.pdf'),
-        .,
-        height=6,
-        width=10,
-        units='in'
-    )
+```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=6}
+plot.df  %>% plot_distance_freqs(y_val='frac')
 ```
 
 Plot heatmap of trans interactions
