@@ -1,6 +1,7 @@
+library(tidyverse)
 library(magrittr)
 library(tictoc)
-library(tidyverse)
+library(glue)
 ###############
 # Load Data
 check_cached_results <- function(
@@ -10,41 +11,56 @@ check_cached_results <- function(
     show_col_types=FALSE,
     results_fnc,
     ...){
-    # Set read/write functions based on filetype
-    output_filetype <- results_file %>% str_extract('\\.[^\\.]*$') 
-    if (output_filetype == '.rds') {
-        load_fnc <- readRDS
-        save_fnc <- saveRDS
-    } else if (output_filetype %in% c('.txt', '.tsv')) {
-        load_fnc <- partial(read_tsv, show_col_types=show_col_types)
-        save_fnc <- write_tsv
-    } else {
-        stop(glue('Invalid file extesion: {extension}'))
-    }
     # Now check if the results file exists and load it
     tic()
-    if (file.exists(results_file) & !force_redo) {
-        message(glue('{results_file} exists, not recomputing results'))
-        if (return_data) {
-            message('Loading cached results...')
-            results <- load_fnc(results_file)
-        }
+    if (is.null(results_file)) {
+        message("No results file, will just return data")
+        results <- results_fnc(...)
+        return_data <- TRUE
     } else {
-        if (file.exists(results_file) & force_redo) {
-            message(glue('{results_file} exists, recomputing results anyways'))
+        # Set read/write functions based on filetype
+        output_filetype <- results_file %>% str_extract('\\.[^\\.]*$') 
+        if (output_filetype == '.rds') {
+            load_fnc <- readRDS
+            save_fnc <- saveRDS
+        } else if (output_filetype %in% c('.txt', '.tsv')) {
+            load_fnc <- partial(read_tsv, show_col_types=show_col_types)
+            save_fnc <- write_tsv
         } else {
-            message(glue('No cached results, generating: {results_file}'))
+            stop(glue('Invalid file extesion: {extension}'))
         }
-        dir.create(dirname(results_file), recursive=TRUE, showWarnings=FALSE)
-        results <- results_fnc(...) %T>% save_fnc(results_file)
-        # If results dont exist or force_redo is TRUE compute + cache results
-        # Assumes save_fnc is of fomr save_fnc(result_object, filename)
+        if (file.exists(results_file) & !force_redo) {
+            message(glue('{results_file} exists, not recomputing results'))
+            if (return_data) {
+                message('Loading cached results...')
+                results <- load_fnc(results_file)
+            }
+        # or force recompute+cache the data and return it
+        } else {
+            if (file.exists(results_file) & force_redo) {
+                message(glue('{results_file} exists, recomputing results anyways'))
+            } else {
+                message(glue('No cached results, generating: {results_file}'))
+            }
+            dir.create(dirname(results_file), recursive=TRUE, showWarnings=FALSE)
+            results <- results_fnc(...) %T>% save_fnc(results_file)
+            # If results dont exist or force_redo is TRUE compute + cache results
+            # Assumes save_fnc is of fomr save_fnc(result_object, filename)
+        }
     }
+    # Or dont save the results, just return the results
     toc()
-    if (return_data) return(results) else return(invisible(NULL))
+    if (return_data) {
+        return(results)
+    } else { 
+        return(invisible(NULL))
+    }
 }
-load_sample_metadata <- function(clean=TRUE){
-    SAMPLE_METADATA_FILE %>%
+
+load_sample_metadata <- function(
+    sample_metadata_file=SAMPLE_METADATA_FILE,
+    clean=TRUE){
+    sample_metadata_file %>%
     read_tsv() %>%
     {
         if (clean) {
@@ -72,6 +88,7 @@ load_sample_metadata <- function(clean=TRUE){
         }
     }
 }
+
 load_chr_sizes <- function(){
     CHROMOSOME_SIZES_FILE %>% 
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
@@ -83,6 +100,7 @@ load_mcool_file <- function(
     CoolFile() %>% 
     import(...)
 }
+
 load_sparse_matrix <- function(filename){
     read.table(
         filename,
@@ -99,6 +117,7 @@ load_sparse_matrix <- function(filename){
             )
     )
 }
+
 load_all_sparse_matrix_files <- function(
     matrix_dir,
     ...){
