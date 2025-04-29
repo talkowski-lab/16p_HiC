@@ -32,39 +32,53 @@ RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,1
 # 10000000 #  10Mb
 # Utils
 help() {
-    case ${1} in 
-        dump)
-            args="TODO"
-            ;;
-        plot_triangle)
-            args="TODO"
-            ;;
-        digest_genome)
-            args=""
-            ;;
-        restrict)
-            args="\${OUTPUT_DIR} sample1.hg38.nodups.pairs.gz sample{2..N}.hg38.nodups.pairs.gz"
-            ;;
-        merge_NIBPLWAPL) 
-            args="\${COOLER_DIR}"
-            ;;
-        merge_16p)
-            args="\${COOLER_DIR}"
-            ;;
-        coverage)
-            args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool"
-            ;;
-        qc3C)
-            args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam"
-            ;;
-        multiqcs)
-            args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}"
-            ;;
-        *) 
-            echo "Invalid mode: $mode" && exit 1 
-            ;;
-    esac
-    echo "Usage: ${0} ${1} ${args}"
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: ${0} \${MODE}
+modes: 
+    coverage 
+    digest_genome 
+    restrict 
+    merge_NIBPLWAPL 
+    merge_16p 
+    coverage 
+    qc3C 
+    multiqcs"
+    else
+        case ${1} in 
+            dump)
+                args="TODO"
+                ;;
+            plot_triangle)
+                args="TODO"
+                ;;
+            digest_genome)
+                args=""
+                ;;
+            restrict)
+                args="\${OUTPUT_DIR} sample1.hg38.nodups.pairs.gz sample{2..N}.hg38.nodups.pairs.gz"
+                ;;
+            merge_NIBPLWAPL) 
+                args="\${COOLER_DIR}"
+                ;;
+            merge_16p)
+                args="\${COOLER_DIR}"
+                ;;
+            coverage)
+                args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool"
+                ;;
+            qc3C)
+                args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam"
+                ;;
+            multiqcs)
+                args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}"
+                ;;
+            *) 
+                echo "Invalid mode: $mode" && exit 1 
+                ;;
+        esac
+        echo "Usage: ${0} ${1} ${args}"
+    fi
+    exit 0 
 }
 activate_conda() {
     # activate conda env with specific tools for each task
@@ -278,6 +292,7 @@ matrix_coverage() {
             resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
             raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
             raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
+            echo ${uri}
             if ! [[ -e ${raw_output_file} ]]; then
                 echo ${raw_output_file}
                 cooltools coverage \
@@ -451,7 +466,7 @@ while [ : ]; do
             shift 2
             ;;
         -h|--help) 
-            help 
+            shift 1 && help
             ;;
         --)
             shift 
