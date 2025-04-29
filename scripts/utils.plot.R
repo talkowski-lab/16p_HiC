@@ -1,8 +1,11 @@
+# Dependencies
+library(tidyverse)
+library(magrittr)
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
 ###############
-# Misc
+# Formatting
 add_ggtheme <- function(){
     theme(
         panel.grid.major=element_blank(), 
@@ -89,7 +92,8 @@ shift_legend <- function(p){
 
     return(gp)
 }
-
+###############
+# Utility
 make_tab_per_group <- function(
     plot.df, 
     group_col,

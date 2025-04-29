@@ -1,4 +1,8 @@
-library(tidyverse)
+# Dependencies 
+# library(tidyverse)
+# library(magrittr)
+# library(glue)
+# library(purrr)
 ###############
 # Load TAD annotation data
 load_arrowhead_TAD_annotation <- function(
@@ -31,6 +35,7 @@ load_arrowhead_TAD_annotation <- function(
             )
     )
 }
+
 load_hiTAD_TAD_annotation <- function(
     filepath,
     ...){
@@ -45,6 +50,7 @@ load_hiTAD_TAD_annotation <- function(
             )
     )
 }
+
 load_cooltools_TAD_annotation <- function(
     filepath,
     ...){
@@ -53,6 +59,7 @@ load_cooltools_TAD_annotation <- function(
         show_col_types=FALSE
     )
 }
+
 load_hiTAD_DIs <- function(
     filepath,
     ...){
@@ -68,20 +75,22 @@ load_hiTAD_DIs <- function(
             )
     )
 }
+
 load_TAD_annotation <- function(
     filepath,
     method,
     ...){
     if (method == 'hiTAD') {
         load_hiTAD_TAD_annotation(filepath)
-    } else if (method == 'arrowhead') {
-        load_arrowhead_TAD_annotation(filepath)
     } else if (method == 'hiTAD-DIs') {
         load_hiTAD_DIs(filepath)
+    } else if (method == 'arrowhead') {
+        load_arrowhead_TAD_annotation(filepath)
     } else {
         message(glue('Invalid method {method}'))
     }
 }
+
 load_all_TAD_annotations <- function(
     tad_annotations_dir,
     tad.method,
@@ -96,10 +105,8 @@ load_all_TAD_annotations <- function(
     ) %>%
     tibble(filename=.) %>% 
     mutate(
-        filepath=glue('{tad_annotations_dir}/{filename}'),
-        filename=
-            filename %>% 
-            str_remove(file_suffix)
+        filepath=file.path(tad_annotations_dir, filename),
+        filename=str_remove(filename, file_suffix)
     ) %>% 
     separate_wider_delim(
         filename,
@@ -119,3 +126,9 @@ load_all_TAD_annotations <- function(
     unnest(TADs) %>%
     add_column(Method=tad.method)
 }
+
+###############
+# Compute stuff
+
+###############
+# Plot stuff
