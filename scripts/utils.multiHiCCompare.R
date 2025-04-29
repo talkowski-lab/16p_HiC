@@ -1,5 +1,16 @@
+# Depdendencies
+library(tidyverse)
+library(magrittr)
+library(glue)
+library(multiHiCcompare)
+library(furrr)
+library(BiocParallel)
+library(ggplot2)
+library(viridis)
+library(cowplot)
+library(gtable)
 ###############
-# MultiHiCCompare
+# Load resutls
 run_multiHiCCompare <- function(
     sample_df,
     sample_groups,
@@ -76,6 +87,7 @@ run_multiHiCCompare <- function(
         }
     }
 }
+
 load_multiHiCCompare_results <- function(
     filepath,
     nom.threshold,
@@ -86,6 +98,7 @@ load_multiHiCCompare_results <- function(
     filter(p.adj < fdr.threshold) %>%
     filter(p.value < nom.threshold)
 }
+
 load_all_multiHiCCompare_results <- function(
     multiHiCCompare_results_dir,
     comparisons=NULL,
@@ -118,7 +131,7 @@ load_all_multiHiCCompare_results <- function(
             )
     ) %>%
     mutate(Resolution=as.integer(Resolution)) %>% 
-    # Only load results meeting specific params
+    # Only load results with specific params
     { 
         if (is.null(resolution)) {
             .

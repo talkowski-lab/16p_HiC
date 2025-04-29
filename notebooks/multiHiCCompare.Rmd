@@ -1,0 +1,154 @@
+---
+title: "multiHiCCompare analysis of 16p samples"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+        theme: paper
+        code_folding: hide
+        df_print: paged
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+# Set up
+
+Set up file locations
+```{r results='hide', echo=TRUE}
+library(here)
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+```
+Load dependencies
+```{r}
+library(tidyverse)
+library(magrittr)
+source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
+source(file.path(BASE_DIR, 'scripts/utils.hicrep.R'))
+library(ggplot2)
+library(ggh4x)
+library(purrr)
+```
+
+# Generate + load all differential contact results
+
+Parameter combinations used to run multiHiCCompare
+```{r}
+param_combos <- 
+    expand_grid(
+        region=c(paste0('chr', 1:22), 'chrX'),
+        resolution=c(500000, 100000, 50000, 10000, 5000),
+        sample_groups=
+            list(
+              c('16p11.DEL', '16p11.WT'),
+              c('16p11.DUP', '16p11.WT'),
+              c('16p11.DUP', '16p11.DEL')
+            ),
+        zero.p=c(0, 0.2, 0.8, 1),
+        A.min=c(0, 1, 5, 10),
+        filter_bins=c(TRUE)
+    ) %>% 
+    rowwise() %>% 
+    mutate(
+        combo_name=
+            glue("{paste(sample_groups, collapse='.vs.')}_{region}_{format(resolution, scientific=FALSE)}_{zero.p}_{A.min}_{filter_bins}"),
+        output_file=glue("{MULTIHICCOMPARE_DIR}/results/{combo_name}.tsv"),
+        md_plot_file=glue("{MULTIHICCOMPARE_DIR}/MD_plots/{combo_name}.pdf")
+    ) %>% 
+    ungroup()
+param_combos %>% dim()
+param_combos %>% select(-c(output_file, md_plot_file)) %>% head(2) %>% t()
+```
+Generate + chace results
+```{r}
+numCores <- 4
+register(MulticoreParam(workers=numCores), default=TRUE)
+data('hg38_cyto') # GRanges object with Centro/Telomere regions to filter
+param_combos %>% 
+filter(region == 'chrX') %>%
+    filter(resolution == 10000) %>% 
+    filter(grepl('16p11.*.vs.16p11.WT', combo_name)) %>% 
+    filter(zero.p == 0.8) %>% 
+    filter(A.min == 5) %>% 
+    filter(filter_bins == TRUE) %>% 
+    pmap(
+         .l=.,
+         .f=run_multiHiCCompare,
+         sample_df=sample_df,
+         .progress=TRUE
+    )
+```
+Load results all generated results
+```{r load_results}
+all.results <- 
+    check_cached_results(
+        results_file=MULTIHICCOMPARE_RESULTS_FILE,
+        force_redo=FALSE,
+        return_data=TRUE,
+        results_fnc=load_all_multiHiCCompare_results,
+        multiHiCCompare_results_dir=MULTIHICCOMPARE_DIR
+        resolution=100000,
+        comparison='16p11.*.vs.16p11.WT',
+        fdr.threshold=0.1
+        # nom.threshold=0.05
+    )
+```
+Print results summary
+```{r summary}
+all.results %>% head(2) %>% t()
+all.results %>% dplyr::count(zero.p, A.min, Is.Filtered, Resolution, Comparison)
+all.results %>% dplyr::count(Chr, chr, sig.lvl, Comparison)
+```
+
+# Plot sgtuff
+
+Prepare data for plotting
+```{r}
+plot_df <- 
+    all.results %>% 
+    mutate(logFC=-logFC) %>%
+    mutate(log.p.adj=-log10(p.adj)) %>%
+    left_join(load_chr_sizes(), by='Chr') %>% 
+    rename(
+        region1='region1.bp',
+        region2='region2.bp'
+    ) %>% 
+    mutate(
+        region1.bin=region1.bp / Resolution,
+        region2.bin=region2.bp / Resolution,
+        region1.pct=100 * (region1.bp / chr.total.bp),
+        region2.pct=100 * (region2.bp / chr.total.bp)
+    ) %>% 
+    mutate(
+        distance.bp=region2.bp - region1.bp,
+        distance.kb=distance.bp / 1000,
+        distance.bin=region2.bin - region1.bin,
+        distance.pct=region2.pct - region1.pct
+    ) %>%
+    mutate(
+        distance.discrete=
+            case_when(
+                distance.kb <= 5     ~  '    .< 5Kb',
+                distance.kb <= 20    ~ ' 5Kb<.<20Kb',
+                distance.kb <= 50    ~ '20Kb<.<50Kb',
+                distance.kb <= 1000  ~ '50Kb<.< 1Mb',
+                distance.kb <= 5000  ~ ' 1Mb<.<50Kb',
+                distance.kb <= 30000 ~ ' 5Mb<.<30Kb',
+                distance.kb >  30000 ~ '30Mb<.     ',
+            ) %>%
+            factor(levels=c('    .<  5Kb', ' 5Kb<.<20Kb', '20Kb<.<50Kb', '50Kb<.< 1Mb', ' 1Mb<.<50Kb', ' 5Mb<.<30Kb', '30Mb<.     '))
+    ) %>% 
+    mutate(
+        Chr=factor(Chr, levels=c(paste0('chr', 1:22), 'chrX')),
+        Resolution=fct_reorder(glue('{Resolution / 1000}Kb'), Resolution)
+    )
+plot_df %>% head(2) %>% t()
+```
