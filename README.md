@@ -98,7 +98,7 @@ We separately create merged matrices for MAPQ filtered and unfiltered contacts f
 
 ```bash
 # Wrapper command to merge specific matrices for each genotype
-$ ./scripts/matrix.utils.sh merge_16p 
+$ ./scripts/matrix.utils.sh merge_16p ./results/coolers_library
 ```
 which produces the following files
 ```
@@ -119,11 +119,10 @@ results
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
 
 ```bash
-$ ./scripts/matrix.utils.sh qc3c                         # run qc3C with specified params
-        ./results/sample.QC/qc3C/                        # output dir
-        results/mapped_parsed_sorted_chunks/16p.**/*.bam # bam files produced by distiller for each sample
-# copy pastable
-./scripts/matrix.utils.sh qc3c ./results/sample.QC/qc3C/ results/mapped_parsed_sorted_chunks/16p.**/*.bam
+$ ./scripts/matrix.utils.sh qc3c                     # run qc3C with specified params
+        ./results/sample.QC/qc3C/                    # output dir
+        DpnII HinfI                                  # enzymes used
+        results/mapped_parsed_sorted_chunks/**/*.bam # bam files produced by distiller for each sample
 ```
 ### Generate MultiQC reports
 
@@ -140,8 +139,6 @@ Ultimately we can generate 3 multiqc reports
 $ ./scripts/matrix.utils.sh multiqcs         # generate multiqc reports for different outputs from distiller,qc3C
         ./results/sample.QC/multiqc.reports/ # output dir
         ./results/                           # all multiqc data is under here in specific directories
-# copy pastable
-./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
 ```
 ### HiCRep Analysis
 
@@ -172,10 +169,8 @@ The fist step is to generate the digested reference bed file for our data. This 
 # Generate multi-digested reference since we use ARIMA kit for HiC 
 $ ./scripts/matrix.utils.sh digest_genome
 # Annotate restriction fragments to reads with pairtools
-$ ./scripts/matrix.utils.sh restrict                        # run pairtools restrict
-        ./results.NSC/sample.QC/restriction.analysis/       # output dir
-        ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz # pairsfiles for each sample
-# copy pastable
-./scripts/matrix.utils.sh restrict ./results.NSC/sample.QC/restriction.analysis/ ./results.NSC/pairs_library/16p.*/*.nodups.pairs.gz
+$ ./scripts/matrix.utils.sh restrict                     # run pairtools restrict
+        ./results.NSC/sample.QC/restriction.analysis/    # output dir
+        ./results.NSC/pairs_library/**/*.nodups.pairs.gz # pairsfiles for each sample
 ```
 
