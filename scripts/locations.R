@@ -78,3 +78,9 @@ RESOLUTION_IDEAL_H <-
            1000000,        1,
            1000000,        0
     )
+GENOTYPE_COLORS <- 
+    c(
+        'WT'='#b3b3ff',
+        'DEL'='#ff0000',
+        'DUP'='#0000ff'
+    )

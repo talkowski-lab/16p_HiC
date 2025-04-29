@@ -14,8 +14,6 @@ BASE_DIR="/data/talkowski/Samples/16p_HiC"
 PLOT_DIR=glue('{BASE_DIR}/results/TADs/plots')
 source(glue('{BASE_DIR}/scripts/locations.R'))
 source(glue('{BASE_DIR}/scripts/utils.data.R'))
-GENOTYPE_COLORS=c('WT'='#b3b3ff', 'DEL'='#ff0000', 'DUP'='#0000ff')
-
 # Load Directionality Index scores
 DI.scores <- 
     load_all_TAD_annotations(
