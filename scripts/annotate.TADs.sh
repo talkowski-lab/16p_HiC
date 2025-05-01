@@ -6,20 +6,28 @@ JAVA_CMD="java -jar -Xmx48000m -Djava.awt.headless=true -jar ${JUICER_JAR}"
 ARROWHEAD_WINDOW_SIZES=(4000 2000)
 ARROWHEAD_BALANCINGS=(KR VC NONE)
 # hiTAD params
-declare -rA HITAD_WEIGHTS=(["ICE"]="weight"  ["Raw"]="RAW")
+declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
 # cooltools insulation params
 COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
-COOLTOOLS_MFVP=(0.33 0.66 0.9)
-COOLTOOLS_THRESHOLD=(Li 0)
-declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight"  ["Raw"]="")
+# COOLTOOLS_MFVP=(0.33 0.66 0.9)
+COOLTOOLS_MFVP=( 0.66 0.9)
+# COOLTOOLS_THRESHOLD=(Li 0)
+COOLTOOLS_THRESHOLD=(Li)
+declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight" ["Raw"]="")
 # Functions
 help() {
-    echo "USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample{2..N}.mcool 
-            -s | --use-slurm
-            -r | --resolution
-            -o | --output-dir
+    echo "USAGE: $(basename $0) [OPTIONS] {METHOD} sample1.mcool sample{2..N}.mcool
+        -a | --anaconda-dir        # where conda is installed
+        -r | --resolution          # resolutions at which to annotate TADs
+        -o | --output-dir          # root results dir
+        -h | --help                # print this message
+        -s | --use-slurm           # launch each call as a slurm job, each with params specified by other arguments
             -l | --log-dir
-            -h | --help"
+            -p | --partition
+            -m | --mem
+            -t | --ntasks-per-node
+            -c | --cpus
+"
     exit 0
 }
 activate_conda() {
@@ -51,6 +59,15 @@ run_slurm_cmd() {
         --error    "${LOG_DIR}/${job_name}.err" \
         --wrap="${cmd}"
 }
+run_cmd() {
+    cmd="${1}"
+    job_name="${2}"
+    if [[ ${USE_SLURM} -eq 1 ]]; then
+        run_slurm_cmd "${CONDA_ENV_CMD}; time ${cmd}" "${job_name}"
+    else 
+        time eval ${cmd} 
+    fi
+}
 run_arrowhead() {
     hic_file="$1"
     output_file="$2"
@@ -59,7 +76,7 @@ run_arrowhead() {
     window_size="$5"
     cmd="${CONDA_ENV_CMD}
     ${JAVA_CMD} arrowhead
-        --threads ${NTASKS_PER_NODE}
+        --threads ${THREADS}
         -k ${balancing}
         -r ${resolution}
         -m ${window_size}
@@ -82,33 +99,27 @@ run_hitad() {
     for weight_name in ${!HITAD_WEIGHTS[@]}; do
         jobs_num=$(( jobs_num+1 ))
         # log info
-        param_dir="${method}/${resolution}/${weight_name}"
+        param_dir="method_${method}/resolution_${resolution}/weight_${weight_name}"
         output_dir="${OUTPUT_DIR}/${param_dir}"
         output_TAD_file="${output_dir}/${sample_ID}-TAD.tsv"
         # Dont submit job if results already exist
-        if [[ -a $output_TAD_file ]]; then
+        if [[ -a ${output_TAD_file} ]]; then
             jobs_skipped=$(( jobs_skipped+1 )) 
             continue 
         fi
-        # Run command
+        # compose command + args to annotate TADs
         mkdir -p "${output_dir}"
-        cmd="domaincaller                                     \
-            --cpu-core   ${NTASKS_PER_NODE}                           \
-            --weight-col ${HITAD_WEIGHTS[$weight_name]}       \
-            --logFile    ${output_dir}/${sample_ID}-hitad.log \
-            --DI-output  ${output_dir}/${sample_ID}-DI.tsv    \
-            --output     ${output_TAD_file}                   \
+        cmd="domaincaller
+            --cpu-core   ${THREADS}
+            --weight-col ${HITAD_WEIGHTS[${weight_name}]}
+            --logFile    ${output_dir}/${sample_ID}-hitad.log
+            --DI-output  ${output_dir}/${sample_ID}-DI.tsv
+            --output     ${output_TAD_file}
             --uri ${mcool_file}::resolutions/${resolution}"
-        # make sure conda env is activated in the job if using slurm
-        # echo "${cmd}"
-        if [[ $USE_SLURM -eq 1 ]]; then
-            job_name="$(echo $param_dir | sed -e 's/\//./g').${sample_ID}"
-            run_slurm_cmd "${CONDA_ENV_CMD}; ${cmd}" "${job_name}"
-            jobs_done=$(( jobs_done+1 ))
-        else 
-            eval $cmd 
-            [[ -a $output_TAD_file ]] && jobs_done=$(( jobs_done+1 ))
-        fi
+        # run command
+        job_name="$(echo ${param_dir} | sed -e 's/\//./g').${sample_ID}"
+        run_cmd "${cmd}" "${job_name}"
+        [[ -a ${output_TAD_file} ]] && jobs_done=$(( jobs_done+1 ))
     done
     echo -e "${sample_ID}\t${jobs_num}\t${jobs_done}\t${jobs_skipped}"
 }
@@ -131,12 +142,13 @@ run_cooltools_insulation() {
     for mfvp in ${COOLTOOLS_MFVP[@]}; do
         jobs_num=$(( jobs_num+1 ))
         # log info
-        param_dir="${method}/${resolution}/${weight_name}/${threshold}/${mfvp}"
+        param_dir="method_${method}/resolution_${resolution}/weight_${weight_name}/threshold_${threshold}/mfvp_${mfvp}"
         # output files
         output_dir="${OUTPUT_DIR}/${param_dir}"
         output_TAD_file="${output_dir}/${sample_ID}-TAD.tsv"
+        # echo ${output_TAD_file} && continue
         # Dont submit job if results already exist
-        if [[ -a $output_TAD_file ]]; then
+        if [[ -a ${output_TAD_file} ]]; then
             jobs_skipped=$(( jobs_skipped+1 )) 
             continue 
         fi
@@ -148,7 +160,7 @@ run_cooltools_insulation() {
         fi
         mkdir -p "${output_dir}"
         cmd="cooltools insulation ${weight_flag}--verbose
-                --nproc ${NTASKS_PER_NODE}                                   
+                --nproc ${THREADS}
                 --append-raw-scores                                   
                 --window-pixels                                       
                 --min-frac-valid-pixels ${mfvp}                       
@@ -158,13 +170,9 @@ run_cooltools_insulation() {
                 ${mcool_file}::resolutions/${resolution} 
                 ${COOLTOOLS_WINDOW_SIZES[@]}"
         # Launch as slurm job if specified
-        if [[ $USE_SLURM -eq 1 ]]; then
-            job_name="$(echo $param_dir | sed -e 's/\//./g').${sample_ID}"
-            run_slurm_cmd "${CONDA_ENV_CMD}; ${cmd}" "${job_name}"
-        else 
-            eval $cmd 
-            [[ -a $output_TAD_file ]] && jobs_done=$(( jobs_done+1 ))
-        fi
+        job_name="$(echo ${param_dir} | sed -e 's/\//./g').${sample_ID}"
+        run_cmd "${cmd}" "${job_name}"
+        [[ -a ${output_TAD_file} ]] && jobs_done=$(( jobs_done+1 ))
     done
     done
     done
@@ -172,13 +180,13 @@ run_cooltools_insulation() {
 }
 main() {
     # Activate conda env now if running locally (not submitting jobs)
-    [[ $USE_SLURM -eq 0 ]] && eval "${CONDA_ENV_CMD}"
+    [[ ${USE_SLURM} -eq 0 ]] && eval "${CONDA_ENV_CMD}"
     # Loop over all samples at all resolutions and call tads
     echo -e "SampleID\tJobs Submitted\tJobs Skipped"
     for sample_file in ${HIC_SAMPLES[@]}; do
     for resolution in ${RESOLUTIONS[@]}; do
         sample_ID="$(get_sample_ID "${sample_file}")"
-        case $METHOD in
+        case ${METHOD} in
             arrowhead)
                 run_arrowhead ${sample_file} ${resolution}
                 ;;
@@ -189,7 +197,7 @@ main() {
                 run_cooltools_insulation ${sample_file} ${resolution}
                 ;;
             *)
-                echo "Invalid method: $METHOD" && exit 1
+                echo "Invalid method: ${METHOD}" && exit 1
                 ;;
         esac
     done
@@ -207,10 +215,11 @@ PARTITION="short"
 MEM_GB=30
 NTASKS_PER_NODE=2
 CPUS=2
+THREADS=$(( ${NTASKS_PER_NODE}*${CPUS} ))
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m:a: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir -- "$@")
-eval set -- "$VALID_ARGS"
+VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m:a:t: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir,threads -- "$@")
+eval set -- "${VALID_ARGS}"
 while [ : ]; do
     case "$1" in
         -a|--anaconda-dir)
@@ -223,6 +232,10 @@ while [ : ]; do
             ;;
         -o|--output-dir)
             OUTPUT_DIR="${2}" 
+            shift 2
+            ;;
+        -t|--threads)
+            THREADS="${2}" 
             shift 2
             ;;
         -s|--use-slurm)
@@ -249,10 +262,6 @@ while [ : ]; do
             LOG_DIR="${2}" 
             shift 2
             ;;
-        -a|--anaconda-dir)
-            CONDA_DIR="${2}"
-            shift 2
-            ;;
         -h|--help) 
             help 
             ;;
@@ -268,13 +277,14 @@ HIC_SAMPLES=${@:2}
 echo "
 Using TAD caller:       ${METHOD}
 Using resolution(s):    ${RESOLUTIONS[@]}
-Using output directory: ${OUTPUT_DIR}"
-if [[ $USE_SLURM -eq 1 ]]; then
+Using output directory: ${OUTPUT_DIR}
+THREADS:                ${THREADS}"
+if [[ ${USE_SLURM} -eq 1 ]]; then
 echo "Submitting each TAD annotation as a slurm job with the following params
 Log directory:           ${LOG_DIR}
 Submitting to partition: ${PARTITION}
 Mem per job:             ${MEM_GB}Gb
-NTasks per node per job: ${NTASKS_PER_NODE}
+Tasks per node per job:  ${NTASKS_PER_NODE}
 CPUs per task per job:   ${CPUS}"
 else
     echo "Not using SLURM, running TAD annotations in current shell"
