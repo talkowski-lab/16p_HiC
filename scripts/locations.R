@@ -51,21 +51,32 @@ CHROMOSOMES <-
         'chrX',
         'chrY'
     )
-RESOLUTION_NAMES <- 
-    tribble(
-       ~Resolution, ~Resolution.name, 
-              5000,            '5Kb',
-             10000,           '10Kb',
-             25000,           '25Kb',
-             40000,           '40Kb',
-             50000,           '50Kb',
-            100000,          '100Kb',
-            500000,          '500Kb',
-           1000000,            '1Mb'
-    ) %>%
-    mutate(Resolution.name=factor(Resolution.name, levels=Resolution.name))
 RESOLUTIONS <- 
-    RESOLUTION_NAMES$Resolution
+    c(
+          1000,
+          5000,
+         10000,
+         25000,
+         40000,
+         50000,
+        100000,
+        500000,
+       1000000,
+       2500000,
+       5000000
+    )
+RESOLUTION_NAMES <- 
+    RESOLUTIONS %>%
+    tibble(Resolution=.) %>% 
+    mutate(Resolution.name=Resolution / 1000) %>% 
+    mutate(
+        Resolution.name=
+            case_when(
+                Resolution.name >= 1000 ~ paste0(Resolution.name / 1000, "Mb"),
+                Resolution.name >= 1    ~ paste0(Resolution.name, "Kb")
+            ) %>% 
+            factor(., levels=.)
+    )
 RESOLUTION_IDEAL_H <- 
     tribble(
        ~Resolution, ~Ideal_H, 
