@@ -55,6 +55,66 @@ genome.coverage <-
     )
 genome.coverage
 ```
+
+# Calculate minimum resolution from pair orientations
+
+The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D) as follows
+
+>We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
+
+```{r, include=FALSE}
+# Variables to count coverage across
+grouping_cols <- 
+    genome.coverage %>%
+    colnames() %>%
+    {.[!grepl("(start|end|coverage)", .)]}
+# print(grouping_cols)
+coverage.summary <- 
+    genome.coverage %>%
+    group_by(across(grouping_cols)) %>%
+    summarize(
+        bins.n.nz=sum(coverage > 0),
+        bins.n.covered=sum(coverage > 1000),
+        bins.n.total=n()
+    ) %>%
+    ungroup() %>%
+    # Calculate totals by summing per chr values
+    bind_rows(
+        .,
+        {.} %>%
+        group_by(across(grouping_cols[!grepl("chr", grouping_cols)])) %>% 
+        summarize(
+            across(
+                starts_with('bins.n.'),
+                ~ sum(.x)
+            )
+        ) %>%
+        add_column(chr='genome.wide')
+    ) %>%
+    mutate(
+        bins.pct.nz=bins.n.nz / bins.n.total,
+        bins.pct.covered=bins.n.covered / bins.n.total
+    )
+```
+Now print all resolutions which are usable according to the Rao et al. 2014 definition
+```{r paged.print=TRUE, max.print=10000}
+coverage.summary %>% 
+    filter(chr == 'genome.wide') %>%
+    filter(weight == 'raw') %>% 
+    filter(ReadFilter == 'mapq_30') %>% 
+    filter(metric == 'cis') %>% 
+    filter(bins.pct.covered >= 0.80) %>% 
+    mutate(bins.pct.covered=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
+    select(
+        Sample.ID,
+        resolution,
+        bins.n.covered,
+        bins.n.total,
+        bins.pct.covered
+    ) %>%
+    arrange(Sample.ID, resolution)
+```
+
 # Plot pair categories {.tabset}
 
 ## Plot pair distance vs frequency
