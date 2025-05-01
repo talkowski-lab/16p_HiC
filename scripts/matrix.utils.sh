@@ -236,7 +236,7 @@ merge_16p_matrices() {
 }
 merge_NIPBLWAPL_matrices() {
     activate_conda 'cooler'
-    cooler_dir="${HIC_NIPBLWAPL_RESULTS_DIR}/results.iN/coolers_library"
+    cooler_dir="$(readlink -e "${1}")"
     # Merge matrices with and without MAPQ filtering
     for filter_name in ${MAPQ_FITERS[@]}; do 
         # NIBPL WTs 
@@ -432,7 +432,7 @@ make_multiqc_reports() {
 main() {
     mode="$1"
     case $mode in 
-        merge_NIBPLWAPL) merge_NIPBLWAPL_matrices ${2} ;;
+        merge_NIPBLWAPL) merge_NIPBLWAPL_matrices ${2} ;;
         merge_16p)       merge_16p_matrices ${2} ;;
         dump)            dump_all_regions ${@:2} ;;
         plot_triangle)   plot_fanc ${@:2} ;;
