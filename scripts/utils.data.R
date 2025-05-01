@@ -147,3 +147,100 @@ load_all_sparse_matrix_files <- function(
             )
     ) 
 }
+
+fetch_contacts <- function(
+    mcool_file,
+    resolution,
+    normalization,
+    ...){
+    # hic.obj=hic_matrices$matrix[[1]]; SampleID=hic_matrices$SampleID[[1]]
+    interactions.file <- mcool_file %>% File(resolution=resolution)
+    cnv.interactions <- 
+        interactions.file %>%
+        fetch(
+            range1=CHR16_TELOMERE_REGION,
+            range2=CHR16_ELISE_REGION,
+            normalization=normalization,
+            join=TRUE,
+            query_type='UCSC',
+            type='df'
+        ) %>% 
+        as_tibble() %>% 
+        add_column(region='16p11.2 CNV - Telomere')
+    dist.range <- 
+        cnv.interactions %>%
+        mutate(dist=start2 - start1) %>%
+        {list('min'=min(.$dist), 'max'=max(.$dist))}
+    telomere <- 
+        CHR16_TELOMERE_REGION %>% 
+        str_remove('^chr16:') %>% 
+        str_remove_all(',') %>% 
+        str_split('-') %>% 
+        first() 
+    # Get Telomere+CNV boundaries to not double-count them in controls
+    telomere.start <- as.integer(telomere[[1]])
+    telomere.end <- as.integer(telomere[[2]])
+    cnv <- 
+        CHR16_ELISE_REGION %>% 
+        str_remove('chr16:') %>% 
+        str_remove_all(',') %>% 
+        str_split('-') %>% 
+        first()
+    cnv.start <- as.integer(cnv[[1]])
+    cnv.end <- as.integer(cnv[[2]])
+    # Get sets of control interactions to compare against i.e.
+    # all contacts within and distance range as Telomere-CNV contacts
+    CHR16_CONTROL_REGIONS %>% 
+    as_tibble() %>%
+    # First get contacts within each region of interest
+    pivot_longer(
+        everything(),
+        names_to='region',
+        values_to='coords'
+    ) %>%
+    # Now find all contacts within specified distance range
+    mutate(
+        region=glue('{region}.Distance.Matched.Control'),
+        interactions=
+            pmap(
+                .l=.,
+                .f=function(interactions.file, coords, ...){
+                    interactions.file %>%
+                    fetch(
+                        range1=coords,
+                        normalization=normalization,
+                        join=TRUE,
+                        query_type='UCSC',
+                        type='df'
+                    )
+                },
+                interactions.file=interactions.file
+            )
+    ) %>% 
+    unnest(interactions) %>% 
+    mutate(dist=start2 - start1) %>%
+    dplyr::filter(between(dist, dist.range$min, dist.range$max)) %>%
+    # Remove any contacts spanning regions of interest
+    filter(
+        !(
+            between(start1, telomere.start, telomere.end) &
+            between(start2, cnv.start, cnv.end)
+        )
+    ) %>% 
+    select(-dist) %>% 
+    # add cnv contacts back and return 
+    bind_rows(cnv.interactions) %>%
+    mutate(
+        region=
+            factor(
+                region,
+                levels=
+                    CHR16_CONTROL_REGIONS %>% 
+                    names() %>% 
+                    paste0('.Distance.Matched.Control') %>% 
+                    sort() %>% 
+                    c('16p11.2 CNV - Telomere', .)
+            )
+    ) %>% 
+    select(-c(coords, end1, end2))
+}
