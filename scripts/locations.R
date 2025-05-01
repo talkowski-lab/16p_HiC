@@ -95,3 +95,22 @@ GENOTYPE_COLORS <-
         'DEL'='#ff0000',
         'DUP'='#0000ff'
     )
+# Genomic region boundaries to refernce during analysis plotting
+GENOMIC_REGIONS <- 
+    tribble(
+        ~name,              ~chr,    ~start,       ~end,
+        "chr16",              16,         0,   90338345,
+        "chr16p",             16,         0,   36800000,
+        "chr16p11.2",         16,  24288679,   30188679,
+        "chr16p.deletion",    16,  29488679,   30188679,
+        "chr16p.telomere",    16,         0,    5149999,
+        "chr5",                5,         0,  181538259,
+        "chr5p",               5,         0,   48800000,
+        "chr5p13.2",           5,  33800001,   38400000,
+        "NIPBL",               5,  36876769,   37066413,
+        "chr10",              10,         0,  133797422,
+        "chr10q",             10,  39800001,  133797422,
+        "chr10q23.2",         10,  86100001,   87700000,
+        "WAPL",               10,  86435256,   86521792
+    ) %>% 
+    mutate(UCSC=glue("{chr}:{start}-{end}"))
