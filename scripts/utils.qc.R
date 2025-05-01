@@ -202,7 +202,7 @@ load_genome_coverage <- function(
 }
 
 # Plot Matrix QC stuff
-plot_distance_freqs <- function(
+plot_qc_barplot <- function(
     plot.df,
     y_val='value',
     ...){
@@ -215,36 +215,15 @@ plot_distance_freqs <- function(
         )
     ) +
     geom_col(position = "dodge") +
-    scale_y_continuous(
-        breaks=seq(0, max(plot.df[[y_val]]), 5)
-    ) +
     # scale_y_continuous(breaks=~ seq(.x, .y, 5)) +
+    scale_y_continuous(
+        breaks=seq(0, max(plot.df[[y_val]]), 5),
+        expand=c(0, 0)
+    ) +
     labs(y=y_val) +
     theme(
         axis.text.x=element_text(hjust=1, angle=35)
     ) +
-    add_ggtheme()
-}
-
-plot_bin_totals_stats  <- function(
-    plot.df,
-    scales='fixed'
-    ...){
-    plot.df %>%
-    ggplot(
-        aes(
-            x=Sample.ID,
-            y=coverage,
-            color=Sample.ID
-        )
-    ) +
-    geom_jitter(size=2) +
-    geom_boxplot(oulier=NA) +
-    facet_wrap2(
-        ~ chr,
-        scales=scales
-    ) +
-    labs()
     add_ggtheme()
 }
 
@@ -273,29 +252,5 @@ plot_cistrans_chromosome_heatmap <- function(
         legend.position='top',
         axis.text.x=element_text(angle=45, hjust=1)
     ) +
-    add_ggtheme()
-}
-
-
-plot_totals_across_chr16 <- function(
-    plot.df,
-    ...){
-    elise.start=29488679; elise.end=30188679
-    breaks=
-        seq(
-            min(plot.df$bin.start),
-            max(plot.df$bin.start),
-            (max(plot.df$bin.start) - min(plot.df$bin.start)) / 12
-        )
-    labels=glue('{format(breaks / 1000, scientific=FALSE, trim=TRUE, digits=1)}Kb')
-    plot.df %>%
-    ggplot(aes(x=bin.start, color=Sample.ID)) +
-    geom_path(aes(y=total)) +
-    facet_grid2(cols=vars(normalization), rows=vars(resolution), scales='free_y', independent='y') +
-    # geom_rect(ymin=-Inf, ymax=Inf, xmin=elise.start, xmax=elise.end, fill='grey', alpha=0.1, show.legend=FALSE) +
-    geom_vline(xintercept=c(elise.start, elise.end), linetype='dashed', linewidth=0.1) +
-    scale_x_continuous(breaks=breaks, labels=labels) +
-    labs(x='Chromosome bin') +
-    theme(legend.position='top', axis.text.x=element_text(angle=35, hjust=1)) +
     add_ggtheme()
 }
