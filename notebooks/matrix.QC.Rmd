@@ -10,6 +10,13 @@ output:
         code_folding: hide
         df_print: paged
 ---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
 
 # Prepare data
 
@@ -23,13 +30,9 @@ Load dependencies
 ```{r}
 library(tidyverse)
 library(magrittr)
-library(glue)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
-library(ggplot2)
-library(ggh4x)
-library(ggnewscale)
 ```
 Load sample metadata
 ```{r message=FALSE, rows.print=5}
@@ -39,20 +42,23 @@ sample.metadata
 Load output of `pairtools stats` 
 ```{r rows.print=5}
 pair.stats.list <- load_pairtools_stats()
-pair.stats.list$general.stats
-pair.stats.list$distance.stats
-pair.stats.list$chr.stats
+# pair.stats.list$general.stats
+# pair.stats.list$distance.stats
+# pair.stats.list$chr.stats
 ```
 Load genome coverage from `cooltools coverage`
-```{r rows.print=5}
+```{r rows.print=5, message=FALSE}
 genome.coverage <- 
     check_cached_results( 
-        results_file=COVERAGE_DATA_FILE,
+        results_file=NULL,
         force_redo=FALSE,
         return_data=TRUE,
         results_fnc=load_genome_coverage,
-        resolutions=c(1000, 100000)
-    )
+        weights=c('raw'),
+        resolutions=c(5000, 10000, 25000)
+    ) %>% 
+    mutate(resolution=as.integer(resolution)) %>% 
+    select(-c(filepath))
 genome.coverage
 ```
 
@@ -117,7 +123,7 @@ coverage.summary %>%
 
 # Plot pair categories {.tabset}
 
-## Plot pair distance vs frequency
+## Plot pairs by distance
 
 ```{r include=FALSE}
 plot.df <- 
@@ -166,8 +172,8 @@ plot.df <-
     mutate(frac=100 * (value / total.unique.contacts))
 ```
 
-```{r echo=FALSE, fig.align='center', out.width='100%', fig.height=6}
-plot.df  %>% plot_distance_freqs(y_val='frac')
+```{r echo=FALSE, fig.align='center', fig.height=5}
+plot.df %>% plot_qc_barplot(y_val='frac')
 ```
 
 ## Plot heatmap of cis/trans interactions
@@ -234,81 +240,4 @@ plot.df %>%
         max_lvl=3,
         plot_fnc=tmp_plot
     )
-```
-
-# Plot Genome Coverage of HiC Contacts
-```{r}
-coverage.df <- 
-    load_sample_metadata() %>% 
-    add_column(dummy=1) %>% 
-    full_join(
-        expand_grid(
-            normalization=NORMALIZATIONS,
-            resolution=RESOLUTIONS,
-            dummy=1
-        ),
-        by='dummy',
-        relationship='many-to-many',
-    ) %>%  
-    mutate(results_file=glue('{RESULTS_DIR}/{format(resolution, trim=TRUE, scientific=FALSE)}/{normalization}/{Sample.Matrix}-bin_summaries.tsv')) %>% 
-    select(-c(dummy)) %>% 
-    arrange(desc(resolution), desc(normalization), Sample.ID) %>%
-    # filter(resolution %in% c('gw.ice')) %>% 
-    # filter(resolution < 50000) %>% 
-    mutate(
-        bin.summaries=
-            pmap(
-                .l=.,
-                .f=check_cached_results,
-                force_redo=FALSE,
-                return_data=TRUE,
-                show_col_types=FALSE,
-                results_fnc=summarize_contacts_per_bin,
-                cluster=NULL,
-                .progress=TRUE
-            )
-    ) %>%
-    unnest(bin.summaries) %>% 
-    pivot_wider(names_from=stat, values_from=value) %>% 
-    select(-c(results_file, mcool_file))
-```
-
-# Plot coverage across genomic bins
-
-Plot coverage (raw+balanced) across genomic bins at various resolutions
-```{r}
-# bin.summaries %>% dplyr::count(SampleID, ReadFilter, normalization, resolution, Chr)
-bin.summaries %>% head(2) %>% t()
-plot.df <- 
-    bin.summaries %>%
-    select(-c(ReadFilter, SampleMatrix)) %>% 
-    # filter(resolution == 10000) %>%
-    # filter(normalization == 'NONE') %>% 
-    # filter(SampleID == "16pDELA3NSCHiC_S1") %>% 
-    mutate(Chr=factor(Chr, levels=CHROMOSOMES)) %>% 
-    group_by(normalization, resolution, SampleID) %>% 
-    arrange(Chr, bin.start) %>%
-    mutate(bin.id=row_number()) %>%
-    ungroup() %>%
-    mutate(resolution=glue('{format(resolution / 1000, scientific=FALSE, trim=TRUE)}Kb')) %>% 
-    mutate(resolution=factor(resolution, levels=RESOLUTIONS))
-    mutate(normalization=case_when(normalization == 'NONE' ~ 'Raw', normalization == 'cis.ice' ~ 'ICE'))
-plot.df %>% arrange(SampleID, Chr, bin.start) %>% head(2) %>% t()
-plot.df %>% 
-    filter(!is.merged) %>% 
-    plot_bin_totals_stats() %>%
-    ggsave(glue('{PLOT_DIR}/genome.bin_totals.boxplot.pdf'), ., width=10, height=10, units='in')
-plot.df %>%
-    filter(!is.merged) %>% 
-    filter(normalization != 'cis.vc') %>% 
-    filter(Chr == 'chr16') %>% 
-    # filter(bin.start < 38e6 & bin.start > 20e6) %>% 
-    filter(bin.start < 38e6 & bin.start > 0) %>% 
-    plot_totals_across_chr16() %>% 
-    ggsave(glue('{PLOT_DIR}/chr16.lineplot.pdf'), ., width=10, height=7, units='in')
-plot.df %>%
-    filter(!is.merged) %>% 
-    filter(normalization != 'cis.vc') %>% 
-    plot_bin_stats_across_region() %>% 
-    ggsave(glue('{PLOT_DIR}/genome.lineplot.pdf'), ., width=10, height=10, units='in')
 ```
