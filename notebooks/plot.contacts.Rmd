@@ -1,0 +1,59 @@
+---
+title: "Plot of contacts for 16p HiC samples"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+        theme: paper
+        code_folding: hide
+        df_print: paged
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+# Prepare data
+
+Set up file locations
+```{r results=FALSE}
+library(here)
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+```
+Load dependencies
+```{r}
+library(tidyverse)
+library(magrittr)
+source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
+source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
+```
+Load sample metadata
+```{r message=FALSE, rows.print=5}
+sample.metadata <- load_sample_metadata()
+sample.metadata
+```
+Load genome coverage from `cooltools coverage`
+```{r rows.print=5}
+genome.coverage <- 
+    check_cached_results( 
+        results_file=NULL,
+        force_redo=FALSE,
+        return_data=TRUE,
+        results_fnc=load_genome_coverage,
+        weights=c('raw', 'balanced'),
+        resolutions=c(1000)
+    )
+genome.coverage
+```
+
+# Coverage Line Plots
+
+# Contact Heatmaps
+

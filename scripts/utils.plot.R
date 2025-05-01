@@ -121,3 +121,109 @@ make_tab_per_group <- function(
         cat("\n\n")
     }
 }
+###############
+# Common Plots
+plot_coverage_lineplot <- function(
+    plot.df,
+    y_val,
+    y_lab,
+    region,
+    facet_row=NULL, facet_col=NULL,
+    scales='fixed', indpt=NULL,
+    hl_start=NULL, hl_end=NULL, hl_color='grey',
+    n_ticks=12,
+    ...){
+    # set tickmarks along x axis 
+    breaks <- 
+        seq(
+            min(plot.df$start),
+            max(plot.df$start),
+            (max(plot.df$start) - min(plot.df$start)) / n_ticks
+        )
+    labels <- 
+        breaks %>%
+        {. / 1000} %>% 
+        format(
+            scientific=FALSE,
+            trim=TRUE,
+            digist=1
+        ) %>%
+        paste0('Kb')
+    # Make plot
+    g <- 
+        plot.df %>%
+        ggplot(
+            aes(
+                x=start,
+                y=.data[[y_val]],
+                color=Sample.ID
+            )
+        ) +
+        # Draw lines for each sample across the region
+        geom_path() +
+        scale_x_continuous(
+            breaks=breaks,
+            labels=labels
+        )
+    # Shade sub-region if specified
+    if (!(is.null(hl_start))) {
+        g <- 
+            g +
+            geom_vline(
+                xintercept=
+                    c(
+                        hl_start,
+                        hl_end
+                    ), 
+                    linetype='dashed',
+                    linewidth=0.1
+            ) +
+            # Shade any specified sub-region of interest
+            geom_rect(
+                ymin=-Inf,
+                ymax=Inf,
+                xmin=hl_start,
+                xmax=hl_end, 
+                fill=hl_color,
+                alpha=0.1,
+                show.legend=FALSE
+            )
+    }
+    # Handle faceting
+    g <- 
+        g + 
+        facet_grid2(
+            cols=ifelse(is.null(facet_row), NULL, facet_row),
+            rows=ifelse(is.null(facet_row), NULL, facet_row),
+            scales=scales,
+            independent=indpt
+        ) +
+        # Visual options
+        labs(
+            x='Genomic Position',
+            y=y_lab
+        ) +
+        theme(
+            legend.position='top',
+            axis.text.x=
+                element_text(
+                    angle=35,
+                    hjust=1
+                )
+        ) +
+        add_ggtheme()
+    # return plot object
+    g
+}
+
+plot_contacts_heatmap <- function(
+    plot.df,
+    fill_val,
+    region_x,
+    region_y,
+    facet_row=NULL, facet_col=NULL,
+    scales='fixed', indpt=NULL,
+    n_ticks=12,
+    ...){
+    print("TODO")
+}
