@@ -12,52 +12,15 @@ library(gtable)
 ###############
 # Generate resutls
 run_multiHiCCompare <- function(
-    sample_df,
+    sparse.matrix,
     sample_groups,
-    region,
-    resolution,
-    zero.p,
-    A.min,
-    filter_bins,
-    remove.regions=hg38_cyto,
-    output_file=NA,
     md_plot_file,
     ...){
-    # sample_groups=c('16p11.WT', '16p11.DEL'); region='chr2'; resolution=100000; zero.p=0.8; A.min=5; filter_bins=TRUE; remove.regions=hg38_cyto; output_file=glue('{MULTIHICCOMPARE_DIR}/results/test_results.tsv'); md_plot_file=glue('{MULTIHICCOMPARE_DIR}/MD_plots/test_mdplot.pdf')
-    if (!is.na(output_file)) {
-        if (file.exists(output_file)) {
-            print(glue('cached results exists: {output_file}, skipping'))
-            return(NA)
-        }
-    }
-    sample_df %>% 
-    dplyr::filter(sample_group %in% sample_groups) %>% 
-    # extract contact matrices, each row is a pair of bins + raw interaction freq.
-    rowwise() %>% 
-    mutate(
-        filepath=
-            file.path(
-                MATRIX_DIR, 
-                glue('{sample_ID}.{format({resolution}, scientific=FALSE)}.{region}.txt')
-            )
-    ) %>%
-    mutate(
-        sparse.matrix=
-            filepath %>% 
-            read.table(header=FALSE) %>%
-            {.[,c(1,2,5,7)]} %>%
-            setNames(c('chr', 'region1', 'region2', 'IF')) %>% 
-            mutate(chr=str_remove(chr, '[Cc]hr')) %>% 
-            list()
-    ) %>%
-    ungroup() %>% 
+    # Make experiment object with relevant params/data
     make_hicexp(
-        data_list=.$sparse.matrix,
-        groups=.$sample_group,
-        filter=filter_bins,
-        zero.p=zero.p, # remove rows with (% interactions == 0) >=  zero.p
-        A.min=A.min,   # remove rows where (avg interaction freq) < A.min
-        remove.regions=remove.regions
+        data_list=sparse.matrix,
+        groups=sample_group,  
+        ...
     ) %>% 
     # Normalize hic data, use cyclic loess with automatically calculated span
     fastlo(
@@ -78,14 +41,29 @@ run_multiHiCCompare <- function(
     ) %>% 
     results() %>%
     as_tibble() %>%
-    arrange(p.adj) %>%
-    {
-        if (is.na(output_file)){
-            .
-        } else {
-            write_tsv(., output_file)
-        }
-    }
+    arrange(p.adj)
+}
+
+run_all_multiHiCCompare <- function(
+    sample.df,
+    suffix="sparse.matrix.txt"){
+    # sample_groups=c('16p11.WT', '16p11.DEL'); region='chr2'; resolution=100000; zero.p=0.8; A.min=5; filter_bins=TRUE; remove.regions=hg38_cyto; output_file=glue('{MULTIHICCOMPARE_DIR}/results/test_results.tsv'); md_plot_file=glue('{MULTIHICCOMPARE_DIR}/MD_plots/test_mdplot.pdf')
+    sample.df %>% 
+    # extract contact matrices, each row is a pair of bins + raw interaction freq.
+    rowwise() %>% 
+        zero.p=zero.p, # remove rows where (avg interaction freq) < A.min
+        A.min=A.min,   # remove rows with (% interactions == 0) >=  zero.p
+        filter=TRUE,   # filter low coverage bins
+        remove.regions=remove.regions  # remove regions before filtering
+    mutate(
+        filepath=
+            file.path(
+                MATRIX_DIR, 
+                glue('resolution_{resolution}'),
+                glue('chr_{chr}'),
+                glue('{Sample.ID}-{suffix}')
+            )
+    )
 }
 
 ###############

@@ -44,7 +44,7 @@ Parameter combinations used to run multiHiCCompare
 ```{r}
 param_combos <- 
     expand_grid(
-        region=c(paste0('chr', 1:22), 'chrX'),
+        chr=c(paste0('chr', 1:22), 'chrX'),
         resolution=c(500000, 100000, 50000, 10000, 5000),
         sample_groups=
             list(
@@ -53,32 +53,34 @@ param_combos <-
               c('16p11.DUP', '16p11.DEL')
             ),
         zero.p=c(0, 0.2, 0.8, 1),
-        A.min=c(0, 1, 5, 10),
-        filter_bins=c(TRUE)
+        A.min=c(0, 1, 5, 10)
     ) %>% 
     rowwise() %>% 
     mutate(
-        combo_name=
-            glue("{paste(sample_groups, collapse='.vs.')}_{region}_{format(resolution, scientific=FALSE)}_{zero.p}_{A.min}_{filter_bins}"),
-        output_file=glue("{MULTIHICCOMPARE_DIR}/results/{combo_name}.tsv"),
-        md_plot_file=glue("{MULTIHICCOMPARE_DIR}/MD_plots/{combo_name}.pdf")
+        output_file=
+            file.path(
+                MULTIHICCOMPARE_DIR,
+                glue("resolution_{resolution}"),
+                glue("zero.p_{zero.p}"),
+                glue("A.min_{A.min}"),
+                glue("chr_{region}"),
+                glue("{paste(sample_groups, collapse='-')}.tsv").tsv
+            )
     ) %>% 
     ungroup()
 param_combos %>% dim()
-param_combos %>% select(-c(output_file, md_plot_file)) %>% head(2) %>% t()
 ```
-Generate + chace results
+Generate + cache results per chr
 ```{r}
 numCores <- 4
 register(MulticoreParam(workers=numCores), default=TRUE)
 data('hg38_cyto') # GRanges object with Centro/Telomere regions to filter
 param_combos %>% 
-filter(region == 'chrX') %>%
     filter(resolution == 10000) %>% 
     filter(grepl('16p11.*.vs.16p11.WT', combo_name)) %>% 
     filter(zero.p == 0.8) %>% 
     filter(A.min == 5) %>% 
-    filter(filter_bins == TRUE) %>% 
+    # filter(region == 'chrX') %>%
     pmap(
          .l=.,
          .f=run_multiHiCCompare,
