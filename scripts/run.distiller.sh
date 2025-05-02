@@ -19,7 +19,7 @@ main() {
         sample_ID="${sample_ID%%.distiller.yml}"
         echo $sample_ID
         log_file="${LOG_DIR}/${sample_ID}"-distiller
-        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; conda activate ${CONDA_ENV}; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
+        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; ${CONDA_DIR}/bin/conda activate ${CONDA_ENV}; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
         echo $cmd
         # continue 
         sbatch \
