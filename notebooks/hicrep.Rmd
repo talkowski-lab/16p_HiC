@@ -49,6 +49,10 @@ hicrep.results <-
 ```
 Print sample rows
 ```{r rows.print=5}
+HICREP_PARAM_NAMES <- 
+    hicrep.results %>% 
+    select(-c(Edit, Genotype, SampleNumber, Celltype, chr, hicrep.score)) %>%
+    colnames()
 hicrep.results %>% 
     arrange(resolution, h, is.downsampled, window.size, chr, SampleNumber)
 ```
@@ -59,7 +63,8 @@ How many different parameter combinations we tried
 ```{r rows.print=5}
 hicrep.results %>%
     filter(chr == 'chr16') %>% 
-    dplyr::count(!!!syms(c(HICREP_PARAM_NAMES, 'ReadFilter')))
+    group_by(across(HICREP_PARAM_NAMES)) %>% 
+    dplyr::count()
 ```
 
 How many different pairs of sample matrices were compared
@@ -74,21 +79,21 @@ hicrep.results %>%
     )
 ```
 
-All sample pairs + conditions where HiCRep scores were calculated
-```{r rows.print=5}
+```{r include=FALSE, rows.print=5}
+# All sample pairs + conditions where HiCRep scores were calculated
 hicrep.results %>%
-    dplyr::count(
-        !!!syms(
+    group_by(
+        across(
             c(
                 HICREP_PARAM_NAMES,
                 'Genotype',
                 'SampleNumber',
-                'ReadFilter',
                 'Celltype',
                 'Edit'
             )
         )
-    )
+    ) %>% 
+    dplyr::count()
 ```
 
 # Plot distributions of HiCRep scores {.tabset}
@@ -122,10 +127,10 @@ plot.df <-
     ) %>% 
     left_join(
         RESOLUTION_NAMES,
-        by=join_by(resolution == Resolution)
+        by=join_by(resolution)
     ) %>%
     select(-c(resolution)) %>% 
-    rename(resolution=Resolution.name)
+    rename(resolution=resolution.name)
 ```
 
 ## Compare Differences between Genotypes
