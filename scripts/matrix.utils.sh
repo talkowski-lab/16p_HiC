@@ -262,7 +262,7 @@ merge_NIPBLWAPL_matrices() {
             "${cooler_dir}"        \
             WAPL.DEL.Merged.iN.HiC \
             ${filter_name}         \
-            ${cooler_dir}/WAP.DEL.{P1B5,P1E9,P2C4}.iN.HiC/*.${filter_name}.1000.cool
+            ${cooler_dir}/WAPL.DEL.{P1B5,P1E9,P2C4}.iN.HiC/*.${filter_name}.1000.cool
         # All WTs 
         merge_matrices           \
             "${cooler_dir}"      \
