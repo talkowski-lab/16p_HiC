@@ -21,33 +21,28 @@ output:
 # Prepare data
 
 Set up file locations
-```{r results=FALSE}
+```{r load_paths, results=FALSE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 ```
 Load dependencies
-```{r}
+```{r load_deps}
 library(tidyverse)
 library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 ```
-Load sample metadata
-```{r message=FALSE, rows.print=5}
-sample.metadata <- load_sample_metadata()
-sample.metadata
-```
 Load output of `pairtools stats` 
-```{r rows.print=5}
+```{r load_stats, rows.print=5}
 pair.stats.list <- load_pairtools_stats()
 # pair.stats.list$general.stats
 # pair.stats.list$distance.stats
 # pair.stats.list$chr.stats
 ```
 Load genome coverage from `cooltools coverage`
-```{r rows.print=5, message=FALSE}
+```{r load_coverage, rows.print=5, message=FALSE}
 genome.coverage <- 
     check_cached_results( 
         results_file=NULL,
@@ -68,7 +63,7 @@ The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](
 
 >We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
 
-```{r, include=FALSE}
+```{r calc_resolution, include=FALSE}
 # Variables to count coverage across
 grouping_cols <- 
     genome.coverage %>%
@@ -103,30 +98,33 @@ coverage.summary <-
     )
 ```
 Now print all resolutions which are usable according to the Rao et al. 2014 definition
-```{r paged.print=TRUE, max.print=10000}
+```{r print_valid_resolutions, paged.print=TRUE, max.print=10000}
 coverage.summary %>% 
     filter(chr == 'genome.wide') %>%
     filter(weight == 'raw') %>% 
     filter(ReadFilter == 'mapq_30') %>% 
     filter(metric == 'cis') %>% 
     filter(bins.pct.covered >= 0.80) %>% 
+    group_by(Sample.ID) %>% 
+    slice_min(resolution, n=1) %>% 
+    left_join(RESOLUTION_NAMES, by='resolution') %>% 
     mutate(bins.pct.covered=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
     select(
         Sample.ID,
-        resolution,
+        resolution.name,
+        bins.pct.covered,
         bins.n.covered,
-        bins.n.total,
-        bins.pct.covered
+        bins.n.total
     ) %>%
-    arrange(Sample.ID, resolution)
+    arrange(Sample.ID, resolution.name)
 ```
 
 # Plot pair categories {.tabset}
 
 ## Plot pairs by distance
 
-```{r include=FALSE}
-plot.df <- 
+```{r pair_plot_df, include=FALSE}
+pair.plot.df <- 
     pair.stats.list$general.stats %>% 
     select(-c(category)) %>% 
     filter(stat %in% c('trans', 'cis')) %>% 
@@ -172,13 +170,13 @@ plot.df <-
     mutate(frac=100 * (value / total.unique.contacts))
 ```
 
-```{r echo=FALSE, fig.align='center', fig.height=5}
-plot.df %>% plot_qc_barplot(y_val='frac')
+```{r plot_pairs, echo=FALSE, fig.align='center', fig.height=5}
+pair.plot.df %>% plot_qc_barplot(y_val='frac')
 ```
 
 ## Plot heatmap of cis/trans interactions
 
-```{r, include=FALSE}
+```{r noncon_chr_mapping, include=FALSE}
 message('Print reads mapping to unused chromosomes')
 pair.stats.list$chr.stats %>% 
     mutate(
@@ -193,7 +191,7 @@ pair.stats.list$chr.stats %>%
     dplyr::summarize(sum=sum(value))
 ```
 
-```{r, include=FALSE}
+```{r cis_trans_plot_df, include=FALSE}
 plot.df  <- 
     pair.stats.list$chr.stats %>% 
     rename('contacts'=value) %>% 
@@ -222,7 +220,7 @@ plot.df  <-
     )
 ```
 
-```{r results='asis'}
+```{r plot_cis_trans, results='asis'}
 tmp_plot <- function(plot.df){
     col_name <- plot.df$metric %>% unique() %>% first()
     plot.df %>%
@@ -239,5 +237,91 @@ plot.df %>%
         col_header=FALSE,
         max_lvl=3,
         plot_fnc=tmp_plot
+    )
+```
+
+# Download Sample Stats
+
+`.tsv` of stats per sample 
+
+```{r download_stats}
+# Start with coverage data
+coverage.summary %>%
+    filter(
+        weight == 'raw',
+        metric == 'cis',
+        chr == 'genome.wide',
+        ReadFilter == 'mapq_30',
+        bins.pct.covered >= 0.80
+    ) %>% 
+    group_by(Sample.ID) %>% 
+    slice_min(resolution, n=1) %>% 
+    ungroup() %>% 
+    select(
+        -c(
+            weight,
+            metric,
+            chr
+        )
+    ) %>%
+    mutate(ReadFilter=as.integer(str_remove(ReadFilter, 'mapq_'))) %>% 
+    pivot_longer(
+        c(starts_with('bins'), resolution, ReadFilter),
+        names_to='metric',
+        values_to='n'
+    ) %>%
+    mutate(
+        metric=
+            case_when(
+                metric == 'bins.n.nz'        ~ NA,
+                metric == 'bins.n.covered'   ~ 'Bins >= 1K Contacts',
+                metric == 'bins.n.total'     ~ NA,
+                metric == 'bins.pct.nz'      ~ NA,
+                metric == 'bins.pct.covered' ~ '% Bins >= 1K Contacts',
+                metric == 'resolution'       ~ 'Minimum Viable Resolution',
+                metric == 'min_mapq'         ~ 'Minimum MAPQ',
+                TRUE ~ NA
+            )
+    ) %>% 
+    filter(!is.na(metric)) %>% 
+    # Add stats per matrix
+    bind_rows(
+        pair.stats.list$general.stats %>%
+        select(
+            Sample.ID,
+            stat,
+            value
+        ) %>%
+        rename(
+            'metric'=stat,
+            'n'=value
+        )
+    ) %>% 
+    # add pair categories
+    bind_rows(
+        pair.plot.df %>%
+        select(
+            Sample.ID,
+            Category,
+            value
+        ) %>%
+        rename(
+            'metric'=Category,
+            'n'=value
+        ) %>%
+        mutate(metric=paste0('pairs.', metric))
+    ) %>% 
+    pivot_wider(
+        names_from=metric,
+        values_from=n
+    ) %>% 
+    download_this(
+        output_file='16p_HiC_Matrix_QCStats"
+        output_extension=".csv",
+        button_label="Download data as csv",
+        button_type="default",
+        has_icon=TRUE,
+        csv2=TRUE,
+        icon="fa fa-save"
     )
 ```
