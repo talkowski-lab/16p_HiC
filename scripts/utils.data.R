@@ -139,10 +139,12 @@ process_matrix_name <- function(
             NA
         )
     ) %>% 
+    # Matches Sample.ID in SAMPLE_METADATA_FILE
     mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
     select(-c(Edit, Genotype, SampleNumber, Celltype))
 }
-
+###############
+# Load Data
 load_sample_metadata <- function(
     sample_metadata_file=SAMPLE_METADATA_FILE,
     clean=TRUE){
@@ -179,6 +181,7 @@ load_chr_sizes <- function(){
     CHROMOSOME_SIZES_FILE %>% 
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
+
 load_mcool_file <- function(
     filepath,
     ...){
@@ -186,52 +189,60 @@ load_mcool_file <- function(
     CoolFile() %>% 
     import(...)
 }
+###############
+# File reading/writing
+write_sparse_matrix <- function(){
+    print('TODO')
+}
 
-load_sparse_matrix <- function(filename){
-    read.table(
-        filename,
-        header=FALSE,
-        col.names=
+load_sparse_matrix <- function(
+    filename,
+    MHC_format=FALSE){
+    # input format compatible with multiHiCCompare functions
+    if (MHC_format) {
+        filename %>% 
+        read.table(
+            .,
+            header=FALSE
+        ) %>% 
+        {.[, c(1, 2, 5, 7)]} %>% 
+        setNames(
             c(
-              'A.chr',
-              'A.start',
-              'A.end',
-              'B.chr',
-              'B.start',
-              'B.end',
-              'IF'
+                'chr', 
+                'region1',
+                'region2',
+                'IF'
             )
-    )
+        )
+    } else {
+        filename %>% 
+        read.table(
+            header=FALSE,
+            col.names=
+                c(
+                  'A.chr',
+                  'A.start',
+                  'A.end',
+                  'B.chr',
+                  'B.start',
+                  'B.end',
+                  'IF'
+                )
+        )
+    }
 }
 
 load_all_sparse_matrix_files <- function(
-    matrix_dir,
+    input_dir,
+    suffix='-sparse.matrix.txt',
+    param_names,
+    MHC_format,
     ...){
-    matrix_dir %>%
-    list.files(
-        pattern='*.txt',
-        full.names=FALSE
-    ) %>%
-    tibble(filename=.) %>% 
-    mutate(
-        filepath=file.path(matrix_dir, filename),
-        filename=
-            filename %>% 
-            str_remove('.txt')
-    ) %>% 
-    separate_wider_delim(
-        filename,
-        delim=fixed('.'),
-        names=
-            c(
-                'SampleID',
-                NA,
-                'ReadFilter',
-                NA,
-                'Resolution',
-                'Chromosome'
-            )
-    ) 
+    input_dir %>% 
+    parse_results_filelist(
+        suffix,
+        param_names,
+    )
 }
 
 fetch_contacts <- function(
