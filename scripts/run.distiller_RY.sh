@@ -31,7 +31,7 @@ main() {
             --job-name "${sample_ID}-distiller" \
             --output   "${LOG_DIR}/${sample_ID}-distiller.out" \
             --error    "${LOG_DIR}/${sample_ID}-distiller.err" \
-            --mail-type "BEGIN" \
+            --mail-type "ALL" \
             --mail-user "ryadav1@mgh.harvard.edu" \
             --wrap="${cmd}"
     done
