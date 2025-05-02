@@ -1,6 +1,7 @@
 library(here)
 library(tidyverse)
 library(magrittr)
+library(glue)
 BASE_DIR <- here()
 # Input Data
 GENOME_REF_DIR <-       '/data/talkowski/tools/ref/Hi_c_noalt'
@@ -19,11 +20,11 @@ COVERAGE_DATA_FILE <-    file.path(COVERAGE_DIR, 'all.coverage.data.tsv')
 # hicrep results
 HICREP_DIR <-            file.path(RESULTS_DIR, 'hicrep')
 HICREP_RESULTS_FILE <-   file.path(HICREP_DIR, 'all.hicrep.scores.tsv')
-# Reproducing figure fr  m Elise Robinson
+# Reproducing figure from Elise Robinson
 ELISE_RECREATION_DIR <-  file.path(RESULTS_DIR, 'Elise.Recreation.results')
-# Differential Contact   esults from multiHiCCompare
+# Differential Contact results from multiHiCCompare
+SPARSE_MATRIX_DIR <-     file.path(RESULTS_DIR, 'sparse.matrices')
 MULTIHICCOMPARE_DIR <-   file.path(RESULTS_DIR, 'multiHiCCompare')
-SPARSE_MATRIX_DIR <-     file.path(MULTIHICCOMPARE_DIR, 'sparse.matrices')
 # TAD Annotations
 TAD_DIR <-               file.path(RESULTS_DIR, 'TADs')
 # Factor levels for variaous metadata categories
@@ -67,16 +68,18 @@ RESOLUTIONS <-
     )
 RESOLUTION_NAMES <- 
     RESOLUTIONS %>%
-    tibble(Resolution=.) %>% 
-    mutate(Resolution.name=Resolution / 1000) %>% 
+    tibble(resolution=.) %>% 
+    mutate(resolution.name=resolution / 1000) %>% 
     mutate(
-        Resolution.name=
+        resolution.name=
             case_when(
-                Resolution.name >= 1000 ~ paste0(Resolution.name / 1000, "Mb"),
-                Resolution.name >= 1    ~ paste0(Resolution.name, "Kb")
+                resolution.name >= 1000 ~ paste0(resolution.name / 1000, "Mb"),
+                resolution.name >= 1    ~ paste0(resolution.name, "Kb")
             ) %>% 
             factor(., levels=.)
     )
+# Match ideal smoothing param to specified resolution based on this
+# https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
 RESOLUTION_IDEAL_H <- 
     tribble(
        ~Resolution, ~Ideal_H, 
@@ -89,6 +92,7 @@ RESOLUTION_IDEAL_H <-
            1000000,        1,
            1000000,        0
     )
+# TO have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
     c(
         'WT'='#b3b3ff',
