@@ -1,9 +1,7 @@
-# library(tidyverse)
-# library(magrittr)
-# library(glue)
-# library(tictoc)
-# Match ideal smoothing param to specified resolution based on this
-# https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
+library(tidyverse)
+library(magrittr)
+library(glue)
+library(tictoc)
 ###############
 # Load resutls
 load_all_hicrep_results <- function(){
@@ -92,6 +90,8 @@ load_all_hicrep_results <- function(){
     select(-c(filepath))
 }
 
+###############
+# Plot resutls
 plot_hicrep_boxplot <- function(
     hicrep_results,
     sample_group='Genotype',
