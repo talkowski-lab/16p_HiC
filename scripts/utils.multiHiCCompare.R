@@ -100,43 +100,23 @@ load_multiHiCCompare_results <- function(
 }
 
 load_all_multiHiCCompare_results <- function(
-    multiHiCCompare_results_dir,
     comparisons=NULL,
     resolutions=NULL,
     fdr.threshold=1,
     nom.threshold=1,
     ...){
-    multiHiCCompare_results_dir %>% 
-    list.files(
-        full.names=FALSE,
-        recursive=TRUE,
-        pattern='*.tsv'
-    ) %>% 
-    tibble(filename=.) %>%
-    mutate(filepath=file.path(multiHiCCompare_results_dir, filename)) %>%
-    # Get info of how results were produced
-    mutate(filename=str_remove(basename(filename), '.tsv$')) %>% 
-    separate_wider_delim(
-        filename,
-        cols_remove=FALSE,
-        delim='_',
-        names=
-            c(
-                'Comparison',
-                'Chr',
-                'Resolution',
-                'zero.p',
-                'A.min',
-                'Is.Filtered'
-            )
+    parse_results_filelist(
+        input_dir=MULTIHICCOMPARE_DIR,
+        suffix='-multiHiCCompare.tsv',
+        filename.column.name='matrix.name',
+        param_delim='_',
     ) %>%
-    mutate(Resolution=as.integer(Resolution)) %>% 
     # Only load results with specific params
     { 
         if (is.null(resolution)) {
             .
         } else {
-            filter(., Resolution %in% c(resolutions))
+            filter(., resolution %in% c(resolutions))
         }
     } %>%
     { 
@@ -157,20 +137,7 @@ load_all_multiHiCCompare_results <- function(
             )
     ) %>%
     select(-c(filepath)) %>% 
-    unnest(results) %>% 
-    mutate(
-        sig.lvl=
-            case_when(
-                p.adj < 0.0001 ~ 'FDR.1e-3',
-                p.adj < 0.001 ~ 'FDR.1e-3',
-                p.adj < 0.01 ~ 'FDR.1e-2',
-                p.adj < 0.1 ~ 'FDR.1e-1',
-                p.value < 0.00005 ~ 'Nom.5e-5',
-                p.value < 0.001 ~ 'Nom.5e-3',
-                p.value < 0.05 ~ 'Nom.5e-2',
-                TRUE ~ 'NS'
-            )
-    )
+    unnest(results)
 }
 ###############
 # Plot Results

@@ -92,27 +92,15 @@ load_TAD_annotation <- function(
 }
 
 load_all_TAD_annotations <- function(
-    tad_annotations_dir,
     tad.method,
-    file_suffix,
-    param_names,
     ...){
-    tad_annotations_dir %>%
-    list.files(
-        pattern=glue('*{file_suffix}'),
-        full.names=FALSE,
-        recursive=TRUE
+    parse_results_filelist(
+        input_dir=TAD_DIR,
+        suffix='-TAD.tsv',
+        filename.column.name='matrix.name',
+        param_delim='_',
     ) %>%
-    tibble(filename=.) %>% 
-    mutate(
-        filepath=file.path(tad_annotations_dir, filename),
-        filename=str_remove(filename, file_suffix)
-    ) %>% 
-    separate_wider_delim(
-        filename,
-        delim=fixed('/'),
-        names=param_names
-    ) %>%
+    process_matrix_name() %>% 
     mutate(
         TADs=
             pmap(
@@ -123,8 +111,7 @@ load_all_TAD_annotations <- function(
             )
     ) %>%
     select(-c(filepath)) %>%
-    unnest(TADs) %>%
-    add_column(Method=tad.method)
+    unnest(TADs)
 }
 
 ###############

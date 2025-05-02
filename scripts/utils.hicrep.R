@@ -4,47 +4,19 @@
 # library(tictoc)
 # Match ideal smoothing param to specified resolution based on this
 # https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
-HICREP_PARAM_NAMES <- 
-    c(
-        'resolution',
-        'h',
-        'is.downsampled',
-        'window.size'
-    )
-
-load_all_hicrep_results <- function(
-    input_dir=HICREP_DIR,
-    param_names=HICREP_PARAM_NAMES,
-    suffix='hicrep.txt',
-    delim='-'){
+###############
+# Load resutls
+load_all_hicrep_results <- function(){
     # Load all files generated from ./scripts/run.hicrep.shS
-    input_dir %>% 
-    list.files(
-        recursive=TRUE,
-        pattern=glue('*{suffix}'),
-        full.names=FALSE
+    parse_results_filelist(
+        input_dir=HICREP_DIR,
+        suffix='-hicrep.txt',
+        filename.column.name='file.pair',
+        param_delim='_'
     ) %>%
-    tibble(fileinfo=.) %>%
-    mutate(filepath=file.path(input_dir, fileinfo)) %>%
-    # Get hicrep params
-    separate_wider_delim(
-        fileinfo,
-        delim='/',
-        names=c(param_names, 'file.pair')
-    ) %>% 
-    rowwise() %>% 
-    mutate(
-        across(
-            param_names,
-            ~ str_remove(
-                .x,
-                pattern=glue('({paste(param_names, collapse="|")})_')
-            )
-        )
-    ) %>% 
     separate_wider_delim(
         file.pair,
-        delim=delim,
+        delim='-',
         names=
             c(
                 'A',
