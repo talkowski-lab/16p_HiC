@@ -89,49 +89,93 @@ load_all_hicrep_results <- function(){
     unnest(hicrep.results) %>% 
     select(-c(filepath))
 }
-
 ###############
 # Plot resutls
 plot_hicrep_boxplot <- function(
     hicrep_results,
-    sample_group='Genotype',
+    sample_group='Celltype',
+    fill_var='is.downsampled', 
     facet_row='resolution',
-    facet_col='Celltype', 
-    mark_chr16=FALSE,
-    size=0.7){
+    facet_col='Genotype', 
+    mark_df=NULL,
+    mark_alpha=0.6,
+    mark_color='purple',
+    mark_size=1,
+    ...){
     figure <- 
         hicrep_results %>%
         ggplot(
             aes(
                 x=.data[[sample_group]],
                 y=hicrep.score,
-                fill=is.downsampled,
-                color=ReadFilter
+                fill=.data[[fill_var]]
             )
         ) +
         geom_boxplot(outlier.size=0.5) +
         facet_grid2(
-            rows=vars(!!!sym(facet_row)),
-            cols=vars(!!!sym(facet_col)),
+            rows=vars(!!sym(facet_row)),
+            cols=vars(!!sym(facet_col)),
             scales='fixed'
         ) +
         scale_y_continuous(labels=function(x) format(x, digits=2)) +
-        theme(legend.position='top') +
+        theme(
+            legend.position='top',
+            axis.text.x=element_text(angle=35, hjust=1)
+        ) +
         add_ggtheme()
-    if (mark_chr16) {
+    if (!(is.null(mark_df))) {
         figure <- 
             figure +
             geom_jitter(
-                data=. %>% filter(chr == 'chr16'),
+                data=mark_df,
                 aes(
                     x=.data[[sample_group]],
                     y=hicrep.score,
-                    fill=is.downsampled
+                    fill=.data[[fill_var]]
                 ),
-                alpha=0.6,
-                color='purple',
-                size=size
+                alpha=mark_alpha,
+                color=mark_color,
+                size=mark_size
             )
     }
+    figure
+}
+
+plot_hicrep_boxplot_nested <- function(
+    hicrep_results,
+    sample_group='Celltype',
+    fill_var='is.downsampled', 
+    facet_lvl1='resolution',
+    facet_lvl2='Genotype', 
+    ncol=2,
+    ...){
+    figure <- 
+        hicrep_results %>%
+        ggplot(
+            aes(
+                x=.data[[sample_group]],
+                y=hicrep.score,
+                fill=.data[[fill_var]]
+            )
+        ) +
+        geom_boxplot(outlier.size=0.5) +
+        facet_nested_wrap(
+            vars(
+                !!sym(facet_lvl1),
+                !!sym(facet_lvl2)
+            ),
+            ncol=ncol,
+            nest_line=
+                element_line(
+                    linetype='solid',
+                    color='black'
+                )
+        ) +
+        scale_y_continuous(labels=function(x) format(x, digits=2)) +
+        theme(
+            legend.position='top',
+            axis.text.x=element_text(angle=35, hjust=1)
+        ) +
+        add_ggtheme()
     figure
 }
