@@ -15,6 +15,8 @@ ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
 DDEI_DIGESTION="${REF_DIR}/${REF_NAME}.DdeI.digested.bed"
 HIC3_DIGESTION="${REF_DIR}/${REF_NAME}.HIC3.digested.bed"
 # MAPQ_FITERS=("mapq_30" "no_filter")
+# CELLTYPES=("iN" "NSC")
+CELLTYPES=("NSC")
 MAPQ_FITERS=("mapq_30")
 RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
 # 1000     #   1Kb
@@ -277,6 +279,91 @@ merge_NIPBLWAPL_matrices() {
         #     ${cooler_dir}//*.${filter_name}.1000.cool
     done
 }
+# Merging stats files
+merge_stats() {
+    # Arg list
+    output_dir="${1}"
+    merged_name="${2}"
+    stats_files="${3}"
+    output_dir="${output_dir}/${merged_name}"
+    mkdir -p "${output_dir}"
+    ls ${stats_files}
+    # Merge contacts
+    # output_pairs_file="${output_dir}/${merged_name}.hg38.nodups.pairs.gz"
+    # pairtools merge \
+    #     --nproc ${THREADS} \
+    #     --output ${output_pairs_file} \
+    #     ${pairs_files[@]}
+    output_stats_file="${output_dir}/${merged_name}.hg38.dedup.stats"
+    pairtools stats \
+        --merge \
+        --output ${output_stats_file} \
+        ${stats_files}
+        
+}
+merge_16p_stats() {
+    pairs_dir="$(readlink -e "${1}")"
+    activate_conda 'cooler'
+    # Merge pairs with and without MAPQ filtering
+    for celltype in ${CELLTYPES[@]}; do 
+        # WTs
+        merge_stats \
+            "${pairs_dir}" \
+            16p.WT.Merged.${celltype}.HiC \
+            "${pairs_dir}/**/16p.WT.*.${celltype}.HiC.hg38.dedup.stats"
+            # $(find ${pairs_dir} -type f -name "16p.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # DELs
+        merge_stats \
+            "${pairs_dir}" \
+            "16p.DEL.Merged.${celltype}.HiC" \
+            "${pairs_dir}/**/16p.DEL.*.${celltype}.HiC.hg38.dedup.stats"
+            # $(find ${pairs_dir} -type f -name "16p.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # DUPs
+        merge_stats \
+            "${pairs_dir}" \
+            "16p.DUP.Merged.${celltype}.HiC" \
+            "${pairs_dir}/**/16p.DUP.*.${celltype}.HiC.hg38.dedup.stats"
+            # $(find ${pairs_dir} -type f -name "16p.DUP.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+    done
+}
+merge_NIPBLWAPL_stats() {
+    activate_conda 'cooler'
+    pairs_dir="$(readlink -e "${1}")"
+    # Merge pairs with and without MAPQ filtering
+    for celltype in ${CELLTYPES[@]}; do 
+        # NIBPL WTs 
+        merge_pairs \
+            "${pairs_dir}" \
+            NIBPL.WT.Merged.${celltype}.HiC \
+            $(find ${pairs_dir} -type f -name "NIPBL.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # NIBPL DELs 
+        merge_pairs \
+            "${pairs_dir}" \
+            NIBPL.DEL.Merged.${celltype}.HiC \
+            $(find ${pairs_dir} -type f -name "NIPBL.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # WAPL WTs
+        merge_pairs \
+            "${pairs_dir}" \
+            WAPL.WT.Merged.${celltype}.HiC \
+            $(find ${pairs_dir} -type f -name "WAPL.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # WAPL DELs
+        merge_pairs             \
+            "${pairs_dir}"        \
+            WAPL.DEL.Merged.${celltype}.HiC \
+            $(find ${pairs_dir} -type f -name "WAPL.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # All WTs 
+        merge_pairs \
+            "${pairs_dir}" \
+            All.WT.Merged.${celltype}.HiC \
+            $(find ${pairs_dir} -type f -name "*.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        # # All DELs 
+        # merge_pairs             \
+        #     "${pairs_dir}"        \
+        #     \
+        #     ${filter_name}         \
+        #     ${pairs_dir}//*.${filter_name}.1000.cool
+    done
+}
 # QC Stats
 matrix_coverage() {
     mkdir -p "${1}"
@@ -432,20 +519,46 @@ make_multiqc_reports() {
 main() {
     mode="$1"
     case $mode in 
-        merge_NIPBLWAPL) merge_NIPBLWAPL_matrices ${2} ;;
-        merge_16p)       merge_16p_matrices ${2} ;;
-        dump)            dump_all_regions ${@:2} ;;
-        plot_triangle)   plot_fanc ${@:2} ;;
+        merge_NIPBLWAPL_stats) 
+            merge_NIPBLWAPL_stats ${2} 
+            ;;
+        merge_NIPBLWAPL_matrices) 
+            merge_NIPBLWAPL_matrices ${2} 
+            ;;
+        merge_16p_stats) 
+            merge_16p_stats ${2} 
+            ;;
+        merge_16p_matrices) 
+            merge_16p_matrices ${2}
+            ;;
+        dump)
+            dump_all_regions ${@:2}
+            ;;
+        plot_triangle)
+            plot_fanc ${@:2} 
+            ;;
         digest_genome)   
             digest_genome_arima
             digest_genome_hic3
             ;;
-        restrict)        pairtools_restrict ${@:2} ;;
-        coverage)        matrix_coverage ${@:2} ;;
-        qc3C)            run_qc3c ${@:2} ;;
-        # stats)           pairtools_stats ${@:2} ;;
-        multiqcs)        make_multiqc_reports ${@:2} ;;
-        *)               echo "Invalid mode: $mode" && exit 1 ;;
+        restrict) 
+            pairtools_restrict ${@:2} 
+            ;;
+        coverage) 
+            matrix_coverage ${@:2} 
+            ;;
+        qc3C) 
+            run_qc3c ${@:2} 
+            ;;
+        # stats)
+        #     pairtools_stats ${@:2} 
+        #     ;;
+        multiqcs)
+            make_multiqc_reports ${@:2} 
+            ;;
+        *) 
+            echo "Invalid mode: $mode" && exit 1 
+            ;;
     esac
 }
 # Default script arguments
