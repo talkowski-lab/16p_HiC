@@ -40,21 +40,19 @@ sample.metadata <- load_sample_metadata()
 sample.metadata
 ```
 Load contact matrices for each file
-```{r}
-interactions.df <- 
-    load_16p_sample_metadata() %>% 
-    expand_grid(
-        normalization=NORMALIZATIONS,
-        resolution=RESOLUTIONS,
+```{r load_contacts, rows.print=5}
+contacts.df <- 
+    load_mcool_files(
+        pattern='*.NSC.*.mapq_30.1000.mcool',
+        range1s='chr16',
+        resolutions=c(RESOLUTION),
     ) %>%
-    mutate(
-        interactions=
-            pmap(
-                .l=.,
-                .f=fetch_contacts,
-                .progress=TRUE
-            )
-    )
+    left_join(
+        sample.metadata,
+        by='Sample.ID'
+    ) %>%
+    mutate(Sequencing.Run=ifelse(is.na(Sequencing.Run), 'Merged', Sequencing.Run))
+contacts.df
 ```
 Prepare data for plotting
 ```{r}
