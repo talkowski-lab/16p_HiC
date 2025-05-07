@@ -126,7 +126,14 @@ coverage.summary %>%
         bins.n.covered,
         bins.n.total
     ) %>%
-    arrange(Sample.ID, resolution.name)
+    arrange(Sample.ID, resolution.name) %>% 
+    rename(
+        'Usable Resolution'=resolution.name, 
+        '% Bins >= 1K'=bins.pct.covered,
+        '# Bins >= 1K'=bins.n.covered,
+        '# Total Bins'=bins.n.total,
+    ) %>%
+    kable(align=c('l', 'r', 'r', 'r', 'r'))
 ```
 
 # Plot read orientation frequency over distance
