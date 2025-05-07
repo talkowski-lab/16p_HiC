@@ -2,6 +2,8 @@ library(tidyverse)
 library(magrittr)
 library(tictoc)
 library(glue)
+library(HiCExperiment)
+library(hictkR)
 ###############
 # Utilities
 check_cached_results <- function(
@@ -184,15 +186,99 @@ load_chr_sizes <- function(){
 
 load_mcool_file <- function(
     filepath,
+    resolution,
+    range1="",
+    range2="",
+    normalization='NONE',
+    cis=TRUE,
     ...){
+    # filepath %>% 
+    # CoolFile(resolution=resolution) %>%
+    # import(focus=region)
     filepath %>% 
-    CoolFile() %>% 
-    import(...)
+    File(resolution=resolution) %>% 
+    fetch(
+        range1=range1,
+        range2=range2,
+        join=TRUE,
+        query_type='UCSC',
+        type='df'
+    ) %>% 
+    as_tibble() %>%
+    add_column(weight=normalization) %>% 
+    # cis only
+    {
+        if (cis) {
+            filter(., chrom1 == chrom2) %>% 
+            select(
+                -c(
+                    chrom2,
+                    end1,
+                    end2
+                )
+            ) %>% 
+            rename(
+                'chr'=chrom1,
+                'range1'=start1,
+                'range2'=start2,
+                'IF'=count
+            )
+        } else {
+            rename(
+                'chr1'=chrom1,
+                'chr2'=chrom2,
+                'range1'=start1,
+                'range2'=start2,
+                'IF'=count
+            )
+        }
+    }
 }
-###############
-# File reading/writing
-write_sparse_matrix <- function(){
-    print('TODO')
+
+load_mcool_files <- function(
+    pattern,
+    resolutions,
+    range1s,
+    range2s=NULL,
+    ...){
+    # resolutions=c('100000'); regions='XVI'; pattern='mapq_30.1000.mcool' 
+    range2s <- ifelse(is.null(range2s), range1s, range2s)
+    COOLERS_DIR %>% 
+    list.files(
+        pattern=pattern,
+        recursive=TRUE,
+        full.names=TRUE
+    ) %>% 
+    tibble(filepath=.) %>% 
+    mutate(matrix.name=basename(filepath)) %>% 
+    mutate(join_dummy=0) %>% 
+    full_join(
+        expand_grid(
+            resolution=resolutions,
+            range1=range1s,
+            range2=range2s,
+            join_dummy=0
+        )
+    ) %>% 
+    process_matrix_name() %>% 
+    mutate(
+        contacts=
+            purrr::pmap(
+                .l=.,
+                .f=load_mcool_file,
+                .progress=TRUE
+            )
+    ) %>% 
+    mutate(resolution=as.integer(resolution)) %>% 
+    select(
+        -c(
+            filepath,
+            join_dummy,
+            range1,
+            range2
+        )
+    ) %>%
+    unnest(contacts)
 }
 
 load_sparse_matrix <- function(
