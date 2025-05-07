@@ -1,7 +1,6 @@
 # 16p HiC Analysis
 
 Analysis and code of HiC data for 16p editied cell lines
-
 File tree
 ```
 # Note ... indicates that thee files exist for all samples, truncated for brevity
@@ -90,30 +89,6 @@ $ ./scripts/run.distiller.sh
 This is 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
 
-### Merging Matrices
-
-For some subsequent steps we will analyze matrices formed by merging all biological/technical replicates for a given Edit+Genotype+CellType (e.g. 16p+WT+NSC).
-Merging her means summing all the total number of contacts over all samples for each bin-bin pair (matrix entry) and is handled by [cooler](https://cooler.readthedocs.io/en/latest/cli.html#cooler-merge).
-We separately create merged matrices for MAPQ filtered and unfiltered contacts for each 
-
-```bash
-# Wrapper command to merge specific matrices for each genotype
-$ ./scripts/matrix.utils.sh merge_16p ./results/coolers_library
-```
-which produces the following files
-```
-results 
-└── coolers_library
-    ├── 16p.WT.Merged.NSC.HiC/
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.cool
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.cool
-    │   └── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.mcool
-    ├── 16p.DEL.Merged.NSC.HiC/
-    │   └── ...
-    └── 16p.DUP.Merged.NSC.HiC/
-        └── ...
-```
 ### Running qc3C profiling
 
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
@@ -124,6 +99,7 @@ $ ./scripts/matrix.utils.sh qc3c                     # run qc3C with specified p
         DpnII HinfI                                  # enzymes used
         results/mapped_parsed_sorted_chunks/**/*.bam # bam files produced by distiller for each sample
 ```
+
 ### Generate MultiQC reports
 
 distiller-nf outputs multiple QC reports/files per sample than can each be aggregated into a single multiqc report [docs](https://docs.seqera.io/multiqc). 
@@ -157,6 +133,32 @@ $ ./scripts/matrix.utils.sh coverage
         ./results/coolers_library/**/*.mapq_30.1000.mcool
 ```
 
+### Merging Matrices
+
+For some subsequent steps we will analyze matrices formed by merging all biological/technical replicates for a given Edit+Genotype+CellType (e.g. 16p+WT+NSC).
+Merging her means summing all the total number of contacts over all samples for each bin-bin pair (matrix entry) and is handled by [cooler merge](https://cooler.readthedocs.io/en/latest/cli.html#cooler-merge).
+We separately create merged matrices for MAPQ filtered and unfiltered contacts for each 
+
+```bash
+# Wrapper command to merge specific matrices for each genotype
+$ ./scripts/matrix.utils.sh merge_16p_matrices ./results/pairsn
+$ ./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
+```
+which produces the following files
+```
+results 
+└── coolers_library
+    ├── 16p.WT.Merged.NSC.HiC/
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.cool
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
+    │   ├── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.cool
+    │   └── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.mcool
+    ├── 16p.DEL.Merged.NSC.HiC/
+    │   └── ...
+    └── 16p.DUP.Merged.NSC.HiC/
+        └── ...
+```
+
 ### HiCRep Analysis
 
 We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
@@ -165,14 +167,14 @@ We use HiCRep to calculate the "reproducibility score" for all pairs of sample m
 # Compare all pairs of matrices where all contacts have both mates MAPQ > 30
 $ ./scripts/run.hicrep.sh 
         ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v "Merged")
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool")
 # Compare all pairs of matrices with no MAPQ filtering
 $ ./scripts/run.hicrep.sh 
         ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool" | grep -v "Merged")
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool")
 ```
 
-After this there is a `.Rnw` notebook that coallates these files into a single neat dataframe that is used for plotting.
+After this there is a `.Rmd` notebook that coallates these files into a single neat dataframe that is used for plotting.
 
 ## Misc
 
@@ -186,8 +188,7 @@ The fist step is to generate the digested reference bed file for our data. This 
 # Generate multi-digested reference since we use ARIMA kit for HiC 
 $ ./scripts/matrix.utils.sh digest_genome
 # Annotate restriction fragments to reads with pairtools
-$ ./scripts/matrix.utils.sh restrict                     # run pairtools restrict
-        ./results.NSC/sample.QC/restriction.analysis/    # output dir
-        ./results.NSC/pairs_library/**/*.nodups.pairs.gz # pairsfiles for each sample
+$ ./scripts/matrix.utils.sh restrict                 # run pairtools restrict
+        ./results/sample.QC/restriction.analysis/    # output dir
+        ./results/pairs_library/**/*.nodups.pairs.gz # pairsfiles for each sample
 ```
-
