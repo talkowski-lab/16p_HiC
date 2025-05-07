@@ -30,6 +30,7 @@ Load dependencies
 ```{r load_deps}
 library(tidyverse)
 library(magrittr)
+library(downloadthis)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
@@ -316,12 +317,9 @@ coverage.summary %>%
         values_from=n
     ) %>% 
     download_this(
-        output_file='16p_HiC_Matrix_QCStats"
-        output_extension=".csv",
-        button_label="Download data as csv",
+        output_name="16p_HiC_Matrix_QCStats",
         button_type="default",
-        has_icon=TRUE,
-        csv2=TRUE,
-        icon="fa fa-save"
+        output_extension=".csv",
+        csv2=TRUE
     )
 ```
