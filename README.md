@@ -140,6 +140,23 @@ $ ./scripts/matrix.utils.sh multiqcs         # generate multiqc reports for diff
         ./results/sample.QC/multiqc.reports/ # output dir
         ./results/                           # all multiqc data is under here in specific directories
 ```
+
+### Calculate QC Metrics
+
+Two things we want to check to QC matrix samples 
+1. pair frequency by distance 
+2. Cis/Trans pair frequency
+3. minimum resolution as defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D).
+
+Metrics 1 and 2 are calcualted by `distiller-nf` and found in the `*.dedup.stats` files. 
+For metric 3 and subsequent plots we need to calculate the per-bin coverage using [cooltools coverage ](https://cooltools.readthedocs.io/en/latest/cli.html#cooltools-coverage).
+
+```bash
+$ ./scripts/matrix.utils.sh coverage
+        ./results/sample.QC/coverage/
+        ./results/coolers_library/**/*.mapq_30.1000.mcool
+```
+
 ### HiCRep Analysis
 
 We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
