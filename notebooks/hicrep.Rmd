@@ -4,6 +4,7 @@ author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 output: 
     html_document:
+        keep_md: yes
         toc: true
         toc_float: true
         theme: paper
@@ -20,14 +21,21 @@ output:
 
 # Prepare data
 
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    dev=c('png', 'pdf', 'tiff'),
+    dpi=300
+)
+```
 Set up file locations
-```{r results='hide', echo=TRUE}
+```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 ```
 Load dependencies
-```{r}
+```{r deps, results=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
@@ -38,7 +46,7 @@ library(ggh4x)
 library(purrr)
 ```
 Load hicrep data
-```{r results=FALSE, message=FALSE, warning=FALSE}
+```{r load_results, results=FALSE, message=FALSE, warning=FALSE}
 hicrep.results <- 
     check_cached_results( 
         HICREP_RESULTS_FILE,
@@ -48,7 +56,7 @@ hicrep.results <-
     )
 ```
 Print sample rows
-```{r rows.print=5}
+```{r example_results, rows.print=5}
 HICREP_PARAM_NAMES <- 
     hicrep.results %>% 
     select(-c(Edit, Genotype, SampleNumber, Celltype, chr, hicrep.score)) %>%
@@ -57,18 +65,18 @@ hicrep.results %>%
     arrange(resolution, h, is.downsampled, window.size, chr, SampleNumber)
 ```
 
-# Summary Stats
+# Params Used
 
 How many different parameter combinations we tried
-```{r rows.print=5}
+```{r param_combos, rows.print=5}
 hicrep.results %>%
     filter(chr == 'chr16') %>% 
-    group_by(across(HICREP_PARAM_NAMES)) %>% 
+    group_by(across(all_of(HICREP_PARAM_NAMES))) %>% 
     dplyr::count()
 ```
 
 How many different pairs of sample matrices were compared
-```{r rows.print=5}
+```{r n_samples, rows.print=5}
 hicrep.results %>%
     filter(chr == 'chr16') %>% 
     dplyr::count(
@@ -96,7 +104,7 @@ hicrep.results %>%
     dplyr::count()
 ```
 
-# Plot distributions of HiCRep scores {.tabset}
+# Plotting HiCRep scores {.tabset}
 
 Prepare data for plotting
 ```{r prep_plot_df, include=FALSE}
