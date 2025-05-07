@@ -10,9 +10,10 @@ output:
         code_folding: hide
         df_print: paged
 ---
+
 <style type="text/css">
 .main-container {
-  max-width: 1800px !important;
+  <!-- max-width: 1800px !important; -->
   margin-left: auto;
   margin-right: auto;
 }
@@ -20,30 +21,38 @@ output:
 
 # Prepare data
 
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    dev=c('png', 'pdf', 'tiff'),
+    dpi=300
+)
+```
 Set up file locations
-```{r load_paths, results=FALSE}
+```{r load_paths, echo=FALSE, message=FALSE, results=FALSE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 ```
 Load dependencies
-```{r load_deps}
+```{r load_deps, results=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
 library(magrittr)
 library(downloadthis)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
+sample.metadata <- load_sample_metadata()
 ```
 Load output of `pairtools stats` 
-```{r load_stats, rows.print=5}
+```{r load_stats, rows.print=5, message=FALSE, results=FALSE}
 pair.stats.list <- load_pairtools_stats()
 # pair.stats.list$general.stats
 # pair.stats.list$distance.stats
 # pair.stats.list$chr.stats
 ```
 Load genome coverage from `cooltools coverage`
-```{r load_coverage, rows.print=5, message=FALSE}
+```{r load_coverage, rows.print=5}
 genome.coverage <- 
     check_cached_results( 
         results_file=NULL,
@@ -120,9 +129,8 @@ coverage.summary %>%
     arrange(Sample.ID, resolution.name)
 ```
 
-# Plot pair categories {.tabset}
 
-## Plot pairs by distance
+# Plot pairs by distance
 
 ```{r pair_plot_df, include=FALSE}
 pair.plot.df <- 
@@ -175,7 +183,7 @@ pair.plot.df <-
 pair.plot.df %>% plot_qc_barplot(y_val='frac')
 ```
 
-## Plot heatmap of cis/trans interactions
+# Plot heatmap of cis/trans interactions
 
 ```{r noncon_chr_mapping, include=FALSE}
 message('Print reads mapping to unused chromosomes')
