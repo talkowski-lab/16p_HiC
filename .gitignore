@@ -13,6 +13,8 @@ results/
 results.NSC/
 old.results
 *.html
+notebooks/*.md
+notebooks/*_files/
 
 # Hidden files
 .domaincaller/
