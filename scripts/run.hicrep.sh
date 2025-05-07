@@ -55,7 +55,11 @@ for resolution in ${RESOLUTIONS[@]}; do
         comparison_dir="resolution_${resolution}/h_${h}/is.downsampled_${downsample_str}/window.size_${max_window_size}"
         output_file="${OUTPUT_DIR}/${comparison_dir}/${sample_ID_i}-${sample_ID_j}-hicrep.txt"
         redundant_file="${OUTPUT_DIR}/${comparison_dir}/${sample_ID_j}-${sample_ID_i}-hicrep.txt"
-        [[ -e ${output_file} || -e ${redundant_file} ]] && jobs_skipped=$(( $jobs_skipped+1 )) && continue 
+        if [[ -e ${output_file} || -e ${redundant_file} ]]; then
+            jobs_skipped=$(( $jobs_skipped+1 )) 
+            echo ${jobs_skipped}
+            continue 
+        fi
         [[ ${sample_ID_i} == ${sample_ID_j} ]] && continue
         # Run hicrep
         mkdir -p "${OUTPUT_DIR}/${comparison_dir}"
