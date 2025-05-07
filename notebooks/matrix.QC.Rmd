@@ -129,6 +129,36 @@ coverage.summary %>%
     arrange(Sample.ID, resolution.name)
 ```
 
+# Plot read orientation frequency over distance
+
+Recreating Figure 1 from the [ENCODE HiC Guidelines](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/).
+
+```{r plot_pair_orientation, results='asis', message=FALSE, warning=FALSE}
+pair.stats.list$distance.stats %>% 
+    filter(interaction == 'cis') %>% select(-c(interaction)) %>%
+    filter(value > 0) %>% 
+    mutate(
+        range.end=
+            ifelse(
+                is.na(range.end), 
+                range.start+1,
+                range.end
+            )
+    ) %>% 
+    mutate(
+        orientation=
+            orientation %>%
+            str_replace_all(fixed('+'), '>') %>% 
+            str_replace_all(fixed('-'), '<')
+    ) %>% 
+    left_join(sample.metadata, by='Sample.ID') %>% 
+    make_tab_per_group(
+        group_col='Sample.ID',
+        col_header=FALSE,
+        max_lvl=2,
+        plot_fnc=plot_pair.orientation_lineplot,
+    )
+```
 
 # Plot pairs by distance
 

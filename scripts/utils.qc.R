@@ -200,6 +200,39 @@ plot_qc_barplot <- function(
     add_ggtheme()
 }
 
+plot_pair.orientation_lineplot <- function(
+    plot.df,
+    ...){
+    plot.df %>% 
+    ggplot(
+        aes(
+            x=range.start,
+            y=value,
+        )
+    ) + 
+    # geom_line(aes(linetype=orientation, color=Sample.ID)) +
+    geom_line(aes(color=orientation)) +
+    # geom_text(aes(label=Sample.ID), x=1.5, y=1.8) +
+    scale_x_log10(labels=label_log()) +
+    scale_y_log10(labels=label_log()) +
+    # facet_wrap( ~ Sample.ID, ncol=3) +
+    # facet_grid(
+    #     cols=vars(Genotype),
+    #     rows=vars(Celltype)
+    # ) +
+    labs(
+        x='Pair Distance',
+        y='Raw Contacts'
+    ) +
+    theme(
+        # legend.position='right'
+        legend.position='inside',
+        legend.position.inside=c(0.95, 0.95), # c(0,0) bottom left, c(1,1) top-right.
+        # legend.background=
+        #     element_rect(
+        #         fill="white",
+        #         colour=NA
+        #     )
     ) +
     add_ggtheme()
 }
