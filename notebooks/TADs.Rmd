@@ -1,20 +1,56 @@
-library(glue)
-library(furrr)
-library(tidyverse)
-library(HiContacts)
-library(viridis)
-library(ggplot2)
-library(ggh4x)
-# library(ggtext)
-library(cowplot)
+---
+title: "TAD Analysis"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+        keep_md: yes
+        toc: true
+        toc_float: true
+        theme: paper
+        code_folding: hide
+        df_print: paged
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
 
-# BASE_DIR="/data/talkowski/broadIncoming/22LCC2LT4/fastq"
-# BASE_DIR="/home/sidreed/TalkowskiLab/Projects/HiC/remote.16p"
-BASE_DIR="/data/talkowski/Samples/16p_HiC"
-PLOT_DIR=glue('{BASE_DIR}/results/TADs/plots')
-source(glue('{BASE_DIR}/scripts/locations.R'))
-source(glue('{BASE_DIR}/scripts/utils.data.R'))
+# Prepare data
+
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    dev=c('png', 'pdf', 'tiff'),
+    dpi=300
+)
+```
+Set up file locations
+```{r locations, results=FALSE}
+library(here)
+BASE_DIR=here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+```
+Load dependencies
+```{r deps}
+library(tidyverse)
+library(magrittr)
+source(file.path(BASE_DIR, 'scripts/utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
+source(file.path(BASE_DIR, 'scripts/utils.TADs.R'))
+```
+Load sample metadata
+```{r load_metadata, message=FALSE, rows.print=5}
+sample.metadata <- load_sample_metadata()
+sample.metadata
+```
+
 # Load Directionality Index scores
+
+```{r load_DI}
 DI.scores <- 
     load_all_TAD_annotations(
         tad_annotations_dir=glue('{BASE_DIR}/results/TADs/hiTAD'),
@@ -40,75 +76,36 @@ DI.scores <-
     ) %>% 
     mutate(
         Resolution=as.integer(Resolution),
-        chr=factor(chr, levels=c(paste0('chr', 1:22), 'chrX')),
-        Genotype=
-            case_when(
-                str_detect(SampleName, '^16pWT') ~ 'WT',
-                str_detect(SampleName, '^16pDEL') ~ 'DEL',
-                str_detect(SampleName, '^16pDUP') ~ 'DUP',
-                TRUE ~ 'Unknown'
-            ) %>%
-            factor(levels=c('WT', 'DEL', 'DUP')),
-        Replicate=
-            SampleName %>%
-            str_extract('^16p.*_S([1-6])\\.*', group=1) %>% 
-            as.integer() %>% 
-            { 2 - . %% 2 } %>% 
-            as.factor()
-    )
-DI.scores %>% head(2) %>% t()
-# Load all TAD annotations
-tad.annotations <- 
-    load_all_TAD_annotations(
-        tad_annotations_dir=glue('{BASE_DIR}/results/TADs/hiTAD'),
-        tad.method='hiTAD',
-        file_suffix='-tads.txt',
-        param_names=
-            c(
-                'Normalization',
-                'Resolution',
-                'SampleName'
-            ),
-    ) %>%
-    separate_wider_delim(
-        SampleName,
-        delim=fixed('.'),
-        names=
-            c(
-                'SampleName',
-                NA,
-                'ReadFilter',
-                NA
-            )
-    ) %>% 
-    # Get chromosome size in bins per resolution for convienience
-    left_join(
-        DI.scores %>%
-        select(-c(DI, Method)) %>%
-        group_by(across(-starts_with('bin.'))) %>%
-        dplyr::count(name='chrom.total.bins')
-    ) %>%
-    mutate(
-        Resolution=as.integer(Resolution),
-        chr=factor(chr, levels=c(paste0('chr', 1:22), 'chrX')),
-        Genotype=
-            case_when(
-                str_detect(SampleName, '16pWT') ~ 'WT',
-                str_detect(SampleName, '16pDEL') ~ 'DEL',
-                str_detect(SampleName, '16pDUP') ~ 'DUP',
-                TRUE ~ 'Unknown'
-            ) %>%
-            factor(levels=c('WT', 'DEL', 'DUP')),
-        Replicate=
-            SampleName %>%
-            str_extract('^16p.*_S([1-6])\\.*', group=1) %>% 
-            as.integer() %>% 
-            { 2 - . %% 2 } %>% 
-            as.factor()
+        chr=factor(chr, levels=CHROMOSOMES)
     ) 
+DI.scores %>% head(2) %>% t()
+```
+
+# Load all TAD annotations
+
+Load all TAD Annotations
+```{r load_TADs}
+tad.annotations <- load_all_TAD_annotations()
+tad.annotations <- 
+    load_all_TAD_annotations() %>% 
+    mutate(
+        resolution=as.integer(resolution),
+        chr=factor(chr, levels=CHROMOSOMES)
+    ) 
+    # Get chromosome size in bins per resolution for convienience
+    # left_join(
+    #     DI.scores %>%
+    #     select(-c(DI, Method)) %>%
+    #     group_by(across(-starts_with('bin.'))) %>%
+    #     dplyr::count(name='chrom.total.bins')
+    # )
 tad.annotations %>% head(2) %>% t()
 tad.annotations %>% dplyr::count(Method, Normalization, ReadFilter, Resolution, SampleName, Genotype) %>% print(n=Inf)
-# Plot # of TADs across samples
+```
+
+# Plot number of TADs across samples
+
+```{r plot_TAD_n}
 tad.annotations %>%
     dplyr::count(Resolution, Genotype, SampleName, chr) %>%
     group_by(Resolution) %>%
@@ -137,15 +134,12 @@ tad.annotations %>%
         plotlist=.,
         align='v',
         ncol=2
-    ) %>% 
-    ggsave(
-        glue('{PLOT_DIR}/16p.hiTAD.TAD_Counts.pdf'),
-        plot=.,
-        height=6,
-        width=10,
-        units='in'
     )
+```
+
 # Plot TAD length Distribution
+
+```{r plot_TAD_length}
 tad.annotations %>%
     filter(chr %in% paste0('chr', c(1,3,5,10,16,20,'X'))) %>% 
     mutate(TAD.length=(TAD.end - TAD.start) / Resolution) %>% 
@@ -176,15 +170,12 @@ tad.annotations %>%
         plotlist=.,
         align='v',
         ncol=1
-    ) %>% 
-    ggsave(
-        glue('{PLOT_DIR}/16p.hiTAD.TAD_Lengths.pdf'),
-        plot=.,
-        height=10,
-        width=20,
-        units='in'
     )
+```
+
 # Plot DI Scores
+
+```{r plot_DI}
 tmp <- 
     DI.scores %>%
     add_count(Resolution, SampleName, chr, name='n.bins') %>% 
@@ -246,40 +237,5 @@ tmp %>%
         plotlist=.,
         align='v',
         ncol=1
-    ) %>% 
-    ggsave(
-        glue('{PLOT_DIR}/16p.hiTAD.DI_values.pdf'),
-        plot=.,
-        height=10,
-        width=20,
-        units='in'
     )
-
-
-
-
-
-
-cads.test <- 
-    tad.annotations %>%
-    select(-c(Normalization, ReadFilter, Method)) %>%
-    filter(Resolution == '100000') %>%
-    filter(chr == 'chr16')
-tmp <- 
-    DI.scores %>%
-    add_count(Resolution, SampleName, chr, name='n.bins') %>% 
-    filter(Resolution == '100000') %>%
-    filter(chr == 'chr16') %>% 
-    inner_join(
-        tads.test,
-        by=join_by(Resolution, chr, SampleName, between(bin.start, TAD.start, TAD.end, bounds='[)')) 
-    ) %>%
-    arrange(chr, bin.start)
-tmp %>% group_by(SampleName) %>% summarize(n=n(), total=unique(n.bins)) 
-tads.test %>% mutate(len=(TAD.end - TAD.start) / Resolution) %>% group_by(SampleName) %>% summarize(tad.covered=sum(len))
-tmp %>% group_by(SampleName) %>% summarize(n=n(), total=unique(n.bins))
-    # group_by(SampleName, chr, Resolution) %>% 
-    # summarize(TAD.starts=list(TAD.start), TAD.ends=list(TAD.end)) %>%
-    # mutate(TAD.boundaries=list(sort(c(unlist(TAD.starts), unlist(TAD.ends))))) %>%
-    # mutate(nonTAD.boundaries=
-
+```
