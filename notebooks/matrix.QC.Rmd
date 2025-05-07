@@ -180,7 +180,20 @@ pair.plot.df <-
 ```
 
 ```{r plot_pairs, echo=FALSE, fig.align='center', fig.height=5}
-pair.plot.df %>% plot_qc_barplot(y_val='frac')
+pair.plot.df %>% 
+    separate_wider_delim(
+        Sample.ID,
+        delim=fixed('.'),
+        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+        cols_remove=FALSE
+    ) %>% 
+    mutate(is.Merged=ifelse(grepl('Merged', Sample.ID), 'Merged', 'Individual')) %>% 
+    rename('% Unique Contacts'=frac) %>% 
+    plot_qc_barplot(
+        y_val='% Unique Contacts',
+        facet_col='Celltype',
+        facet_row='is.Merged'
+    )
 ```
 
 # Plot heatmap of cis/trans interactions

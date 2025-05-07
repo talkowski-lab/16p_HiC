@@ -165,7 +165,9 @@ load_genome_coverage <- function(
 # Plot Matrix QC stuff
 plot_qc_barplot <- function(
     plot.df,
-    y_val='value',
+    y_val,
+    facet_row,
+    facet_col,
     ...){
     plot.df %>%
     ggplot(
@@ -181,9 +183,23 @@ plot_qc_barplot <- function(
         breaks=seq(0, max(plot.df[[y_val]]), 5),
         expand=c(0, 0)
     ) +
+    facet_grid2(
+        rows=vars(!!sym(facet_row)),
+        cols=vars(!!sym(facet_col)),
+        scales='fixed'
+    ) +
     labs(y=y_val) +
     theme(
-        axis.text.x=element_text(hjust=1, angle=35)
+        axis.title.x=element_blank(),
+        axis.text.x=
+            element_text(
+                hjust=1,
+                angle=35
+            )
+    ) + 
+    add_ggtheme()
+}
+
     ) +
     add_ggtheme()
 }
