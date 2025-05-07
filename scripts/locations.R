@@ -16,7 +16,7 @@ COOLERS_DIR <-           file.path(RESULTS_DIR, 'coolers_library')
 # Used for Sample QCing  
 SAMPLE_QC_DIR <-         file.path(RESULTS_DIR, 'sample.QC')
 COVERAGE_DIR <-          file.path(SAMPLE_QC_DIR, 'coverage')
-COVERAGE_DATA_FILE <-    file.path(COVERAGE_DIR, 'all.coverage.data.tsv')
+# COVERAGE_DATA_FILE <-    file.path(COVERAGE_DIR, 'all.coverage.data.tsv')
 # hicrep results
 HICREP_DIR <-            file.path(RESULTS_DIR, 'hicrep')
 HICREP_RESULTS_FILE <-   file.path(HICREP_DIR, 'all.hicrep.scores.tsv')
@@ -27,6 +27,7 @@ SPARSE_MATRIX_DIR <-     file.path(RESULTS_DIR, 'sparse.matrices')
 MULTIHICCOMPARE_DIR <-   file.path(RESULTS_DIR, 'multiHiCCompare')
 # TAD Annotations
 TAD_DIR <-               file.path(RESULTS_DIR, 'TADs')
+TAD_RESULTS_FILE <-      file.path(TAD_DIR, 'all.TAD.annotations.tsv')
 # Factor levels for variaous metadata categories
 EDITS <- 
     c(
@@ -102,19 +103,20 @@ GENOTYPE_COLORS <-
 # Genomic region boundaries to refernce during analysis plotting
 GENOMIC_REGIONS <- 
     tribble(
-        ~name,              ~chr,    ~start,       ~end,
-        "chr16",              16,         0,   90338345,
-        "chr16p",             16,         0,   36800000,
-        "chr16p11.2",         16,  24288679,   30188679,
-        "chr16p.deletion",    16,  29488679,   30188679,
-        "chr16p.telomere",    16,         0,    5149999,
-        "chr5",                5,         0,  181538259,
-        "chr5p",               5,         0,   48800000,
-        "chr5p13.2",           5,  33800001,   38400000,
-        "NIPBL",               5,  36876769,   37066413,
-        "chr10",              10,         0,  133797422,
-        "chr10q",             10,  39800001,  133797422,
-        "chr10q23.2",         10,  86100001,   87700000,
-        "WAPL",               10,  86435256,   86521792
+        ~region,           ~region.chr, ~region.start, ~region.end,
+        "chr16p.deletion",     "chr16",      29488679,    30188679,
+        "chr16p.telomere",     "chr16",             0,     5149999,
+        "chr16p11.2",          "chr16",      24288679,    30188679,
+        "chr16p",              "chr16",             0,    36800000,
+        "chr16",               "chr16",             0,    90338345,
+        "NIPBL",                "chr5",      36876769,    37066413,
+        "chr5p13.2",            "chr5",      33800001,    38400000,
+        "chr5p",                "chr5",             0,    48800000,
+        "chr5",                 "chr5",             0,   181538259,
+        "WAPL",                "chr10",      86435256,    86521792,
+        "chr10q23.2",          "chr10",      86100001,    87700000,
+        "chr10q",              "chr10",      39800001,   133797422,
+        "chr10",               "chr10",             0,   133797422,
     ) %>% 
-    mutate(UCSC=glue("{chr}:{start}-{end}"))
+    mutate(region.UCSC=glue("{region.chr}:{region.start}-{region.end}")) %>%
+    mutate(region.dist=region.end - region.start)
