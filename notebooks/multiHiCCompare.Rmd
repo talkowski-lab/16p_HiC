@@ -20,14 +20,21 @@ output:
 
 # Set up
 
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    dev=c('png', 'pdf', 'tiff'),
+    dpi=300
+)
+```
 Set up file locations
-```{r results='hide', echo=TRUE}
+```{r locations, results='hide', echo=TRUE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 ```
 Load dependencies
-```{r}
+```{r deps}
 library(tidyverse)
 library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
