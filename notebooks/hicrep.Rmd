@@ -102,13 +102,24 @@ Prepare data for plotting
 ```{r prep_plot_df, include=FALSE}
 plot.df <- 
     hicrep.results %>%
+    filter(ReadFilter == 'mapq_30') %>% 
+    # Pretty names
     mutate(resolution=as.integer(resolution)) %>% 
+    left_join(
+        RESOLUTION_NAMES,
+        by=join_by(resolution)
+    ) %>%
+    select(-c(resolution)) %>% 
+    rename(resolution=resolution.name) %>% 
     rowwise() %>% 
+    # Comparison labels
     mutate(
-        Genotype=
-            case_when(
-                grepl('vs', Genotype) ~ Genotype,
-                TRUE ~ paste(Genotype, 'vs', Genotype, collapse=" ")
+            across(
+                c(Genotype, Celltype),
+                ~ case_when(
+                    grepl('vs', .x) ~ .x,
+                    TRUE ~ paste(.x, 'vs', .x, collapse=" ")
+                )
             )
     ) %>% 
     ungroup() %>% 
@@ -124,13 +135,8 @@ plot.df <-
                 !sample1.is.new & !sample2.is.new ~ 'Old vs Old',
                 TRUE ~ 'error'
             )
-    ) %>% 
-    left_join(
-        RESOLUTION_NAMES,
-        by=join_by(resolution)
     ) %>%
-    select(-c(resolution)) %>% 
-    rename(resolution=resolution.name)
+    select(-c(sample1.is.new, sample2.is.new))
 ```
 
 ## Compare Differences between Genotypes
