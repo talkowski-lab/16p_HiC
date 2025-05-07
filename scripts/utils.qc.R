@@ -1,7 +1,6 @@
-# Dependencies
-# library(tidyverse)
-# library(glue)
-# library(purrr)
+library(tidyverse)
+library(glue)
+library(purrr)
 ###############
 # Load various QC data files/sets of files
 load_pairtools_stats <- function(
@@ -9,7 +8,7 @@ load_pairtools_stats <- function(
     ...){
     # Load all stats
     all.stats.df <- 
-        PAIRS_DIR  %>%
+        PAIRS_DIR %>%
         list.files(
             full.names=FALSE,
             recursive=TRUE,
@@ -34,6 +33,20 @@ load_pairtools_stats <- function(
         ) %>%
         select(-c(filepath)) %>%
         unnest(stats)
+    all.stats.df <- 
+        all.stats.df %>% 
+        separate_wider_delim(
+            Sample.ID,
+            delim=fixed('.'),
+            names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+            cols_remove=FALSE
+        ) %>% 
+        group_by(Edit, Genotype, Celltype, stat) %>%
+        summarize(value=sum(value)) %>%
+        ungroup() %>% 
+        mutate(Sample.ID=glue('{Edit}.{Genotype}.Merged.{Celltype}')) %>%
+        select(-c(Edit, Genotype, Celltype)) %>% 
+        bind_rows(all.stats.df)
     # Get total number of contacts per sample
     total.contacts.df <- 
         all.stats.df %>% 
@@ -162,6 +175,7 @@ load_genome_coverage <- function(
     )
 }
 
+###############
 # Plot Matrix QC stuff
 plot_qc_barplot <- function(
     plot.df,
