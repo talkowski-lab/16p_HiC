@@ -4,6 +4,7 @@ library(magrittr)
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
+library(scales)
 ###############
 # Formatting
 add_ggtheme <- function(){
@@ -38,6 +39,7 @@ add_ggtheme <- function(){
             )
     )
 }
+
 shift_legend <- function(p){
     if(!"gtable" %in% class(p)){
     if("ggplot" %in% class(p)){
@@ -92,6 +94,7 @@ shift_legend <- function(p){
 
     return(gp)
 }
+
 ###############
 # Utility
 make_tab_per_group <- function(
@@ -99,20 +102,17 @@ make_tab_per_group <- function(
     group_col,
     plot_fnc,
     col_header=TRUE,
-    max_lvl=3,
+    lvl=3,
     ...){
 
     cat("\n\n")
     max_header <- rep('#', max_lvl) %>% paste0(collapse="")
     cat(max_header, ifelse(col_header, group_col, ""), "{.tabset}", "\n\n")
     tab_header <- paste0(max_header, '#')
-    group_values <- 
-        plot.df[[group_col]] %>% 
-        as.factor() %>% 
-        droplevels() %>%
-        levels()
+    group_values <- plot.df[[group_col]] %>% as.factor() %>% droplevels() %>% levels()
     for (group_value in group_values){
         cat(tab_header, group_value, "\n\n")
+        print("PLOT GOES HERE")
         figure <- 
             plot.df %>%
             filter(get({{group_col}}) == group_value) %>%
@@ -120,6 +120,104 @@ make_tab_per_group <- function(
         print(figure)
         cat("\n\n")
     }
+}
+
+plot_figure_tabs <- function(
+    plot.df,
+    group_col,
+    plot_fnc,
+    header_lvl,
+    nl_delim,
+    ...){
+    plot.df[[group_col]] %>% 
+        as.factor() %>% 
+        droplevels() %>% 
+        levels() %>%
+        lapply(
+            function(group_value, plot.df, plot_fnc, header_lvl, group_col, nl_delim){
+                cat(
+                    strrep('#', header_lvl), group_value,
+                    # nl_delim, "Rows per df", nrow(plot.df),
+                    nl_delim
+                )
+                figure <- 
+                    plot.df %>%
+                    filter(get({{group_col}}) == group_value) %>%
+                    plot_fnc(...)
+                print(figure)
+                cat(nl_delim)
+            },
+            plot.df=plot.df,
+            plot_fnc=plot_fnc,
+            header_lvl=header_lvl,
+            group_col=group_col,
+            nl_delim=nl_delim
+        )
+}
+
+make_tabs_recursive <- function(
+    plot.df, 
+    group_cols,
+    current_header_lvl,
+    plot_fnc,
+    tabset_format,
+    nl_delim,
+    ...){
+    # cat("LENGTH OF GROUP COLS", length(group_cols), group_cols, "\n\n\n")
+    if (length(group_cols) == 1) {
+        plot_figure_tabs(
+            plot.df=plot.df, 
+            group_col=group_cols[1],
+            header_lvl=current_header_lvl,
+            plot_fnc=plot_fnc,
+            nl_delim=nl_delim,
+            ...
+        )
+    } else {
+        group_col <- group_cols[1]
+        group_values <- 
+            plot.df[[group_col]] %>% 
+            as.factor() %>% 
+            droplevels() %>% 
+            levels()
+        for (group_value in group_values) {
+            cat(
+                strrep('#', current_header_lvl), group_value, tabset_format,
+                # nl_delim, "Rows:", nrow(plot.df), 
+                nl_delim
+            )
+            make_tabs_recursive(
+                plot.df=plot.df %>% filter(get({{group_col}}) == group_value),
+                group_cols=group_cols[2:length(group_cols)],
+                current_header_lvl=current_header_lvl + 1,
+                plot_fnc=plot_fnc,
+                tabset_format=tabset_format,
+                nl_delim=nl_delim,
+                ...
+            )
+        }
+    }
+}
+
+make_nested_plot_tabs <- function(
+    plot.df,
+    group_cols,
+    plot_fnc,
+    max_header_lvl=2,
+    tabset_format="{.tabset .tabset-pills}",
+    nl_delim="\n\n\n",
+    ...){
+    cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
+    plot.df %>% 
+    make_tabs_recursive(
+        group_cols=group_cols,
+        current_header_lvl=max_header_lvl+1,
+        plot_fnc=plot_fnc,
+        tabset_format=tabset_format,
+        nl_delim=nl_delim,
+        ...
+    )
+    cat(nl_delim)
 }
 ###############
 # Common Plots
@@ -227,3 +325,4 @@ plot_contacts_heatmap <- function(
     ...){
     print("TODO")
 }
+

@@ -13,7 +13,7 @@ output:
 
 <style type="text/css">
 .main-container {
-  <!-- max-width: 1800px !important; -->
+  max-width: 1800px !important;
   margin-left: auto;
   margin-right: auto;
 }
@@ -158,12 +158,15 @@ pair.stats.list$distance.stats %>%
             str_replace_all(fixed('+'), '>') %>% 
             str_replace_all(fixed('-'), '<')
     ) %>% 
-    left_join(sample.metadata, by='Sample.ID') %>% 
-    make_tab_per_group(
-        group_col='Sample.ID',
-        col_header=FALSE,
-        max_lvl=2,
-        plot_fnc=plot_pair.orientation_lineplot,
+    separate_wider_delim(
+        Sample.ID,
+        delim=fixed('.'),
+        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+        cols_remove=FALSE
+    ) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('Celltype', 'Genotype', 'Sample.ID'),
+        plot_fnc=plot_pair.orientation_lineplot
     )
 ```
 
@@ -291,10 +294,14 @@ tmp_plot <- function(plot.df){
 }
 plot.df %>% 
     filter(metric == "% Total Contacts") %>% 
-    make_tab_per_group(
-        group_col='Sample.ID',
-        col_header=FALSE,
-        max_lvl=3,
+    separate_wider_delim(
+        Sample.ID,
+        delim=fixed('.'),
+        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+        cols_remove=FALSE
+    ) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('Celltype', 'Genotype', 'Sample.ID'),
         plot_fnc=tmp_plot
     )
 ```
