@@ -378,6 +378,7 @@ matrix_coverage() {
         for uri in $(cooler ls ${sample_file}); do 
             resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
             raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
+            mkdir -p ${raw_output_dir}
             raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
             echo ${uri}
             if ! [[ -e ${raw_output_file} ]]; then
@@ -388,6 +389,7 @@ matrix_coverage() {
                     ${uri}
             fi
             balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
+            mkdir -p ${balanced_output_dir}
             balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
             if ! [[ -e ${balanced_output_file} ]]; then
                 echo ${balanced_output_file}
