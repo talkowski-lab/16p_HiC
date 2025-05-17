@@ -95,8 +95,9 @@ plot_hicrep_boxplot <- function(
     hicrep_results,
     sample_group='Celltype',
     fill_var='is.downsampled', 
-    facet_row='resolution',
-    facet_col='Genotype', 
+    facet_row=NULL,
+    facet_col=NULL,
+    scales='fixed',
     mark_df=NULL,
     mark_alpha=0.6,
     mark_color='purple',
@@ -112,17 +113,37 @@ plot_hicrep_boxplot <- function(
             )
         ) +
         geom_boxplot(outlier.size=0.5) +
-        facet_grid2(
-            rows=vars(!!sym(facet_row)),
-            cols=vars(!!sym(facet_col)),
-            scales='fixed'
-        ) +
         scale_y_continuous(labels=function(x) format(x, digits=2)) +
         theme(
             legend.position='top',
             axis.text.x=element_text(angle=35, hjust=1)
         ) +
         add_ggtheme()
+    # Facet as specified
+    if (!is.null(facet_col) & !is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                cols=vars(!!sym(facet_col)),
+                scales=scales
+            )
+    } else if (!is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                scales=scales
+            )
+    } else if (!is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                cols=vars(!!sym(facet_col)),
+                scales=scales
+            )
+    }
+    # Mark specific chromosomes in th boxplot if specified
     if (!(is.null(mark_df))) {
         figure <- 
             figure +
