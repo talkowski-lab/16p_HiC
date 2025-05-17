@@ -102,6 +102,8 @@ GENOTYPE_COLORS <-
         'DUP'='#0000ff'
     )
 # Genomic region boundaries to refernce during analysis plotting
+# 16p deleteion andd telomere are to replicate Fig 4B in this paper:
+# https://www.nature.com/articles/s41588-022-01203-y
 GENOMIC_REGIONS <- 
     tribble(
         ~region,           ~region.chr, ~region.start, ~region.end,
@@ -109,6 +111,7 @@ GENOMIC_REGIONS <-
         "chr16p.telomere",     "chr16",             0,     5149999,
         "chr16p11.2",          "chr16",      24288679,    30188679,
         "chr16p",              "chr16",             0,    36800000,
+        "chr16q",              "chr16",      36800001,    90338345,
         "chr16",               "chr16",             0,    90338345,
         "NIPBL",                "chr5",      36876769,    37066413,
         "chr5p13.2",            "chr5",      33800001,    38400000,
@@ -119,5 +122,8 @@ GENOMIC_REGIONS <-
         "chr10q",              "chr10",      39800001,   133797422,
         "chr10",               "chr10",             0,   133797422,
     ) %>% 
-    mutate(region.UCSC=glue("{region.chr}:{region.start}-{region.end}")) %>%
-    mutate(region.dist=region.end - region.start)
+    mutate(
+        region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
+        region.dist=region.end - region.start,
+        region=fct_reorder(region, region.dist)
+    )
