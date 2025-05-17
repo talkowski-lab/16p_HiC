@@ -57,19 +57,33 @@ contacts.df
 Prepare data for plotting
 ```{r}
 plot.df <- 
-    interactions.df %>% 
-    left_join(
-        expand_grid(
-            normalization='NONE',
-            min_count=1:5
-        ),
-        by='normalization',
-        relationship='many-to-many'
-    ) %>% 
-    mutate(min_count=ifelse(is.na(min_count), -Inf, min_count)) %>% 
-    unnest(interactions) %>% 
-    # mutate(count=ifelse(is.nan(count), 0, count)) %>% 
-    select(-c(chrom2, mcool_file))
+    check_cached_results(
+        results_file=ROBINSON_REPLICATION_DATA_FILE,
+        force_redo=FALSE,
+        return_data=TRUE,
+        show_col_types=FALSE,
+        results_fnc=annotate_contact_regions,
+        contacts.df=contacts.df,
+        regions.of.interest=
+            GENOMIC_REGIONS %>%
+            filter(
+                region %in% c(
+                    "chr16p.deletion",
+                    "chr16p.telomere",
+                    "chr16p",
+                    "chr16q"
+                )
+            ),
+        most_specific_only=TRUE
+    ) %>%
+    select(
+        -c(
+            ReadFilter,
+            resolution,
+            weight
+        )
+    )
+plot.df %>% dplyr::count(Sample.ID, region)
 ```
 
 

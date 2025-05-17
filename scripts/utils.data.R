@@ -145,6 +145,84 @@ process_matrix_name <- function(
     mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
     select(-c(Edit, Genotype, SampleNumber, Celltype))
 }
+
+annotate_contact_regions <- function(
+    contacts.df,
+    regions.of.interest,
+    most_specific_only=TRUE,
+    ...){
+    # regions of interest is a tibble where each row is a specific contiguous genomic range
+    # see GENOMIC_REGIONS variable for example
+    # For each bin (1, left and 2, right) in each pair of bins annotate the region is belongs to
+    region.pairs.of.interest <- 
+        regions.of.interest %>%
+        add_column(join_dummy=0) %>% 
+        # all possible pairs of regions to annotate
+        # each bin-pair will be assigned 1 region pair, even if regions overlap/contain eachother
+        full_join(
+            .,
+            {.},
+            suffix=c('1','2'),
+            relationship='many-to-many',
+            by='join_dummy'
+        ) %>% 
+        filter(region.chr1 == region.chr2) %>% 
+        select(-c(join_dummy)) %>% 
+        # factor order so most specific region interactions have the lowest factor level
+        mutate(
+            region=
+                pmap_chr(
+                    list(region1, region2),
+                    ~ paste(sort(c(...)), collapse=' vs ')
+                ),
+            region.dist=region.dist1 + region.dist2,
+            region=fct_reorder(region, region.dist) 
+        )
+    # contacts.df should be a tibble where each row is a pair of genomic bins i.e. output of
+    # the load_mcool_file(s) functions
+    contacts.df %>% 
+    # Now annotate all region-pairs that each bin-pair belongs to 
+    # (bin1 in region1 and bin2 in region2)
+    full_join(
+        region.pairs.of.interest,
+        by=
+            join_by(
+                chr == region.chr1,
+                between(
+                    range1,
+                    region.start1,
+                    region.end1
+                ),
+                between(
+                    range2,
+                    region.start2,
+                    region.end2
+                )
+            )
+    ) %>% 
+    # Pick most specific (smallest) annotated region for each bin if specified
+    {
+        if (most_specific_only) {
+            group_by(
+                .,
+                Sample.ID,
+                chr,
+                range1,
+                range2
+            ) %>% 
+            slice_min(
+                region.dist,
+                n=1,
+                with_ties=FALSE
+            ) %>% 
+            ungroup()
+        } else {
+            .
+        }
+    } %>% 
+    # Clean up 
+    select(-c(starts_with('region.')))
+}
 ###############
 # Load Data
 load_sample_metadata <- function(
