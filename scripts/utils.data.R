@@ -74,7 +74,7 @@ parse_results_filelist <- function(
     ...){
     # !!NOTICE!!
     # This will break if any parameter_dir name has a param_delim character in the name or value
-    # This shouldnt  break if the filename has a param_delim character in it 
+    # This shouldnt  break if the filename has a single param_delim character in it 
     # input_dir=HICREP_DIR; suffix='-hicrep.txt'; filename.column.name='file.pair'; param_delim='_'
     suffix_pattern <- glue('*{suffix}$')
     # List all results files that exist
@@ -262,6 +262,8 @@ load_chr_sizes <- function(){
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
 
+###############
+# Load Files
 load_mcool_file <- function(
     filepath,
     resolution,
@@ -270,9 +272,6 @@ load_mcool_file <- function(
     normalization='NONE',
     cis=TRUE,
     ...){
-    # filepath %>% 
-    # CoolFile(resolution=resolution) %>%
-    # import(focus=region)
     filepath %>% 
     File(resolution=resolution) %>% 
     fetch(
@@ -284,7 +283,7 @@ load_mcool_file <- function(
     ) %>% 
     as_tibble() %>%
     add_column(weight=normalization) %>% 
-    # cis only
+    # format column names
     {
         if (cis) {
             filter(., chrom1 == chrom2) %>% 
@@ -319,7 +318,7 @@ load_mcool_files <- function(
     range1s,
     range2s=NULL,
     ...){
-    # resolutions=c('100000'); regions='XVI'; pattern='mapq_30.1000.mcool' 
+    # resolutions=c('100000'); range1s='chr16'; range2s=NULL; pattern='*.NSC.*.mapq_30.1000.mcool' 
     range2s <- ifelse(is.null(range2s), range1s, range2s)
     COOLERS_DIR %>% 
     list.files(
@@ -339,6 +338,7 @@ load_mcool_files <- function(
         )
     ) %>% 
     process_matrix_name() %>% 
+    mutate(resolution=as.integer(resolution)) %>% 
     mutate(
         contacts=
             purrr::pmap(
@@ -347,7 +347,6 @@ load_mcool_files <- function(
                 .progress=TRUE
             )
     ) %>% 
-    mutate(resolution=as.integer(resolution)) %>% 
     select(
         -c(
             filepath,
