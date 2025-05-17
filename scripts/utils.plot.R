@@ -207,6 +207,7 @@ make_nested_plot_tabs <- function(
     tabset_format="{.tabset .tabset-pills}",
     nl_delim="\n\n\n",
     ...){
+    cat(nl_delim)
     cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
     plot.df %>% 
     make_tabs_recursive(
