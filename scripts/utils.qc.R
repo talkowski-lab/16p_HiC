@@ -12,7 +12,7 @@ load_pairtools_stats <- function(
         list.files(
             full.names=FALSE,
             recursive=TRUE,
-            pattern=glue('*{stats_file_suffix}')
+            pattern=glue('*{stats_file_suffix}$')
         ) %>%
         tibble(fileinfo=.) %>% 
         mutate(filepath=file.path(PAIRS_DIR, fileinfo)) %>% 
@@ -175,6 +175,130 @@ load_genome_coverage <- function(
     )
 }
 
+make_summary_stats_table <- function(
+    coverage.summary,
+    pair.stats.list,
+    pair.plot.df,
+    ...){
+# Start with coverage data
+    coverage.summary %>%
+    filter(
+        weight == 'raw',
+        metric == 'cis',
+        chr == 'genome.wide',
+        ReadFilter == 'mapq_30',
+        bins.pct.covered >= 0.80
+    ) %>% 
+    group_by(Sample.ID) %>% 
+    slice_min(resolution, n=1) %>% 
+    ungroup() %>% 
+    select(
+        -c(
+            weight,
+            metric,
+            chr
+        )
+    ) %>%
+    mutate(ReadFilter=as.integer(str_remove(ReadFilter, 'mapq_'))) %>% 
+    pivot_longer(
+        c(starts_with('bins'), resolution, ReadFilter),
+        names_to='metric',
+        values_to='n'
+    ) %>%
+    mutate(
+        metric=
+            case_when(
+                metric == 'bins.n.nz'        ~ NA,
+                metric == 'bins.n.covered'   ~ 'Bins >= 1K Contacts',
+                metric == 'bins.n.total'     ~ NA,
+                metric == 'bins.pct.nz'      ~ NA,
+                metric == 'bins.pct.covered' ~ '% Bins >= 1K Contacts',
+                metric == 'resolution'       ~ 'Minimum Viable Resolution',
+                metric == 'min_mapq'         ~ 'Minimum MAPQ',
+                TRUE ~ NA
+            )
+    ) %>% 
+    filter(!is.na(metric)) %>% 
+    # Add stats per matrix
+    bind_rows(
+        pair.stats.list$general.stats %>%
+        select(
+            Sample.ID,
+            stat,
+            value
+        ) %>%
+        rename(
+            'metric'=stat,
+            'n'=value
+        )
+    ) %>% 
+    # add pair categories
+    bind_rows(
+        pair.plot.df %>%
+        select(
+            Sample.ID,
+            Category,
+            value
+        ) %>%
+        rename(
+            'metric'=Category,
+            'n'=value
+        ) %>%
+        mutate(metric=paste0('pairs.', metric))
+    ) %>% 
+    pivot_wider(
+        names_from=metric,
+        values_from=n
+    )
+}
+
+make_pair_qc_df <- function(
+    pair.stats.list,
+    ...){
+    pair.stats.list$general.stats %>% 
+    select(-c(category)) %>% 
+    filter(stat %in% c('trans', 'cis')) %>% 
+    dplyr::rename('interaction'=stat) %>% 
+    add_column(range.start=0) %>% 
+    bind_rows(pair.stats.list$distance.stats) %>% 
+    mutate(
+        range.end=ifelse(is.na(range.end), Inf, range.end),
+        Category=
+            case_when(
+                orientation =='-+'   & range.end < 1001    ~ 'self-circle', 
+                orientation =='+-'   & range.end < 1001    ~ 'dangling-end', 
+                range.start >= 20000                       ~ 'Long.Range  >  20Kb',
+                range.start >=  1000 & range.start < 20001 ~ 'Short.Range <= 20Kb',
+                range.end   <=  1000                       ~ 'Too.Short   <=  1Kb',
+                interaction == 'cis' & range.end == Inf    ~ 'Cis.Total',
+                interaction == 'trans'                     ~ 'Trans',
+            )
+    ) %>%
+    mutate(
+        Category=
+            factor(
+                Category,
+                levels=
+                    c(
+                        'self-circle', 
+                        'dangling-end', 
+                        'Too.Short   <=  1Kb',
+                        'Short.Range <= 20Kb',
+                        'Long.Range  >  20Kb',
+                        'Cis.Total',
+                        'Trans'
+                    )
+            )
+    ) %>% 
+    group_by(Sample.ID, Category) %>% 
+    summarize(
+        value=sum(value),
+        # total per sample
+        total.unique.contacts=unique(total.unique.contacts)
+    ) %>% 
+    ungroup() %>% 
+    mutate(frac=100 * (value / total.unique.contacts))
+}
 ###############
 # Plot Matrix QC stuff
 plot_qc_barplot <- function(
@@ -182,6 +306,7 @@ plot_qc_barplot <- function(
     y_val,
     facet_row,
     facet_col,
+    yintercept=35,
     ...){
     plot.df %>%
     ggplot(
@@ -192,6 +317,7 @@ plot_qc_barplot <- function(
         )
     ) +
     geom_col(position = "dodge") +
+    geom_hline(yintercept=yintercept, color='black', linetype='dashed') +
     # scale_y_continuous(breaks=~ seq(.x, .y, 5)) +
     scale_y_continuous(
         breaks=seq(0, max(plot.df[[y_val]]), 5),
@@ -204,6 +330,7 @@ plot_qc_barplot <- function(
     ) +
     labs(y=y_val) +
     theme(
+        ...,
         axis.title.x=element_blank(),
         axis.text.x=
             element_text(
@@ -216,6 +343,7 @@ plot_qc_barplot <- function(
 
 plot_pair.orientation_lineplot <- function(
     plot.df,
+    facet_row,
     ...){
     plot.df %>% 
     ggplot(
@@ -230,10 +358,10 @@ plot_pair.orientation_lineplot <- function(
     scale_x_log10(labels=label_log()) +
     scale_y_log10(labels=label_log()) +
     # facet_wrap( ~ Sample.ID, ncol=3) +
-    # facet_grid(
-    #     cols=vars(Genotype),
-    #     rows=vars(Celltype)
-    # ) +
+    facet_grid(
+        rows=vars(!!sym(facet_row)),
+        scales='fixed'
+    ) +
     labs(
         x='Pair Distance',
         y='Raw Contacts'

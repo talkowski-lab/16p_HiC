@@ -173,50 +173,7 @@ pair.stats.list$distance.stats %>%
 # Plot pairs by distance
 
 ```{r pair_plot_df, include=FALSE}
-pair.plot.df <- 
-    pair.stats.list$general.stats %>% 
-    select(-c(category)) %>% 
-    filter(stat %in% c('trans', 'cis')) %>% 
-    dplyr::rename('interaction'=stat) %>% 
-    add_column(range.start=0) %>% 
-    bind_rows(pair.stats.list$distance.stats) %>% 
-    mutate(
-        range.end=ifelse(is.na(range.end), Inf, range.end),
-        Category=
-            case_when(
-                orientation =='-+'   & range.end < 1001    ~ 'self-circle', 
-                orientation =='+-'   & range.end < 1001    ~ 'dangling-end', 
-                range.start >= 20000                       ~ 'Long.Range  >  20Kb',
-                range.start >=  1000 & range.start < 20001 ~ 'Short.Range <= 20Kb',
-                range.end   <=  1000                       ~ 'Too.Short   <=  1Kb',
-                interaction == 'cis' & range.end == Inf    ~ 'Cis.Total',
-                interaction == 'trans'                     ~ 'Trans',
-            )
-    ) %>%
-    mutate(
-        Category=
-            factor(
-                Category,
-                levels=
-                    c(
-                        'self-circle', 
-                        'dangling-end', 
-                        'Too.Short   <=  1Kb',
-                        'Short.Range <= 20Kb',
-                        'Long.Range  >  20Kb',
-                        'Cis.Total',
-                        'Trans'
-                    )
-            )
-    ) %>% 
-    group_by(Sample.ID, Category) %>% 
-    summarize(
-        value=sum(value),
-        # total per sample
-        total.unique.contacts=unique(total.unique.contacts)
-    ) %>% 
-    ungroup() %>% 
-    mutate(frac=100 * (value / total.unique.contacts))
+pair.plot.df <- make_pair_qc_df(pairt.stats.list)
 ```
 
 ```{r plot_pairs, echo=FALSE, fig.align='center', fig.height=5}
@@ -311,75 +268,10 @@ plot.df %>%
 `.tsv` of stats per sample 
 
 ```{r download_stats}
-# Start with coverage data
-coverage.summary %>%
-    filter(
-        weight == 'raw',
-        metric == 'cis',
-        chr == 'genome.wide',
-        ReadFilter == 'mapq_30',
-        bins.pct.covered >= 0.80
-    ) %>% 
-    group_by(Sample.ID) %>% 
-    slice_min(resolution, n=1) %>% 
-    ungroup() %>% 
-    select(
-        -c(
-            weight,
-            metric,
-            chr
-        )
-    ) %>%
-    mutate(ReadFilter=as.integer(str_remove(ReadFilter, 'mapq_'))) %>% 
-    pivot_longer(
-        c(starts_with('bins'), resolution, ReadFilter),
-        names_to='metric',
-        values_to='n'
-    ) %>%
-    mutate(
-        metric=
-            case_when(
-                metric == 'bins.n.nz'        ~ NA,
-                metric == 'bins.n.covered'   ~ 'Bins >= 1K Contacts',
-                metric == 'bins.n.total'     ~ NA,
-                metric == 'bins.pct.nz'      ~ NA,
-                metric == 'bins.pct.covered' ~ '% Bins >= 1K Contacts',
-                metric == 'resolution'       ~ 'Minimum Viable Resolution',
-                metric == 'min_mapq'         ~ 'Minimum MAPQ',
-                TRUE ~ NA
-            )
-    ) %>% 
-    filter(!is.na(metric)) %>% 
-    # Add stats per matrix
-    bind_rows(
-        pair.stats.list$general.stats %>%
-        select(
-            Sample.ID,
-            stat,
-            value
-        ) %>%
-        rename(
-            'metric'=stat,
-            'n'=value
-        )
-    ) %>% 
-    # add pair categories
-    bind_rows(
-        pair.plot.df %>%
-        select(
-            Sample.ID,
-            Category,
-            value
-        ) %>%
-        rename(
-            'metric'=Category,
-            'n'=value
-        ) %>%
-        mutate(metric=paste0('pairs.', metric))
-    ) %>% 
-    pivot_wider(
-        names_from=metric,
-        values_from=n
+    make_summary_stats_table(
+        coverage.summary,
+        pair.stats.list,
+        pair.plot.df,
     ) %>% 
     download_this(
         output_name="16p_HiC_Matrix_QCStats",
