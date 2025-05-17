@@ -197,14 +197,14 @@ Now plot individual sample pair distributions to see if the 3 new samples are le
 ```{r novel_boxplot, results='asis', echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
 plot.df %>% 
     filter(!grepl("Merged", SampleNumber)) %>% 
-    make_tab_per_group(
-        group_col='resolution',
-        col_header=FALSE,
+    make_nested_plot_tabs(
+        group_cols=c('resolution'),
         plot_fnc=plot_hicrep_boxplot,
+        max_header_lvl=3,
         sample_group='SampleNovelty',
         fill_var='is.downsampled', 
         facet_row='Genotype',
-        facet_col='Celltype' 
+        facet_col='Celltype'
     )
 ```
 
@@ -214,21 +214,21 @@ See if there are any trends in HiCRep scores across chromosomes and if they are 
 ```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7}
 resolution_boxplot_fnc <- function(plot.df){
     plot.df %>% 
-    plot_hicrep_boxplot_nested(
+    plot_hicrep_boxplot(
         sample_group='chr',
-        facet_lvl1='Genotype',
-        facet_lvl2='Celltype',
-        ncol=1
+        fill_var='is.downsampled', 
+        facet_row='Genotype',
+        mark_df=NULL
     ) + 
     geom_hline(yintercept=0.95, linetype='solid', linewidth=0.15) +
     theme(axis.text.x=element_text(angle=45, hjust=1))
 }
 plot.df %>%
     filter(!grepl("Merged", SampleNumber)) %>% 
-    make_tab_per_group(
-        group_col='resolution',
-        col_header=FALSE,
-        plot_fnc=resolution_boxplot_fnc
+    make_nested_plot_tabs(
+        group_cols=c('resolution', 'Celltype'),
+        plot_fnc=resolution_boxplot_fnc,
+        max_header_lvl=3
     )
 ```
 
