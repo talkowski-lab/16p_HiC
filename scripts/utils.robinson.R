@@ -104,6 +104,7 @@ plot_contacts_regions_boxplot <- function(
         aes(color=.data[[color_col]]),
         outlier.size=0.5
     ) +
+    scale_color_identity() +
     stat_pvalue_manual(
         data=stat.df,
         label='p.label',
@@ -126,6 +127,7 @@ plot_contacts_regions_boxplot <- function(
         hjust=0.5,
         vjust=0.5
     ) +
+    geom_hline(yintercept=0, linetype='solid', color='black', linewidth=0.5) +
     scale_y_continuous(expand=expansion) +
     labs(y='HiC-Contacts') +
     facet_grid2(
