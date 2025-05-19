@@ -116,13 +116,38 @@ plot_hicrep_boxplot <- function(
                 fill=.data[[fill_var]]
             )
         ) +
-        geom_boxplot(outlier.size=0.5) +
+        geom_hline(
+            yintercept=yintercept,
+            color='black',
+            linetype='solid',
+            linewidth=0.15
+        ) +
         scale_y_continuous(labels=function(x) format(x, digits=2)) +
         theme(
             legend.position='top',
             axis.text.x=element_text(angle=35, hjust=1)
         ) +
         add_ggtheme()
+    # Mark specific chromosomes in th boxplot if specified
+    if (!(is.null(mark_df))) {
+        figure <- 
+            figure +
+            geom_jitter(
+                data=mark_df,
+                aes(
+                    x=.data[[sample_group]],
+                    y=hicrep.score,
+                    color=.data[[mark_fill_var]]
+                ),
+                alpha=mark_alpha,
+                size=mark_size
+            ) +
+            geom_boxplot(outliers=FALSE)
+    } else {
+        figure <- 
+            figure +
+            geom_boxplot(outlier.size=0.5)
+    }
     # Facet as specified
     if (!is.null(facet_col) & !is.null(facet_col)) {
         figure <- 
@@ -147,25 +172,6 @@ plot_hicrep_boxplot <- function(
                 scales=scales
             )
     }
-    # Mark specific chromosomes in th boxplot if specified
-    if (!(is.null(mark_df))) {
-        figure <- 
-            figure +
-            geom_jitter(
-                data=mark_df,
-                aes(
-                    x=.data[[sample_group]],
-                    y=hicrep.score,
-                    fill=.data[[fill_var]]
-                ),
-                alpha=mark_alpha,
-                color=mark_color,
-                size=mark_size
-            )
-    }
-    figure
-}
-
 plot_hicrep_boxplot_nested <- function(
     hicrep_results,
     sample_group='Celltype',
