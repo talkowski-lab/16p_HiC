@@ -29,13 +29,13 @@ knitr::opts_chunk$set(
 )
 ```
 Set up file locations
-```{r locations, results=FALSE}
+```{r locations, results=FALSE, message=FALSE}
 library(here)
 BASE_DIR=here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 ```
 Load dependencies
-```{r deps}
+```{r deps, message=FALSE}
 library(tidyverse)
 library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
@@ -51,61 +51,95 @@ sample.metadata <-
     filter(Celltype == 'NSC')
 sample.metadata
 ```
-Load contact matrices for each file
-```{r load_contacts, rows.print=5}
-contacts.df <- 
-    load_mcool_files(
-        pattern='*.NSC.*.mapq_30.1000.mcool',
-        range1s='chr16',
-        resolutions=c(RESOLUTION),
-    ) %>%
-    mutate(is.Merged=grepl('Merged', Sample.ID)) %>%
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        cols_remove=FALSE,
-        names=c(
-            'Edit',
-            'Genotype',
-            'SampleNumber',
-            'Celltype'
+Load contact matrices for each file + Annotate region-pair of interest for each bin-pair (contacts, 1 per row)
+```{r load_contacts, rows.print=20}
+# regions to annotate and compare
+regions.of.interest <- 
+    GENOMIC_REGIONS %>%
+    filter(
+        region %in% c(
+            "chr16p.deletion",
+            "chr16p.telomere",
+            "chr16p",
+            "chr16q"
         )
     )
-```
-
-# Plot IFs of ELISE vs CTRL regions 
-
-Prepare data for plotting, count how many bin-pairs there are per annotated category
-```{r plot_df, rows.print=50}
-# Annotate all regions each for each bin and bin-pair (contacts, 1 per row)
-plot.df <- 
+annotated.contacts.df <- 
     check_cached_results(
         results_file=ROBINSON_REPLICATION_DATA_FILE,
         force_redo=FALSE,
         return_data=TRUE,
         show_col_types=FALSE,
-        results_fnc=annotate_contact_regions,
-        contacts.df=contacts.df,
-        regions.of.interest=
-            GENOMIC_REGIONS %>%
-            filter(
-                region %in% c(
-                    "chr16p.deletion",
-                    "chr16p.telomere",
-                    "chr16p",
-                    "chr16q"
-                )
-            ),
-        most_specific_only=TRUE
-    ) %>%
+        results_fnc=load_annotated_contacts,
+        regions.of.interest=regions.of.interest
+    )
+annotated.contacts.df %>% head(5) %>% t() %>% tibble()
+```
+
+# Plot IFs of Deleted CNV vs Controls regions 
+
+Now we replicate the results in [Fig.4C from Weiner et al. 2022](https://www.nature.com/articles/s41588-022-01203-y#Fig4).
+Specifically we want to comapre if contacts between the chr16p CNV region and the chr16 telomere are statistically more frequent than between any other regions on chr16p.
+
+These regions are defined as follows
+```{r regions, rows.print=50}
+regions.of.interest
+```
+We also only compare distance-matched contacts to the CNV-telomere contacts of interest, using the following distance range of those CNV-telomere contacts
+```{r distance_range, rows.print=50}
+# distance range for matched controls
+dist.min <- 
+    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.start)} -
+    {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.end)}
+dist.max <- 
+    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)} -
+    {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.start)}
+glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart") %>% message()
+```
+
+```{r plot_df, rows.print=7}
+# Keep only distance matched control bin-pairs and specify names+colors
+colors.and.titles <- 
+    tribble(
+    ~region, ~region.title, ~region.color,
+    'chr16p.deletion vs chr16p.telomere', '16p11.2 CNV - Telomere',                     '#526ab1',
+    'chr16p vs chr16p',                   '16p.Distance-matched control',               '#e32528',
+    'chr16p vs chr16q',                   '16p-q.Distance-matched control',             '#9e1517',
+    'chr16q vs chr16q',                   '16q.Distance-matched control',               '#5a0c10',
+    'chr16p.deletion vs chr16p',          '16p11.2 CNV - 16p.Distance-matched control', '#8000ff',
+    'chr16p.deletion vs chr16q',          '16p11.2 CNV - 16q.Distance-matched control', '#bf80ff',
+    'chr16p.telomere vs chr16p',          'Telomere - 16p.Distance-matched control',    '#330066',
+    )
+plot.df <- 
+    annotated.contacts.df %>% 
     select(
         -c(
             ReadFilter,
             resolution,
             weight
         )
+    ) %>%
+    mutate(contact.dist=range2 - range1) %>% 
+    # filter(between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)) %>% 
+    filter(between(contact.dist, dist.min, dist.max)) %>% 
+    left_join(colors.and.titles, by='region') %>% 
+    mutate(region.color=ifelse(is.na(region.color), '#808080', region.color)) %>%
+    # Number samples for faceting plots
+    nest(data=-c(Edit, Celltype, Genotype, is.Merged, Sample.ID)) %>% 
+    arrange(is.Merged, Genotype) %>% 
+    group_by(Edit, Celltype, Genotype) %>% 
+    mutate(ReplicateNum=as.character(row_number())) %>%
+    ungroup() %>% 
+    unnest(data) %>% 
+    mutate(
+        ReplicateNum=
+            ifelse(
+                grepl('Merged', Sample.ID),
+                'Merged',
+                glue('Bio Replicate {ReplicateNum}')
+            )
     )
-plot.df %>% dplyr::count(Sample.ID, region)
+plot.df %>% dplyr::count(Sample.ID, region.title)
 ```
 
 ## Weiner et al. 2022 replication {.tabset}
