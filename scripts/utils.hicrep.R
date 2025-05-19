@@ -5,7 +5,7 @@ library(tictoc)
 ###############
 # Load resutls
 load_all_hicrep_results <- function(){
-    # Load all files generated from ./scripts/run.hicrep.shS
+    # Load all files generated from ./scripts/run.hicrep.sh
     parse_results_filelist(
         input_dir=HICREP_DIR,
         suffix='-hicrep.txt',
@@ -103,9 +103,10 @@ plot_hicrep_boxplot <- function(
     facet_col=NULL,
     scales='fixed',
     mark_df=NULL,
+    mark_fill_var='chr',
     mark_alpha=0.6,
-    mark_color='purple',
     mark_size=1,
+    yintercept=0.95,
     ...){
     figure <- 
         hicrep_results %>%
@@ -172,41 +173,5 @@ plot_hicrep_boxplot <- function(
                 scales=scales
             )
     }
-plot_hicrep_boxplot_nested <- function(
-    hicrep_results,
-    sample_group='Celltype',
-    fill_var='is.downsampled', 
-    facet_lvl1='resolution',
-    facet_lvl2='Genotype', 
-    ncol=2,
-    ...){
-    figure <- 
-        hicrep_results %>%
-        ggplot(
-            aes(
-                x=.data[[sample_group]],
-                y=hicrep.score,
-                fill=.data[[fill_var]]
-            )
-        ) +
-        geom_boxplot(outlier.size=0.5) +
-        facet_nested_wrap(
-            vars(
-                !!sym(facet_lvl1),
-                !!sym(facet_lvl2)
-            ),
-            ncol=ncol,
-            nest_line=
-                element_line(
-                    linetype='solid',
-                    color='black'
-                )
-        ) +
-        scale_y_continuous(labels=function(x) format(x, digits=2)) +
-        theme(
-            legend.position='top',
-            axis.text.x=element_text(angle=35, hjust=1)
-        ) +
-        add_ggtheme()
     figure
 }

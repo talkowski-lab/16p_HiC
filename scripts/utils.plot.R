@@ -326,4 +326,3 @@ plot_contacts_heatmap <- function(
     ...){
     print("TODO")
 }
-

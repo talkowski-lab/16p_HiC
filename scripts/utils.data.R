@@ -373,6 +373,7 @@ load_mcool_files <- function(
     resolutions,
     range1s,
     range2s=NULL,
+    progress=TRUE,
     ...){
     # resolutions=c('100000'); range1s='chr16'; range2s=NULL; pattern='*.NSC.*.mapq_30.1000.mcool' 
     range2s <- ifelse(is.null(range2s), range1s, range2s)
@@ -400,7 +401,7 @@ load_mcool_files <- function(
             purrr::pmap(
                 .l=.,
                 .f=load_mcool_file,
-                .progress=TRUE
+                .progress=progress
             )
     ) %>% 
     select(
