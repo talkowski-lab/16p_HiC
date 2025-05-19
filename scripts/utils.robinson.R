@@ -4,128 +4,114 @@ library(furrr)
 library(ggplot2)
 library(ggpubr)
 ##############
-# Plotting utils
-plot_elise_boxplot <- function(
+##############
+# Plotting 
+plot_contacts_regions_boxplot <- function(
     plot.df,
-    p_size=NA,
-    n_size=NA,
-    n_pos=0,
+    bin_col='region',
+    count_col='IF',
+    color_col='region.color',
+    facet_row='ReplicateNum',
+    facet_col='Genotype',
+    test.method='t.test',
+    p.adjust.method='none',
     independent='none',
     scales='free_y',
-    test_offset_y=2,
+    p.max=1,
+    tip.length=0.05,
+    n_pos=0,
+    n_size=2,
+    p_size=2,
+    test_offset_y=3,
     expansion=c(0.01, 0.01, 0.1, 0.01),
     ...){
-    group.colors <- 
-        c(
-            '16all.Distance.Matched.Control'='#43090c',
-            '16p.Distance.Matched.Control'='#e32528',
-            '16q.Distance.Matched.Control'= '#871218',
-            '16p11.2 CNV - Telomere'='#526ab1'
-        )
     stat.df <- 
         plot.df %>% 
-        group_split(Replicate.ID, Genotype) %>% 
-        lapply(
-            function(df) {
+        group_by(across(all_of(c(facet_row, facet_col)))) %>% 
+        nest() %>% 
+        rowwise() %>% 
+        # Compute stats comparing means between bin_col (x-axis) values
+        mutate(
+            stats=
                 compare_means(
-                    formula(glue('count ~ region')),
-                    method='t.test',
-                    p.adjust.method='BH',
-                    data=df
-                ) %>% 
-                group_by(group1, group2) %>% 
-                add_column(
-                    Genotype=df$Genotype[[1]],
-                    Replicate.ID=df$Replicate.ID[[1]]
+                    formula(glue('{count_col} ~ {bin_col}')),
+                    method=test.method,
+                    p.adjust.method=p.adjust.method,
+                    data=data
+                ) %>%
+                list()
+        ) %>% 
+        select(-c(data)) %>%
+        unnest(stats) %>% 
+        filter(p < p.max) %>% 
+        # Make more legible label
+        mutate(
+            p.label=
+                ifelse(
+                    p.adjust.method == 'none',
+                    glue('p={formatC(p, format="e", digits=2)}'),
+                    glue('{p.adjust.method} p={formatC(p.adj, format="e", digits=2)}')
                 )
-            }
-        ) %>%
-        bind_rows() %>% 
+        ) %>% 
+        # Set positions + spacing of p-value text
         left_join(
             plot.df %>% 
-            group_by(Replicate.ID, Genotype) %>% 
-            summarize(y.position=min(count) + 0.75 * (max(count) - min(count))),
-            by=
-                join_by(
-                    Genotype,
-                    Replicate.ID,
-                )
+            group_by(across(c(facet_row, facet_col))) %>% 
+            summarize(
+                y.position=
+                    min(!!sym(count_col)) + 0.95 * (max(!!sym(count_col)) - min(!!sym(count_col)))
+            ),
+            by=c(facet_row, facet_col)
         ) %>%
-        group_by(Replicate.ID, Genotype) %>% 
+        group_by(across(c(facet_row, facet_col))) %>% 
         mutate(y.position=max(y.position) + test_offset_y * (row_number())) %>% 
         ungroup()
     plot.df %>% 
-        ggplot(
-            aes(
-                x=region,
-                y=count,
-                color=region
-            )
-        ) +
-        geom_boxplot(outlier.size=0.5) +
-        scale_y_continuous(
-            expand=expansion
-        ) +
-        stat_pvalue_manual(
-            stat.df,
-            label='T-test p={formatC(p.adj, format="e", digits=2)}',
-            size=p_size,
-            tip.length=0
-        ) +
-        geom_text(
-            data=
-                plot.df %>% 
-                group_by(Genotype, Replicate.ID, region) %>%
-                summarize(
-                    # y.position=max(.data[[y_val]]),
-                    y.position=n_pos,
-                    n=glue('n={n()}')
-                ),
-            aes(
-                y=y.position,
-                label=n
+    ggplot(
+        aes(
+            x=.data[[bin_col]],
+            y=.data[[count_col]],
+        )
+    ) +
+    geom_boxplot(
+        aes(color=.data[[color_col]]),
+        outlier.size=0.5
+    ) +
+    stat_pvalue_manual(
+        data=stat.df,
+        label='p.label',
+        size=p_size,
+        tip.length=tip.length
+    ) +
+    geom_text(
+        data=
+            plot.df %>% 
+            group_by(across(c(bin_col, facet_row, facet_col))) %>%
+            summarize(
+                y.position=n_pos,
+                n=glue('n={n()}')
             ),
-            size=n_size,
-            hjust=0.5,
-            vjust=0.5
-        ) +
-        scale_color_manual(values=group.colors) +
-        labs(y='HiC-Contacts') +
-        facet_grid2(
-            rows=vars(Replicate.ID),
-            cols=vars(Genotype),
-            scales=scales,
-            independent=independent
-        ) +
-        theme(
-            legend.position='none',
-            axis.text.x=element_text(angle=25, hjust=1),
-            axis.title.x=element_blank()
-        ) +
-        add_ggtheme()
-}
-
-plot_wrapper <- function(
-    interactions,
-    min_count,
-    plot_file,
-    independent='y',
-    scales='free_y',
-    p_size=2.5,
-    n_size=2.75,
-    test_offset_y=5,
-    expansion=1e-2 * c(4, 1, 10, 1),
-    height=10,
-    width=10,
-    ...){
-    interactions %>% 
-    filter(count > min_count) %>% 
-    plot_elise_boxplot(
-        independent=independent,
+        aes(
+            y=y.position,
+            label=n
+        ),
+        size=n_size,
+        hjust=0.5,
+        vjust=0.5
+    ) +
+    scale_y_continuous(expand=expansion) +
+    labs(y='HiC-Contacts') +
+    facet_grid2(
+        rows=vars(!!sym(facet_row)), 
+        cols=vars(!!sym(facet_col)),
         scales=scales,
-        p_size=p_size,
-        n_size=n_size,
-        test_offset_y=test_offset_y,
-        expansion=expansion
-    )
+        independent=independent
+    ) +
+    theme(
+        legend.position='none',
+        axis.text.x=element_text(angle=25, hjust=1),
+        axis.title.x=element_blank(),
+        ...
+    ) +
+    add_ggtheme()
 }

@@ -108,27 +108,115 @@ plot.df <-
 plot.df %>% dplyr::count(Sample.ID, region)
 ```
 
-## Merged Only
+## Weiner et al. 2022 replication {.tabset}
 
-## Invididual Libraries
+Here I just recreate the figure+results as simply as possible
 
-```{r}
-contacts.df
+### Individual Samples
+
+```{r basic_individual, message=FALSE, fig.height=7, fig.width=7} 
+plot.df %>% 
+    filter(ReplicateNum != 'Merged') %>% 
+    filter(
+        region.title %in% c(
+            '16p.Distance-matched control',
+            '16p11.2 CNV - Telomere'
+        )
+    ) %>% 
+    plot_contacts_regions_boxplot(
+        bin_col='region.title',
+        count_col='IF',
+        color_col='region.color',
+        facet_row='ReplicateNum',
+        facet_col='Genotype',
+        n_pos=0,
+        n_size=2.5,
+        test_offset_y=7,
+        expansion=c(0.05, 0.01, 0.1, 0.01),
+    )
 ```
 
-```{r} 
+### Merged Samples
+
+```{r basic_merged, message=FALSE, fig.height=4, fig.width=6} 
 plot.df %>% 
-    filter(Replicate.ID == 'Merged') %>% 
-    filter(weight == 'NONE') %>% 
-    filter(min_count == 1) %>% 
-    # filter(region %in% c('16p11.2 CNV - Telomere', '16p.Distance.Matched.Control')) %>%
-    plot_elise_boxplot(
-        independent='y',
-        scales='free_y',
-        y_val='count',
-        p_size=2.5,
-        n_size=2.75,
-        test_offset_y=5,
-        expansion=1e-2 * c(3, 1, 5, 1)
+    filter(ReplicateNum == 'Merged') %>% 
+    filter(
+        region.title %in% c(
+            '16p.Distance-matched control',
+            '16p11.2 CNV - Telomere'
+        )
+    ) %>% 
+    plot_contacts_regions_boxplot(
+        bin_col='region.title',
+        count_col='IF',
+        color_col='region.color',
+        facet_row='ReplicateNum',
+        facet_col='Genotype',
+        n_size=3,
+        test_offset_y=4,
+        expansion=c(0.05, 0.01, 0.1, 0.01),
+    )
+```
+
+## Include more regions {.tabset}
+
+We have more data so we can visualize some other relevant comparisons for this CNV region and use corrected p-values.
+
+### Individual
+
+```{r extra_regions_individual, message=FALSE, fig.width=11, fig.height=11} 
+plot.df %>% 
+    filter(ReplicateNum != 'Merged') %>% 
+    filter(
+        region.title %in% c(
+            '16p11.2 CNV - Telomere',
+            '16p.Distance-matched control',
+            '16p-q.Distance-matched control',
+            '16q.Distance-matched control',
+            '16p11.2 CNV - 16p.Distance-matched control',
+            '16p11.2 CNV - 16q.Distance-matched control',
+            'Telomere - 16p.Distance-matched control'
+        )
+    ) %>% 
+    plot_contacts_regions_boxplot(
+        bin_col='region.title',
+        count_col='IF',
+        color_col='region.color',
+        facet_row='ReplicateNum',
+        facet_col='Genotype',
+        p.adjust.method='BH',
+        p.max=0.05,
+        tip.length=0,
+        test_offset_y=3
+    )
+```
+
+### Merged
+
+```{r extra_regions_merged, message=FALSE, fig.width=12, fig.height=8} 
+plot.df %>% 
+    filter(ReplicateNum == 'Merged') %>% 
+    filter(
+        region.title %in% c(
+            '16p11.2 CNV - Telomere',
+            '16p.Distance-matched control',
+            '16p-q.Distance-matched control',
+            '16q.Distance-matched control',
+            '16p11.2 CNV - 16p.Distance-matched control',
+            '16p11.2 CNV - 16q.Distance-matched control',
+            'Telomere - 16p.Distance-matched control'
+        )
+    ) %>% 
+    plot_contacts_regions_boxplot(
+        bin_col='region.title',
+        count_col='IF',
+        color_col='region.color',
+        facet_row='ReplicateNum',
+        facet_col='Genotype',
+        p.adjust.method='BH',
+        p.max=0.05,
+        tip.length=0,
+        test_offset_y=3
     )
 ```
