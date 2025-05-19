@@ -148,7 +148,6 @@ plot.df <-
     select(-c(sample1.is.new, sample2.is.new))
 ```
 
-## Compare Differences between Genotypes
 ## Compare hyper-params
 
 Compare values by hyper-param to showcase the variability
@@ -166,17 +165,56 @@ plot.df %>%
     )
 ```
 
+## Compare Individual Samples
 
 Boxplot of hicrep scores by various levels
 ```{r new_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
-    filter(!grepl("Merged", SampleNumber)) %>% 
+    filter(isMerged == 'Individual vs Individual') %>% 
+    filter(is.downsampled) %>% 
     plot_hicrep_boxplot(
         sample_group='Genotype',
-        fill_var='is.downsampled', 
+        # fill_var='is.downsampled', 
+        fill_var='window.size', 
         facet_row='resolution',
-        facet_col='Celltype',,
-        mark_df={. %>% filter(chr =='chr16')}
+        facet_col='Celltype',
+        mark_df={. %>% filter(chr %in% c('chr16'))},
+        mark_size=0.85
+    )
+```
+
+## Comapre Merged Samples
+
+Boxplot of hicrep scores by various levels
+```{r merged_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
+plot.df %>% 
+    filter(isMerged == 'Merged vs Merged') %>% 
+    filter(is.downsampled) %>% 
+    plot_hicrep_boxplot(
+        sample_group='Genotype',
+        facet_col='Celltype',
+        # fill_var='is.downsampled', 
+        fill_var='window.size', 
+        facet_row='resolution'
+    )
+```
+
+## HiCRep scores per chromosome 
+
+See if there are any trends in HiCRep scores across chromosomes and if they are influenced by HiCRep params or samples genotype
+```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7}
+plot.df %>%
+    filter(isMerged == 'Individual vs Individual') %>% 
+    filter(is.downsampled) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('resolution', 'Celltype'),
+        plot_fnc=plot_hicrep_boxplot,
+        sample_group='chr',
+        # fill_var='is.downsampled', 
+        fill_var='window.size', 
+        facet_row='Genotype',
+        yintercept=0.95,
+        max_header_lvl=3
     )
 ```
 
@@ -186,7 +224,7 @@ Now plot individual sample pair distributions to see if the 3 new samples are le
 ```{r old_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
     filter(SampleNovelty == 'Old vs Old') %>% 
-    filter(!grepl("Merged", SampleNumber)) %>% 
+    filter(isMerged == 'Individual vs Individual') %>% 
     plot_hicrep_boxplot(
         sample_group='Genotype',
         fill_var='is.downsampled', 
@@ -201,7 +239,7 @@ How many new vs old samples pairs being compared
 ```{r novel_table, rows.print=6}
 plot.df %>% 
     filter(chr == 'chr16') %>% 
-    filter(!grepl("Merged", SampleNumber)) %>% 
+    filter(isMerged == 'Individual vs Individual') %>% 
     group_by(
         resolution,
         h,
@@ -214,7 +252,7 @@ plot.df %>%
 Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
 ```{r novel_boxplot, results='asis', echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
 plot.df %>% 
-    filter(!grepl("Merged", SampleNumber)) %>% 
+    filter(isMerged == 'Individual vs Individual') %>% 
     make_nested_plot_tabs(
         group_cols=c('resolution'),
         plot_fnc=plot_hicrep_boxplot,
@@ -223,43 +261,5 @@ plot.df %>%
         fill_var='is.downsampled', 
         facet_row='Genotype',
         facet_col='Celltype'
-    )
-```
-
-## HiCRep scores per chromosome 
-
-See if there are any trends in HiCRep scores across chromosomes and if they are influenced by HiCRep params or samples genotype
-```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7}
-resolution_boxplot_fnc <- function(plot.df){
-    plot.df %>% 
-    plot_hicrep_boxplot(
-        sample_group='chr',
-        fill_var='is.downsampled', 
-        facet_row='Genotype',
-        mark_df=NULL
-    ) + 
-    geom_hline(yintercept=0.95, linetype='solid', linewidth=0.15) +
-    theme(axis.text.x=element_text(angle=45, hjust=1))
-}
-plot.df %>%
-    filter(!grepl("Merged", SampleNumber)) %>% 
-    make_nested_plot_tabs(
-        group_cols=c('resolution', 'Celltype'),
-        plot_fnc=resolution_boxplot_fnc,
-        max_header_lvl=3
-    )
-```
-
-## Merged Samples Only
-
-Boxplot of hicrep scores by various levels
-```{r merged_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
-plot.df %>% 
-    filter(grepl("Merged", SampleNumber)) %>% 
-    plot_hicrep_boxplot(
-        sample_group='Genotype',
-        fill_var='is.downsampled', 
-        facet_row='resolution',
-        facet_col='Celltype' 
     )
 ```
