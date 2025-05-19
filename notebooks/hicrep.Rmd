@@ -149,6 +149,23 @@ plot.df <-
 ```
 
 ## Compare Differences between Genotypes
+## Compare hyper-params
+
+Compare values by hyper-param to showcase the variability
+```{r hyperparam_boxplox, results='asis', echo=FALSE, out.width='100%', fig.height=7}
+plot.df %>% 
+    mutate(window.size=glue('Window Size={window.size}')) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('resolution', 'Celltype'),
+        plot_fnc=plot_hicrep_boxplot,
+        sample_group='window.size',
+        fill_var='is.downsampled', 
+        facet_row='isMerged',
+        facet_col='Genotype',
+        max_header_lvl=3
+    )
+```
+
 
 Boxplot of hicrep scores by various levels
 ```{r new_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
