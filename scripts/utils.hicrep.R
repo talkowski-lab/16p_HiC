@@ -39,6 +39,10 @@ load_all_hicrep_results <- function(){
                 NA
             )
     ) %>%
+    mutate(
+        A.isMerged=ifelse(grepl('Merged', A.SampleNumber), 'Merged', 'Individual'),
+        B.isMerged=ifelse(grepl('Merged', B.SampleNumber), 'Merged', 'Individual')
+    ) %>% 
     # Group HiCRep comparisons by mis/matching sample attributes
     pivot_longer(
         c(starts_with('A.'), starts_with('B.')),

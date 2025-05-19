@@ -119,11 +119,12 @@ plot.df <-
     ) %>%
     select(-c(resolution)) %>% 
     rename(resolution=resolution.name) %>% 
+    mutate(window.size=format(window.size, scientific=FALSE)) %>%
     rowwise() %>% 
     # Comparison labels
     mutate(
             across(
-                c(Genotype, Celltype),
+                c(Genotype, Celltype, SampleNumber, isMerged),
                 ~ case_when(
                     grepl('vs', .x) ~ .x,
                     TRUE ~ paste(.x, 'vs', .x, collapse=" ")
