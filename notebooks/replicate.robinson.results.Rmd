@@ -126,6 +126,8 @@ plot.df <-
     filter(between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)) %>% 
     left_join(colors.and.titles, by='region') %>% 
     mutate(region.color=ifelse(is.na(region.color), '#808080', region.color)) %>%
+    filter(between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)) %>% 
+    # filter(between(contact.dist, dist.min, dist.max)) %>% 
     filter(IF > 0) %>%
     # Number samples for faceting plots
     nest(data=-c(Edit, Celltype, Genotype, is.Merged, Sample.ID)) %>% 
