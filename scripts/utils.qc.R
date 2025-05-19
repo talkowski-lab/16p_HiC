@@ -27,7 +27,9 @@ load_pairtools_stats <- function(
                         read_tsv(
                             show_col_types=FALSE,
                             col_names=c('stat', 'value')
-                        )
+                        ) %>%
+                        filter(stat != 'summary/dist_freq_convergence/strands_w_max_convergence_dist') %>%
+                        mutate(value=as.numeric(value))
                     }
                 )
         ) %>%
