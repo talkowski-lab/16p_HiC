@@ -286,7 +286,7 @@ plot_qc_barplot <- function(
 
 plot_pair.orientation_lineplot <- function(
     plot.df,
-    facet_row,
+    facet_col,
     ...){
     plot.df %>% 
     ggplot(
@@ -302,7 +302,7 @@ plot_pair.orientation_lineplot <- function(
     scale_y_log10(labels=label_log()) +
     # facet_wrap( ~ Sample.ID, ncol=3) +
     facet_grid(
-        rows=vars(!!sym(facet_row)),
+        cols=vars(!!sym(facet_col)),
         scales='fixed'
     ) +
     labs(
@@ -325,6 +325,7 @@ plot_pair.orientation_lineplot <- function(
 plot_cistrans_chromosome_heatmap <- function(
     plot.df,
     fill_var,
+    facet_col,
     ...){
     plot.df %>%
     ggplot(
@@ -342,7 +343,10 @@ plot_cistrans_chromosome_heatmap <- function(
         low='grey90',
         high='red'
     ) +
-    facet_wrap(~ Sample.ID) +
+    facet_grid(
+        cols=vars(!!sym(facet_col)),
+        scales='fixed'
+    ) +
     theme(
         legend.position='top',
         axis.text.x=element_text(angle=45, hjust=1)
