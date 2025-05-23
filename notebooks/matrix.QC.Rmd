@@ -170,10 +170,9 @@ coverage.summary %>%
 
 Recreating Figure 1 from the [ENCODE HiC Guidelines](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/).
 
-```{r plot_pair_orientation, results='asis', message=FALSE, warning=FALSE}
-pair.stats.list$distance.stats %>% 
-    filter(interaction == 'cis') %>% select(-c(interaction)) %>%
-    filter(value > 0) %>% 
+```{r pair_orientation_df, message=FALSE, warning=FALSE}
+pair.orientation.df <- 
+    pair.stats.list$distance.stats %>% 
     mutate(
         range.end=
             ifelse(
@@ -193,10 +192,6 @@ pair.stats.list$distance.stats %>%
         delim=fixed('.'),
         names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
         cols_remove=FALSE
-    ) %>% 
-    make_nested_plot_tabs(
-        group_cols=c('Celltype', 'Genotype', 'Sample.ID'),
-        plot_fnc=plot_pair.orientation_lineplot
     )
 ```
 
@@ -220,6 +215,14 @@ pair.plot.df %>%
         y_val='% Unique Contacts',
         facet_col='Celltype',
         facet_row='is.Merged'
+```{r plot_pair_orientation, results='asis', message=FALSE, warning=FALSE}
+pair.orientation.df %>% 
+    filter(interaction == 'cis') %>% select(-c(interaction)) %>%
+    filter(value > 0) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('Celltype', 'Genotype'),
+        plot_fnc=plot_pair.orientation_lineplot,
+        facet_col='Sample.ID'
     )
 ```
 
@@ -270,17 +273,7 @@ plot.df  <-
 ```
 
 ```{r plot_cis_trans, results='asis'}
-tmp_plot <- function(plot.df){
-    col_name <- plot.df$metric %>% unique() %>% first()
-    plot.df %>%
-    pivot_wider(
-        names_from=metric,
-        values_from=value
-    ) %>% 
-    plot_cistrans_chromosome_heatmap(fill_var=col_name)
-}
 plot.df %>% 
-    filter(metric == "% Total Contacts") %>% 
     separate_wider_delim(
         Sample.ID,
         delim=fixed('.'),
@@ -288,8 +281,10 @@ plot.df %>%
         cols_remove=FALSE
     ) %>% 
     make_nested_plot_tabs(
-        group_cols=c('Celltype', 'Genotype', 'Sample.ID'),
-        plot_fnc=tmp_plot
+        group_cols=c('Celltype', 'Genotype', 'metric'),
+        plot_fnc=plot_cistrans_chromosome_heatmap,
+        fill_var='value',
+        facet_col='Sample.ID'
     )
 ```
 

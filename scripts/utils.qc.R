@@ -339,14 +339,9 @@ plot_pair.orientation_lineplot <- function(
         y='Raw Contacts'
     ) +
     theme(
-        # legend.position='right'
         legend.position='inside',
-        legend.position.inside=c(0.95, 0.95), # c(0,0) bottom left, c(1,1) top-right.
-        # legend.background=
-        #     element_rect(
-        #         fill="white",
-        #         colour=NA
-        #     )
+        legend.position.inside=c(0.95, 0.25), # c(0,0) bottom left, c(1,1) top-right.
+        ...
     ) +
     add_ggtheme()
 }
