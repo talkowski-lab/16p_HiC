@@ -1,4 +1,5 @@
 library(tidyverse)
+library(stringi)
 # library(HiContacts)
 library(glue)
 library(furrr)
@@ -46,6 +47,7 @@ load_hiTAD_TAD_annotation <- function(
     read_tsv(
         filepath,
         show_col_types=FALSE,
+        progress=FALSE,
         col_names=
             c(
                 'chr',
@@ -60,7 +62,36 @@ load_cooltools_TAD_annotation <- function(
     ...){
     read_tsv(
         filepath,
+        progress=FALSE,
         show_col_types=FALSE
+    ) %>%
+    rename(
+        'chr'=chrom,
+        'TAD.start'=start,
+        'TAD.end'=end
+    ) %>% 
+    select(-c(region)) %>% 
+    pivot_longer(
+        ends_with('00'),
+        names_to='TAD.stat',
+        values_to='value'
+    ) %>%
+    mutate(TAD.stat=stri_reverse(TAD.stat)) %>% 
+    separate_wider_delim(
+        TAD.stat,
+        delim='_',
+        names=c(
+            'window.size',
+            'stat'
+        ),
+        too_many='merge'
+    ) %>%
+    mutate(
+        across(
+            c(stat, window.size),
+            stri_reverse
+        ),
+        window.size=as.integer(window.size)
     )
 }
 
@@ -70,11 +101,12 @@ load_hiTAD_DIs <- function(
     read_tsv(
         filepath,
         show_col_types=FALSE,
+        progress=FALSE,
         col_names=
             c(
                 'chr',
-                'bin.start',
-                'bin.end',
+                'start',
+                'end',
                 'DI'
             )
     )
@@ -105,7 +137,6 @@ load_all_TAD_annotations <- function(){
         param_delim='_',
     ) %>%
     process_matrix_name() %>% 
-    group_by(method) %>% slice_head(n=2) %>% ungroup() %>% 
     mutate(
         TADs=
             pmap(
@@ -114,7 +145,7 @@ load_all_TAD_annotations <- function(){
                 .progress=TRUE
             )
     ) %>%
-    select(-c(filepath)) %>%
+    select(-c(filepath)) %>% 
     unnest(TADs)
 }
 ###############
