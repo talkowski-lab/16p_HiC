@@ -98,19 +98,21 @@ glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart"
 ```
 
 ```{r plot_df, rows.print=7}
-# Keep only distance matched control bin-pairs and specify names+colors
+# Map colors and titles to each region of contacts
 colors.and.titles <- 
     tribble(
-    ~region, ~region.title, ~region.color,
-    'chr16p.deletion vs chr16p.telomere', '16p11.2 CNV - Telomere',                     '#526ab1',
-    'chr16p vs chr16p',                   '16p.Distance-matched control',               '#e32528',
-    'chr16q vs chr16q',                   '16q.Distance-matched control',               '#5a0c10',
-    'chr16p vs chr16q',                   '16p-q.Distance-matched control',             '#9e1517',
-    'chr16p.deletion vs chr16p',          '16p11.2 CNV - 16p.Distance-matched control', '#8000ff',
-    'chr16p.deletion vs chr16q',          '16p11.2 CNV - 16q.Distance-matched control', '#bf80ff',
-    'chr16p.telomere vs chr16p',          'Telomere - 16p.Distance-matched control',    '#330066',
+        ~region, ~region.title, ~region.color,
+        'chr16p.deletion vs chr16p.telomere', '16p11.2 CNV - Telomere',                     '#526ab1',
+        'chr16p vs chr16p',                   '16p.Distance-matched control',               '#e32528',
+        'chr16q vs chr16q',                   '16q.Distance-matched control',               '#5a0c10',
+        'chr16p vs chr16q',                   '16p-q.Distance-matched control',             '#9e1517',
+        'chr16p.deletion vs chr16p',          '16p11.2 CNV - 16p.Distance-matched control', '#8000ff',
+        'chr16p.deletion vs chr16q',          '16p11.2 CNV - 16q.Distance-matched control', '#bf80ff',
+        'chr16p.telomere vs chr16p',          'Telomere - 16p.Distance-matched control',    '#330066'
     ) %>% 
     mutate(region.title=factor(region.title))
+
+# Keep only distance matched control bin-pairs and specify names+colors
 plot.df <- 
     annotated.contacts.df %>% 
     select(
@@ -122,17 +124,31 @@ plot.df <-
     ) %>%
     # Filter for relevant contacts
     mutate(contact.dist=range2 - range1) %>% 
-    # filter(between(contact.dist, dist.min, dist.max)) %>% 
-    filter(between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)) %>% 
-    left_join(colors.and.titles, by='region') %>% 
-    mutate(region.color=ifelse(is.na(region.color), '#808080', region.color)) %>%
-    filter(between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)) %>% 
-    # filter(between(contact.dist, dist.min, dist.max)) %>% 
-    filter(IF > 0) %>%
+    filter(
+        # IF > 0,
+        between(contact.dist, dist.min, dist.max)
+        # between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)
+    ) %>%
     # Number samples for faceting plots
-    nest(data=-c(Edit, Celltype, Genotype, is.Merged, Sample.ID)) %>% 
-    arrange(is.Merged, Genotype) %>% 
-    group_by(Edit, Celltype, Genotype) %>% 
+    nest(
+        data=
+            -c(
+                Edit,
+                Celltype,
+                Genotype,
+                is.Merged, 
+                Sample.ID
+            )
+    ) %>% 
+    arrange(
+        is.Merged,
+        Genotype
+    ) %>% 
+    group_by(
+        Edit,
+        Celltype,
+        Genotype
+    ) %>% 
     mutate(ReplicateNum=as.character(row_number())) %>%
     ungroup() %>% 
     mutate(
@@ -144,10 +160,29 @@ plot.df <-
             )
     ) %>% 
     unnest(data) %>% 
-    # Plot visuals
-    left_join(colors.and.titles, by='region') %>% 
-    mutate(region.color=ifelse(is.na(region.color), '#808080', region.color)) %>%
-    mutate(Genotype=factor(Genotype, levels=c('WT', 'DEL', 'DUP')))
+    # Plot visual details
+    left_join(
+        colors.and.titles,
+        by='region'
+    ) %>% 
+    mutate(
+        region.color=
+            ifelse(
+                is.na(region.color),
+                '#808080', 
+                region.color
+            ),
+        Genotype=
+            factor(
+                Genotype,
+                levels=
+                    c(
+                        'WT',
+                        'DEL',
+                        'DUP'
+                    )
+            )
+        )
 plot.df %>% dplyr::count(Sample.ID, region.title)
 ```
 
@@ -196,6 +231,7 @@ plot.df %>%
         color_col='region.color',
         facet_row='ReplicateNum',
         facet_col='Genotype',
+        tip.length=0,
         n_size=3,
         test_offset_y=4,
         expansion=c(0.05, 0.01, 0.1, 0.01),
