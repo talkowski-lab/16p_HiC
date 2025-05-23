@@ -138,6 +138,39 @@ tad.annotations %>%
     )
 ```
 
+# Load Directionality Index scores
+
+```{r load_DI}
+DI.scores <- 
+    load_all_TAD_annotations(
+        tad_annotations_dir=glue('{BASE_DIR}/results/TADs/hiTAD'),
+        tad.method='hiTAD-DIs',
+        file_suffix='-DIs.txt',
+        param_names=
+            c(
+                'Normalization',
+                'Resolution',
+                'SampleName'
+            ),
+    ) %>%
+    separate_wider_delim(
+        SampleName,
+        delim=fixed('.'),
+        names=
+            c(
+                'SampleName',
+                NA,
+                'ReadFilter',
+                NA
+            )
+    ) %>% 
+    mutate(
+        Resolution=as.integer(Resolution),
+        chr=factor(chr, levels=CHROMOSOMES)
+    ) 
+DI.scores %>% head(2) %>% t()
+```
+
 # Plot DI Scores
 
 ```{r plot_DI}
