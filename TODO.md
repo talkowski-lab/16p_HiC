@@ -13,11 +13,14 @@
 
 ## Code
 
-- [ ] MiSeq QC analysis 16p
+- [x] MiSeq QC analysis
+  - [x] 16p iNs
+  - [x] 16p NSCs
 - [x] calculate minimum viable resolution with Rao et al. 2014 definition 
 - [x] create table of genomic regions to plot
 - [x] plot read pair orientation for pairs
-- [ ] Plot HiCRep per chromosome (fix spacing)
+- [ ] plot pair-category statistics with raw number (not %)
+- [x] Plot HiCRep per chromosome (fix spacing)
 - [ ] plot comparing raw vs balanced matrices
 - [ ] create coverage line plot function
 - [ ] create contact heatmap function
@@ -43,7 +46,7 @@
   - [3/4] merged samples
 - [x] Pair QC notebook
 - [x] HICRep notebook
-- [ ] recreate elise results in notebook
+- [x] recreate elise results in notebook
   - individual sample boxplots
   - merged sample boxplots
   - raw @ 100Kb
@@ -91,12 +94,12 @@
 - [x] calcualte HiCRep results 
   - [12/12] iNs
   - [5/5] merged samples
-- [ ] HiCRep notebook
-- [ ] Pair QC notebook 
+- [x] Pair QC notebook 
+- [x] HiCRep notebook
 - [ ] TAD analysis
-  - [ ] generate TADs
+  - [x] generate TADs (10Kb, 25Kb, 50Kb, 100Kb)
     - [x] cooltools
-      - [0/12] iNs
+      - [12/12] iNs
       - [5/5] merged samples
     - [x] hiTAD
       - [12/12] iNs
