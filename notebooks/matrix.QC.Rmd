@@ -67,6 +67,21 @@ genome.coverage <-
 genome.coverage
 ```
 
+# Plot pairs by distance {.tabset}
+
+```{r pair_plot_df, include=FALSE}
+pairs.df <- make_pair_qc_df(pair.stats.list)
+pairs.plot.df <- 
+    pairs.df %>% 
+    separate_wider_delim(
+        Sample.ID,
+        delim=fixed('.'),
+        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+        cols_remove=FALSE
+    ) %>% 
+    mutate(isMerged=ifelse(grepl('Merged', SampleNumber), 'Merged', 'Individual'))
+```
+
 ## Number of pairs 
 
 ```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=5}
@@ -195,26 +210,7 @@ pair.orientation.df <-
     )
 ```
 
-# Plot pairs by distance
 
-```{r pair_plot_df, include=FALSE}
-pair.plot.df <- make_pair_qc_df(pairt.stats.list)
-```
-
-```{r plot_pairs, echo=FALSE, fig.align='center', fig.height=5}
-pair.plot.df %>% 
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
-        cols_remove=FALSE
-    ) %>% 
-    mutate(is.Merged=ifelse(grepl('Merged', Sample.ID), 'Merged', 'Individual')) %>% 
-    rename('% Unique Contacts'=frac) %>% 
-    plot_qc_barplot(
-        y_val='% Unique Contacts',
-        facet_col='Celltype',
-        facet_row='is.Merged'
 ```{r plot_pair_orientation, results='asis', message=FALSE, warning=FALSE}
 pair.orientation.df %>% 
     filter(interaction == 'cis') %>% select(-c(interaction)) %>%

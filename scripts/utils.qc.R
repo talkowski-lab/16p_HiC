@@ -160,30 +160,17 @@ make_summary_stats_table <- function(
     mutate(
         metric=
             case_when(
-                metric == 'bins.n.nz'        ~ NA,
+                metric == 'ReadFilter'       ~ 'Minimum MAPQ',
+                metric == 'resolution'       ~ 'Minimum Usable Resolution',
+                metric == 'bins.n.total'     ~ '# of Bins',
+                metric == 'bins.n.nz'        ~ '# of Bins > 0 Contacts',
+                metric == 'bins.pct.nz'      ~ '% Bins > 0 Contacts',
                 metric == 'bins.n.covered'   ~ 'Bins >= 1K Contacts',
-                metric == 'bins.n.total'     ~ NA,
-                metric == 'bins.pct.nz'      ~ NA,
                 metric == 'bins.pct.covered' ~ '% Bins >= 1K Contacts',
-                metric == 'resolution'       ~ 'Minimum Viable Resolution',
-                metric == 'min_mapq'         ~ 'Minimum MAPQ',
                 TRUE ~ NA
             )
     ) %>% 
     filter(!is.na(metric)) %>% 
-    # Add stats per matrix
-    bind_rows(
-        pair.stats.list$general.stats %>%
-        select(
-            Sample.ID,
-            stat,
-            value
-        ) %>%
-        rename(
-            'metric'=stat,
-            'n'=value
-        )
-    ) %>% 
     # add pair categories
     bind_rows(
         pair.plot.df %>%
@@ -198,10 +185,24 @@ make_summary_stats_table <- function(
         ) %>%
         mutate(metric=paste0('pairs.', metric))
     ) %>% 
+    # Add stats per matrix
+    bind_rows(
+        pair.stats.list$general.stats %>%
+        select(
+            Sample.ID,
+            stat,
+            value
+        ) %>%
+        rename(
+            'metric'=stat,
+            'n'=value
+        )
+    ) %>% 
     pivot_wider(
         names_from=metric,
         values_from=n
-    )
+    ) %>%
+    arrange(Sample.ID)
 }
 
 make_pair_qc_df <- function(
