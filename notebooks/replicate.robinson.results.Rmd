@@ -208,8 +208,19 @@ plot.df <-
                         'DUP'
                     )
             )
-        )
-plot.df %>% dplyr::count(Sample.ID, region.title)
+    ) %>% 
+    # Now produce results with different minimum IF thresholds
+    lapply(
+        0:5,
+        function(threshold, df) {
+            df %>% 
+            filter(IF > threshold) %>% 
+            add_column(IF.Threshold=glue('IF > {threshold}'))
+        },
+       df=. 
+    ) %>%
+    bind_rows()
+plot.df %>% dplyr::count(Sample.ID, IF.Threshold, region.title)
 ```
 
 ## Weiner et al. 2022 replication {.tabset}
@@ -218,7 +229,7 @@ Here I just recreate the figure+results as simply as possible
 
 ### Individual Samples
 
-```{r basic_individual, message=FALSE, fig.height=7, fig.width=7} 
+```{r basic_individual, results='asis', message=FALSE, fig.height=7, fig.width=7} 
 plot.df %>% 
     filter(ReplicateNum != 'Merged') %>% 
     filter(
@@ -227,7 +238,10 @@ plot.df %>%
             '16p11.2 CNV - Telomere'
         )
     ) %>% 
-    plot_contacts_regions_boxplot(
+    make_nested_plot_tabs(
+        group_cols=c('IF.Threshold'),
+        max_header_lvl=4,
+        plot_fnc=plot_contacts_regions_boxplot,
         bin_col='region.title',
         count_col='IF',
         color_col='region.color',
@@ -242,7 +256,7 @@ plot.df %>%
 
 ### Merged Samples
 
-```{r basic_merged, message=FALSE, fig.height=4, fig.width=6} 
+```{r basic_merged, results='asis', message=FALSE, fig.height=4, fig.width=6} 
 plot.df %>% 
     filter(ReplicateNum == 'Merged') %>% 
     filter(
@@ -251,7 +265,10 @@ plot.df %>%
             '16p11.2 CNV - Telomere'
         )
     ) %>% 
-    plot_contacts_regions_boxplot(
+    make_nested_plot_tabs(
+        group_cols=c('IF.Threshold'),
+        max_header_lvl=4,
+        plot_fnc=plot_contacts_regions_boxplot,
         bin_col='region.title',
         count_col='IF',
         color_col='region.color',
@@ -270,7 +287,7 @@ We have more data so we can visualize some other relevant comparisons for this C
 
 ### Individual
 
-```{r extra_regions_individual, message=FALSE, fig.width=11, fig.height=11} 
+```{r extra_regions_individual, results='asis', message=FALSE, fig.width=11, fig.height=11, eval=FALSE} 
 plot.df %>% 
     filter(ReplicateNum != 'Merged') %>% 
     filter(
@@ -299,7 +316,7 @@ plot.df %>%
 
 ### Merged
 
-```{r extra_regions_merged, message=FALSE, fig.width=12, fig.height=8} 
+```{r extra_regions_merged, results='asis', message=FALSE, fig.width=12, fig.height=8, eval=FALSE} 
 plot.df %>% 
     filter(ReplicateNum == 'Merged') %>% 
     filter(
@@ -313,7 +330,10 @@ plot.df %>%
             'Telomere - 16p.Distance-matched control'
         )
     ) %>% 
-    plot_contacts_regions_boxplot(
+    make_nested_plot_tabs(
+        group_cols=c('IF.Threshold'),
+        max_header_lvl=4,
+        plot_fnc=plot_contacts_regions_boxplot,
         bin_col='region.title',
         count_col='IF',
         color_col='region.color',
