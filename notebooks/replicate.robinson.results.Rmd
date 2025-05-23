@@ -94,6 +94,7 @@ dist.min <-
 dist.max <- 
     {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)} -
     {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.start)}
+
 glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart") %>% message()
 ```
 
