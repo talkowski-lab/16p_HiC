@@ -44,7 +44,6 @@ source(file.path(BASE_DIR, 'scripts/utils.robinson.R'))
 ```
 Load sample metadata
 ```{r load_metadata, message=FALSE, rows.print=5}
-RESOLUTION <- 100000  # used in the original paper
 sample.metadata <- 
     load_sample_metadata() %>%
     select(-c(Sample.Name)) %>%
@@ -54,6 +53,7 @@ sample.metadata
 Load contact matrices for each file + Annotate region-pair of interest for each bin-pair (contacts, 1 per row)
 ```{r load_contacts, rows.print=20}
 # regions to annotate and compare
+RESOLUTION <- 100000  # used in the original paper
 regions.of.interest <- 
     GENOMIC_REGIONS %>%
     filter(
@@ -67,7 +67,7 @@ regions.of.interest <-
 annotated.contacts.df <- 
     check_cached_results(
         results_file=ROBINSON_REPLICATION_DATA_FILE,
-        force_redo=FALSE,
+        force_redo=TRUE,
         return_data=TRUE,
         show_col_types=FALSE,
         results_fnc=load_annotated_contacts,
@@ -86,16 +86,42 @@ These regions are defined as follows
 regions.of.interest
 ```
 We also only compare distance-matched contacts to the CNV-telomere contacts of interest, using the following distance range of those CNV-telomere contacts
-```{r distance_range, rows.print=50}
-# distance range for matched controls
-dist.min <- 
-    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.start)} -
-    {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.end)}
-dist.max <- 
-    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)} -
+```{r distance_range}
+# Boundaries of regions to compare
+telomere.start <- 
     {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.start)}
-
+telomere.end <- 
+    {regions.of.interest %>% filter(region == 'chr16p.telomere') %>% pull(region.end)}
+deletion.start <- 
+    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.start)}
+deletion.end <- 
+    {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)}
+print(c(telomere.start, telomere.end, deletion.start, deletion.end))
+# Distance ranges to compare
+dist.min <- 
+    round(
+        deletion.start - telomere.end,
+        digits=-5 # round to nearest 100Kb bin
+    )
+dist.max <- 
+    round(
+        deletion.end - telomere.start,
+        digits=-5 # round to nearest 100Kb bin
+    )
+# print
 glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart") %>% message()
+```
+
+```{r due_diligence, eval=FALSE}
+annotated.contacts.df %>% count(ReadFilter, resolution, chr, weight)
+# annotated.contacts.df %>% filter(is.na(ReadFilter)) %>% t()
+annotated.contacts.df %>%
+    filter(grepl('WT.Merged', Sample.ID)) %>%
+    # count(region)
+    filter(region == 'chr16p vs chr16p') %>% 
+    # filter(region == 'chr16p.deletion vs chr16p.telomere') %>% 
+    count(range2) %>% print(n=Inf)
+
 ```
 
 ```{r plot_df, rows.print=7}
@@ -112,7 +138,6 @@ colors.and.titles <-
         'chr16p.telomere vs chr16p',          'Telomere - 16p.Distance-matched control',    '#330066'
     ) %>% 
     mutate(region.title=factor(region.title))
-
 # Keep only distance matched control bin-pairs and specify names+colors
 plot.df <- 
     annotated.contacts.df %>% 
@@ -125,11 +150,11 @@ plot.df <-
     ) %>%
     # Filter for relevant contacts
     mutate(contact.dist=range2 - range1) %>% 
+    # filter(between(contact.dist, dist.min, dist.max)) %>% 
     filter(
-        # IF > 0,
-        between(contact.dist, dist.min, dist.max)
-        # between(contact.dist, dist.min - RESOLUTION, dist.max + RESOLUTION)
-    ) %>%
+        contact.dist > dist.min,
+        contact.dist < dist.max
+    ) %>% 
     # Number samples for faceting plots
     nest(
         data=
