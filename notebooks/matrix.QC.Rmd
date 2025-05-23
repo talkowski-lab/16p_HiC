@@ -67,6 +67,36 @@ genome.coverage <-
 genome.coverage
 ```
 
+## Number of pairs 
+
+```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=5}
+pairs.plot.df %>% 
+    rename('# Unique Contacts'=value) %>% 
+    plot_qc_barplot(
+        y_val='# Unique Contacts',
+        fill_col='Sample.ID',
+        facet_col='Celltype',
+        facet_row='isMerged',
+        pct_breaks=FALSE,
+        scales='free_y',
+        linewidth=0
+    )
+```
+
+## % of pairs 
+
+```{r plot_pct_pairs, echo=FALSE, fig.align='center', fig.height=5}
+pairs.plot.df %>% 
+    rename('% Unique Contacts'=frac) %>% 
+    plot_qc_barplot(
+        y_val='% Unique Contacts',
+        fill_col='Sample.ID',
+        facet_col='Celltype',
+        facet_row='isMerged',
+        linewidth=0.25
+    )
+```
+
 # Calculate minimum resolution from pair orientations
 
 The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D) as follows

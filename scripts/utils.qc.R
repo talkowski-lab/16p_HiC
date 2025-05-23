@@ -256,41 +256,61 @@ make_pair_qc_df <- function(
 plot_qc_barplot <- function(
     plot.df,
     y_val,
-    facet_row,
-    facet_col,
+    fill_col='Sample.ID',
+    facet_col='Edit',
+    facet_row='isMerged',
+    expansion=c(0.00, 0.00, 0.00, 0.00),
+    pct_breaks=TRUE,
+    scales='fixed',
+    linewidth=0,
     yintercept=35,
     ...){
-    plot.df %>%
-    ggplot(
-        aes(
-            x=Category,
-            y=.data[[y_val]],
-            fill=Sample.ID
-        )
-    ) +
-    geom_col(position = "dodge") +
-    geom_hline(yintercept=yintercept, color='black', linetype='dashed') +
-    # scale_y_continuous(breaks=~ seq(.x, .y, 5)) +
-    scale_y_continuous(
-        breaks=seq(0, max(plot.df[[y_val]]), 5),
-        expand=c(0, 0)
-    ) +
-    facet_grid2(
-        rows=vars(!!sym(facet_row)),
-        cols=vars(!!sym(facet_col)),
-        scales='fixed'
-    ) +
-    labs(y=y_val) +
-    theme(
-        ...,
-        axis.title.x=element_blank(),
-        axis.text.x=
-            element_text(
-                hjust=1,
-                angle=35
+    figure <- 
+        plot.df %>%
+        ggplot(
+            aes(
+                x=Category,
+                y=.data[[y_val]],
+                fill=.data[[fill_col]]
             )
-    ) + 
-    add_ggtheme()
+        ) +
+        geom_col(position = "dodge") +
+        geom_hline(
+            yintercept=yintercept,
+            color='green',
+            linewidth=linewidth,
+            linetype='dashed'
+        ) +
+        guides(fill=guide_legend(ncol=1)) +
+        facet_grid2(
+            rows=vars(!!sym(facet_row)),
+            cols=vars(!!sym(facet_col)),
+            scales=scales
+        ) +
+        labs(y=y_val) +
+        theme(
+            ...,
+            axis.title.x=element_blank(),
+            axis.text.x=
+                element_text(
+                    hjust=1,
+                    angle=35
+                )
+        ) + 
+        add_ggtheme()
+    if (pct_breaks) {
+        figure <- 
+            figure +
+            scale_y_continuous(
+                breaks=seq(0, max(plot.df[[y_val]]), 5),
+                expand=expansion
+            )
+    } else {
+        figure <- 
+            figure +
+            scale_y_continuous(expand=expansion)
+    }
+    figure
 }
 
 plot_pair.orientation_lineplot <- function(
