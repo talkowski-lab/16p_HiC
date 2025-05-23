@@ -42,8 +42,8 @@ source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 source(file.path(BASE_DIR, 'scripts/utils.robinson.R'))
 ```
+```{r load_metadata, message=FALSE, rows.print=5, eval=FALSE}
 Load sample metadata
-```{r load_metadata, message=FALSE, rows.print=5}
 sample.metadata <- 
     load_sample_metadata() %>%
     select(-c(Sample.Name)) %>%
@@ -83,7 +83,18 @@ Specifically we want to comapre if contacts between the chr16p CNV region and th
 
 These regions are defined as follows
 ```{r regions, rows.print=50}
-regions.of.interest
+regions.of.interest %>%
+    mutate(region.dist=sprintf('%0.1f Kb', region.dist/1000)) %>% 
+    select(c(region, region.chr, region.start, region.end, region.dist, region.UCSC)) %>%
+    rename(
+        'Region'=region,
+        'Chr'=region.chr,
+        'Start Pos'=region.start,
+        'End Pos'=region.end,
+        'Size'=region.dist,
+        'UCSC'=region.UCSC
+    ) %>% 
+    kable()
 ```
 We also only compare distance-matched contacts to the CNV-telomere contacts of interest, using the following distance range of those CNV-telomere contacts
 ```{r distance_range}
