@@ -48,59 +48,24 @@ sample.metadata <- load_sample_metadata()
 sample.metadata
 ```
 
-# Load Directionality Index scores
-
-```{r load_DI}
-DI.scores <- 
-    load_all_TAD_annotations(
-        tad_annotations_dir=glue('{BASE_DIR}/results/TADs/hiTAD'),
-        tad.method='hiTAD-DIs',
-        file_suffix='-DIs.txt',
-        param_names=
-            c(
-                'Normalization',
-                'Resolution',
-                'SampleName'
-            ),
-    ) %>%
-    separate_wider_delim(
-        SampleName,
-        delim=fixed('.'),
-        names=
-            c(
-                'SampleName',
-                NA,
-                'ReadFilter',
-                NA
-            )
-    ) %>% 
-    mutate(
-        Resolution=as.integer(Resolution),
-        chr=factor(chr, levels=CHROMOSOMES)
-    ) 
-DI.scores %>% head(2) %>% t()
-```
-
 # Load all TAD annotations
 
 Load all TAD Annotations
 ```{r load_TADs}
-tad.annotations <- load_all_TAD_annotations()
 tad.annotations <- 
-    load_all_TAD_annotations() %>% 
+    check_cached_results(
+        results_file=TAD_RESULTS_FILE,
+        results_fnc=load_all_TAD_annotations,
+        force_redo=TRUE,
+        return_data=TRUE,
+        show_col_types=FALSE
+    ) %>% 
     mutate(
         resolution=as.integer(resolution),
         chr=factor(chr, levels=CHROMOSOMES)
     ) 
-    # Get chromosome size in bins per resolution for convienience
-    # left_join(
-    #     DI.scores %>%
-    #     select(-c(DI, Method)) %>%
-    #     group_by(across(-starts_with('bin.'))) %>%
-    #     dplyr::count(name='chrom.total.bins')
-    # )
 tad.annotations %>% head(2) %>% t()
-tad.annotations %>% dplyr::count(Method, Normalization, ReadFilter, Resolution, SampleName, Genotype) %>% print(n=Inf)
+tad.annotations %>% count(method, resolution, weight, threshold, mfvp, Sample.ID)
 ```
 
 # Plot number of TADs across samples
