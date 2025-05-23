@@ -132,13 +132,20 @@ make_summary_stats_table <- function(
         metric == 'cis',
         chr == 'genome.wide',
         ReadFilter == 'mapq_30',
-        bins.pct.covered >= 0.80
+        # bins.pct.covered >= 0.80
     ) %>% 
+    # Pick the smallest resolution that is valid for each sample
+    mutate(resolution.is.valid=bins.pct.covered >= 0.80) %>% 
     group_by(Sample.ID) %>% 
-    slice_min(resolution, n=1) %>% 
+    slice_min(
+        tibble(desc(resolution.is.valid), resolution),
+        n=1,
+        with_ties=FALSE
+    ) %>% 
     ungroup() %>% 
     select(
         -c(
+            resolution.is.valid,
             weight,
             metric,
             chr

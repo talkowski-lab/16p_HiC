@@ -268,15 +268,15 @@ plot.df %>%
 `.tsv` of stats per sample 
 
 ```{r download_stats}
-    make_summary_stats_table(
-        coverage.summary,
-        pair.stats.list,
-        pair.plot.df,
-    ) %>% 
-    download_this(
-        output_name="16p_HiC_Matrix_QCStats",
-        button_type="default",
-        output_extension=".csv",
-        csv2=TRUE
-    )
+make_summary_stats_table(
+    coverage.summary,
+    pair.stats.list,
+    pairs.plot.df,
+) %>% 
+download_this(
+    output_name="16p_HiC_Matrix_QCStats",
+    button_type="default",
+    output_extension=".csv",
+    csv2=TRUE
+)
 ```
