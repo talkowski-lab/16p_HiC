@@ -10,6 +10,23 @@ library(ggh4x)
 library(cowplot)
 ###############
 # Load TAD annotation data
+load_hiTAD_DIs <- function(
+    filepath,
+    ...){
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE,
+        col_names=
+            c(
+                'chr',
+                'start',
+                'end',
+                'DI'
+            )
+    )
+}
+
 load_arrowhead_TAD_annotation <- function(
     filepath,
     ...){
@@ -60,22 +77,25 @@ load_hiTAD_TAD_annotation <- function(
 load_cooltools_TAD_annotation <- function(
     filepath,
     ...){
+    filepath %>% 
     read_tsv(
-        filepath,
         progress=FALSE,
         show_col_types=FALSE
     ) %>%
+    filter(!is_bad_bin) %>% 
+    filter(if_any(starts_with('is_boundary'), ~ .x)) %>% 
+    # select(starts_with('is_boundary')) %>% group_by(across(everything())) %>% count()
     rename(
         'chr'=chrom,
         'TAD.start'=start,
         'TAD.end'=end
     ) %>% 
-    select(-c(region)) %>% 
     pivot_longer(
         ends_with('00'),
         names_to='TAD.stat',
         values_to='value'
     ) %>%
+    select(-c(region, is_bad_bin)) %>% 
     mutate(TAD.stat=stri_reverse(TAD.stat)) %>% 
     separate_wider_delim(
         TAD.stat,
@@ -92,24 +112,13 @@ load_cooltools_TAD_annotation <- function(
             stri_reverse
         ),
         window.size=as.integer(window.size)
-    )
-}
-
-load_hiTAD_DIs <- function(
-    filepath,
-    ...){
-    read_tsv(
-        filepath,
-        show_col_types=FALSE,
-        progress=FALSE,
-        col_names=
-            c(
-                'chr',
-                'start',
-                'end',
-                'DI'
-            )
-    )
+    ) %>% 
+    filter(stat %in% c('boundary_strength', 'is_boundary', 'n_valid_pixels')) %>%
+    pivot_wider(
+        names_from=stat,
+        values_from=value
+    ) %>%
+    mutate(is_boundary=as.logical(is_boundary))
 }
 
 load_TAD_annotation <- function(
@@ -145,8 +154,7 @@ load_all_TAD_annotations <- function(){
                 .progress=TRUE
             )
     ) %>%
-    select(-c(filepath)) %>% 
-    unnest(TADs)
+    select(-c(filepath)) #%>% unnest(TADs)
 }
 ###############
 # Compute stuff
