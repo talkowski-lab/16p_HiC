@@ -41,17 +41,13 @@ library(magrittr)
 source(file.path(BASE_DIR, 'scripts/utils.data.R'))
 source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 source(file.path(BASE_DIR, 'scripts/utils.robinson.R'))
-```
-```{r load_metadata, message=FALSE, rows.print=5, eval=FALSE}
-Load sample metadata
-sample.metadata <- 
-    load_sample_metadata() %>%
-    select(-c(Sample.Name)) %>%
-    filter(Celltype == 'NSC')
-sample.metadata
+# {r load_metadata, message=FALSE, rows.print=5, eval=FALSE}
+# Load sample metadata
+sample.metadata <- load_sample_metadata()
+# sample.metadata
 ```
 Load contact matrices for each file + Annotate region-pair of interest for each bin-pair (contacts, 1 per row)
-```{r load_contacts, rows.print=20}
+```{r load_contacts, rows.print=5}
 # regions to annotate and compare
 RESOLUTION <- 100000  # used in the original paper
 regions.of.interest <- 
@@ -67,13 +63,16 @@ regions.of.interest <-
 annotated.contacts.df <- 
     check_cached_results(
         results_file=ROBINSON_REPLICATION_DATA_FILE,
-        force_redo=TRUE,
+        force_redo=FALSE,
         return_data=TRUE,
         show_col_types=FALSE,
         results_fnc=load_annotated_contacts,
-        regions.of.interest=regions.of.interest
+        regions.of.interest=regions.of.interest,
+        pattern='*.NSC.*.mapq_30.1000.mcool',
+        range1s='chr16',
+        resolutions=c(RESOLUTION)
     )
-annotated.contacts.df %>% head(5) %>% t() %>% tibble()
+annotated.contacts.df
 ```
 
 # Plot IFs of Deleted CNV vs Controls regions 
@@ -107,7 +106,7 @@ deletion.start <-
     {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.start)}
 deletion.end <- 
     {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)}
-print(c(telomere.start, telomere.end, deletion.start, deletion.end))
+# print(c(telomere.start, telomere.end, deletion.start, deletion.end))
 # Distance ranges to compare
 dist.min <- 
     round(
@@ -123,18 +122,7 @@ dist.max <-
 glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart") %>% message()
 ```
 
-```{r due_diligence, eval=FALSE}
-annotated.contacts.df %>% count(ReadFilter, resolution, chr, weight)
-# annotated.contacts.df %>% filter(is.na(ReadFilter)) %>% t()
-annotated.contacts.df %>%
-    filter(grepl('WT.Merged', Sample.ID)) %>%
-    # count(region)
-    filter(region == 'chr16p vs chr16p') %>% 
-    # filter(region == 'chr16p.deletion vs chr16p.telomere') %>% 
-    count(range2) %>% print(n=Inf)
-
-```
-
+How many bin-pairs there are in each annotated region
 ```{r plot_df, rows.print=7}
 # Map colors and titles to each region of contacts
 colors.and.titles <- 
@@ -231,7 +219,7 @@ plot.df <-
        df=. 
     ) %>%
     bind_rows()
-plot.df %>% dplyr::count(Sample.ID, IF.Threshold, region.title)
+plot.df %>% dplyr::count(IF.Threshold, Sample.ID, region.title)
 ```
 
 ## Weiner et al. 2022 replication {.tabset}
@@ -250,7 +238,7 @@ plot.df %>%
         )
     ) %>% 
     make_nested_plot_tabs(
-        group_cols=c('IF.Threshold'),
+        group_cols=c('IF.Threshold', 'Celltype'),
         max_header_lvl=4,
         plot_fnc=plot_contacts_regions_boxplot,
         bin_col='region.title',
@@ -277,7 +265,7 @@ plot.df %>%
         )
     ) %>% 
     make_nested_plot_tabs(
-        group_cols=c('IF.Threshold'),
+        group_cols=c('IF.Threshold', 'Celltype'),
         max_header_lvl=4,
         plot_fnc=plot_contacts_regions_boxplot,
         bin_col='region.title',
