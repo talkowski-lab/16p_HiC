@@ -73,6 +73,23 @@ add_faceting <- function(
 }
 ###############
 # Utility
+scale_numbers <- function(
+    numbers,
+    accuracy=2,
+    toint=FALSE){
+    if (toint) {
+        case_when(
+            grepl('Mb', numbers) ~ str_replace(numbers, 'Mb', '000000'),
+            grepl('Kb', numbers) ~ str_replace(numbers, 'Kb', '000'),
+            TRUE ~ numbers
+        ) %>%
+        as.integer()
+    } else {
+        case_when(
+            numbers >= 1e6 ~ glue('{signif(numbers / 1e6, digits=accuracy)}Mb'),
+            numbers >= 1e3 ~ glue('{signif(numbers / 1e3, digits=accuracy)}Kb'),
+            TRUE ~ as.character(numbers)
+        )
     }
 }
 
