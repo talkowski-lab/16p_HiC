@@ -37,8 +37,21 @@ load_all_hicrep_results <- function(){
                 NA,
                 "ReadFilter",
                 NA
-            )
+            ),
+        cols_remove=FALSE
     ) %>%
+    rename(
+        'A.SampleID'=A.A,
+        'B.SampleID'=B.B
+    ) %>% 
+    mutate(
+        across(
+            ends_with('SampleID'),
+             ~ .x %>%
+               str_extract('(([^\\.]+\\.){3}[^\\.]+)\\.(.*$)', group=1) %>%
+               str_replace_all(fixed('.'), '~') # temp change delim so ID stays intact
+        )
+    ) %>% 
     mutate(
         A.isMerged=ifelse(grepl('Merged', A.SampleNumber), 'Merged', 'Individual'),
         B.isMerged=ifelse(grepl('Merged', B.SampleNumber), 'Merged', 'Individual')
@@ -58,11 +71,12 @@ load_all_hicrep_results <- function(){
         names_from=Sample.Index,
         values_from=Value
     ) %>% 
+    # Now group pairs by difference in specific sample metadata (genotype, celltype)
     rowwise() %>% 
     mutate(
         SamplePairType=
             case_when(
-                A == B ~ A,
+                A == B ~ glue('{A} vs {A}'),
                 A != B ~ 
                     c(A, B) %>% 
                     sort() %>%  
@@ -74,6 +88,9 @@ load_all_hicrep_results <- function(){
         names_from=Sample.Attribute,
         values_from=SamplePairType
     ) %>% 
+    # Fix Sample.ID delim
+    mutate(SampleID=str_replace_all(SampleID, fixed('~'), fixed('.'))) %>% 
+    rename('Sample.ID'=SampleID) %>% 
     # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
@@ -83,11 +100,13 @@ load_all_hicrep_results <- function(){
                     read_tsv(
                         filepath,
                         skip=2,
+                        progress=FALSE,
                         show_col_types=FALSE,
                         col_names=c('hicrep.score')
                     ) %>% 
                     add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
-                }
+                },
+                .progress=TRUE
             )
     ) %>%
     unnest(hicrep.results) %>% 
