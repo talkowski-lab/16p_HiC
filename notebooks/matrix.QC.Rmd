@@ -28,20 +28,22 @@ knitr::opts_chunk$set(
     dpi=300
 )
 ```
-Set up file locations
-```{r load_paths, echo=FALSE, message=FALSE, results=FALSE}
+Set up file locations + load dependenies
+```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
-BASE_DIR=here()
-source(file.path(BASE_DIR, 'scripts/locations.R'))
-```
-Load dependencies
-```{r load_deps, results=FALSE, message=FALSE, echo=FALSE}
+BASE_DIR <- here::i_am('notebooks/matrix.QC.Rmd')
+SCRIPT_DIR <- here('scripts')
+source(file.path(SCRIPT_DIR, 'locations.R'))
+source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'utils.qc.R'))
 library(tidyverse)
 library(magrittr)
+library(ggplot2)
+library(ggh4x)
+library(purrr)
 library(downloadthis)
-source(file.path(BASE_DIR, 'scripts/utils.data.R'))
-source(file.path(BASE_DIR, 'scripts/utils.qc.R'))
-source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
 sample.metadata <- load_sample_metadata()
 ```
 Load output of `pairtools stats` 

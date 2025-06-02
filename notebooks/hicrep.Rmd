@@ -28,19 +28,18 @@ knitr::opts_chunk$set(
     dpi=300
 )
 ```
-Set up file locations
+Set up file locations + load dependenies
 ```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
-BASE_DIR=here()
-source(file.path(BASE_DIR, 'scripts/locations.R'))
-```
-Load dependencies
-```{r deps, results=FALSE, message=FALSE, warning=FALSE}
+BASE_DIR <- here::i_am('notebooks/hicrep.Rmd')
+SCRIPT_DIR <- here('scripts')
+source(file.path(SCRIPT_DIR, 'locations.R'))
+source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'utils.hicrep.R'))
 library(tidyverse)
 library(magrittr)
-source(file.path(BASE_DIR, 'scripts/utils.data.R'))
-source(file.path(BASE_DIR, 'scripts/utils.plot.R'))
-source(file.path(BASE_DIR, 'scripts/utils.hicrep.R'))
 library(ggplot2)
 library(ggh4x)
 library(purrr)
