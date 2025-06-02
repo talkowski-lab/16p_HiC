@@ -263,8 +263,6 @@ plot_qc_barplot <- function(
     expansion=c(0.00, 0.00, 0.00, 0.00),
     pct_breaks=TRUE,
     scales='fixed',
-    linewidth=0,
-    yintercept=35,
     ...){
     figure <- 
         plot.df %>%
@@ -276,14 +274,8 @@ plot_qc_barplot <- function(
             )
         ) +
         geom_col(position = "dodge") +
-        geom_hline(
-            yintercept=yintercept,
-            color='green',
-            linewidth=linewidth,
-            linetype='dashed'
-        ) +
         guides(fill=guide_legend(ncol=1)) +
-        facet_grid2(
+        facet_grid(
             rows=vars(!!sym(facet_row)),
             cols=vars(!!sym(facet_col)),
             scales=scales
@@ -312,6 +304,39 @@ plot_qc_barplot <- function(
             scale_y_continuous(expand=expansion)
     }
     figure
+}
+
+add_lines_qc_barplot <- function(
+    plot.df,
+    linewidth=0.4,
+    linetype='dashed',
+    ...){
+    plot.df %>% 
+    plot_qc_barplot(...) +
+    # Draw extra line on qc plot
+    geom_segment(
+        aes(
+            x=x_line,
+            xend=xend_line
+        ),
+        y=15, 
+        yend=15,
+        color='red',
+        linewidth=linewidth,
+        linetype=linetype
+    ) +
+    geom_segment(
+        aes(
+            x=x_line,
+            xend=xend_line
+        ),
+        y=40,
+        yend=40,
+        color='green',
+        linewidth=linewidth,
+        linetype=linetype
+    )
+
 }
 
 plot_pair.orientation_lineplot <- function(
