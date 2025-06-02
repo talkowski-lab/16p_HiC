@@ -99,31 +99,39 @@ plot_figure_tabs <- function(
     plot_fnc,
     header_lvl,
     nl_delim,
+    return_figure=FALSE,
     ...){
     plot.df[[group_col]] %>% 
-        as.factor() %>% 
-        droplevels() %>% 
-        levels() %>%
-        lapply(
-            function(group_value, plot.df, plot_fnc, header_lvl, group_col, nl_delim){
+    as.factor() %>% 
+    droplevels() %>% 
+    levels() %>%
+    sapply(
+        function(group_value, plot.df, plot_fnc, header_lvl, group_col, nl_delim, return_figure){
+            figure <- 
+                plot.df %>%
+                filter(get({{group_col}}) == group_value) %>%
+                plot_fnc(...)
+                if (return_figure) {
+                    figure
+                } else {
                 cat(
                     strrep('#', header_lvl), group_value,
                     # nl_delim, "Rows per df", nrow(plot.df),
                     nl_delim
                 )
-                figure <- 
-                    plot.df %>%
-                    filter(get({{group_col}}) == group_value) %>%
-                    plot_fnc(...)
                 print(figure)
                 cat(nl_delim)
-            },
-            plot.df=plot.df,
-            plot_fnc=plot_fnc,
-            header_lvl=header_lvl,
-            group_col=group_col,
-            nl_delim=nl_delim
-        )
+            }
+        },
+        plot.df=plot.df,
+        plot_fnc=plot_fnc,
+        header_lvl=header_lvl,
+        group_col=group_col,
+        nl_delim=nl_delim,
+        return_figure=return_figure,
+        simplify=FALSE,
+        USE.NAMES=TRUE
+    )
 }
 
 make_tabs_recursive <- function(
@@ -133,6 +141,7 @@ make_tabs_recursive <- function(
     plot_fnc,
     tabset_format,
     nl_delim,
+    return_figure=FALSE,
     ...){
     # cat("LENGTH OF GROUP COLS", length(group_cols), group_cols, "\n\n\n")
     if (length(group_cols) == 1) {
@@ -142,6 +151,7 @@ make_tabs_recursive <- function(
             header_lvl=current_header_lvl,
             plot_fnc=plot_fnc,
             nl_delim=nl_delim,
+            return_figure=return_figure,
             ...
         )
     } else {
@@ -177,6 +187,7 @@ make_nested_plot_tabs <- function(
     max_header_lvl=2,
     tabset_format="{.tabset .tabset-pills}",
     nl_delim="\n\n\n",
+    return_figure=FALSE,
     ...){
     cat(nl_delim)
     cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
@@ -187,6 +198,7 @@ make_nested_plot_tabs <- function(
         plot_fnc=plot_fnc,
         tabset_format=tabset_format,
         nl_delim=nl_delim,
+        return_figure=return_figure,
         ...
     )
     cat(nl_delim)
