@@ -145,8 +145,9 @@ process_matrix_name <- function(
     mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
     select(-c(Edit, Genotype, SampleNumber, Celltype))
 }
-
-annotate_contact_regions <- function(
+###############
+# Annotate contacts with specified regions
+annotate_contact_region_pairs <- function(
     contacts.df,
     regions.of.interest,
     most_specific_only=TRUE,
@@ -185,6 +186,7 @@ annotate_contact_regions <- function(
     # (bin1 in region1 and bin2 in region2)
     full_join(
         region.pairs.of.interest,
+        relationship='many-to-many',
         by=
             join_by(
                 chr == region.chr1,
@@ -222,6 +224,36 @@ annotate_contact_regions <- function(
     } %>% 
     # Clean up 
     select(-c(starts_with('region.')))
+}
+
+load_annotated_contacts_pairs <- function(
+    pattern,
+    range1s,
+    resolutions,
+    regions.of.interest,
+    ...){
+    # Load all contacts
+    load_mcool_files(
+        pattern=pattern,
+        range1s=range1s,
+        resolutions=resolutions,
+    ) %>%
+    mutate(is.Merged=grepl('Merged', Sample.ID)) %>%
+    separate_wider_delim(
+        Sample.ID,
+        delim=fixed('.'),
+        cols_remove=FALSE,
+        names=c(
+            'Edit',
+            'Genotype',
+            'SampleNumber',
+            'Celltype'
+        )
+    ) %>% 
+    annotate_contact_regions_pairs(
+        regions.of.interest=regions.of.interest,
+        most_specific_only=TRUE
+    )
 }
 ###############
 # Load Data

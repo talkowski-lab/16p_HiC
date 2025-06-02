@@ -4,34 +4,6 @@ library(furrr)
 library(ggplot2)
 library(ggpubr)
 ##############
-# Load contacts + regions annotated
-load_annotated_contacts <- function(
-    regions.of.interest,
-    ...){
-    # Load all contacts
-    load_mcool_files(
-        pattern='*.NSC.*.mapq_30.1000.mcool',
-        range1s='chr16',
-        resolutions=c(100000)
-    ) %>%
-    mutate(is.Merged=grepl('Merged', Sample.ID)) %>%
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        cols_remove=FALSE,
-        names=c(
-            'Edit',
-            'Genotype',
-            'SampleNumber',
-            'Celltype'
-        )
-    ) %>% 
-    annotate_contact_regions(
-        regions.of.interest=regions.of.interest,
-        most_specific_only=TRUE
-    )
-}
-##############
 # Plotting 
 plot_contacts_regions_boxplot <- function(
     plot.df,
