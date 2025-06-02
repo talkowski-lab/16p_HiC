@@ -316,13 +316,137 @@ plot_coverage_lineplot <- function(
 }
 
 plot_contacts_heatmap <- function(
-    plot.df,
-    fill_val,
-    region_x,
-    region_y,
-    facet_row=NULL, facet_col=NULL,
-    scales='fixed', indpt=NULL,
-    n_ticks=12,
+    contacts,
+    x_var='range1',
+    y_var='range2',
+    fill_var='IF',
+    transform_fnc=log10,
+    facet_col=NULL,
+    facet_row=NULL,
+    scales='fixed',
+    cmap=coolerColors(),
+    axis_label_accuracy=0.01,
+    x_text_angle=25,
+    xlinewidth=0.3,
+    ylinewidth=0.3,
+    cfr=NULL,
+    na.value="white",
     ...){
-    print("TODO")
+    figure <- 
+        contacts %>%
+        ggplot(
+            aes(
+                x=.data[[x_var]],
+                y=.data[[y_var]]
+            )
+        ) +
+        geom_tile(aes(fill=transform_fnc(.data[[fill_var]]))) +
+        # geom_tile(aes(fill=fill_data)) +
+        scale_fill_gradientn(
+            colors=cmap,
+            na.value=na.value
+        ) +
+        scale_x_continuous(
+            expand=c(0,0,0,0),
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis_label_accuracy
+                )
+        ) +
+        scale_y_continuous(
+            expand=c(0,0,0,0),
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis_label_accuracy
+                )
+        ) +
+        theme(axis.text.x=element_text(angle=x_text_angle, hjust=1)) 
+    # add vertical lines
+    if (xlinewidth > 0) {
+        figure <- 
+            figure +
+            geom_vline(
+                aes(xintercept=region.start),
+                linetype='solid',
+                color='black',
+                linewidth=xlinewidth
+            ) +
+            geom_vline(
+                aes(xintercept=region.end),
+                linetype='solid',
+                color='black',
+                linewidth=xlinewidth
+            )
+    }
+    # add horizontal lines
+    if (ylinewidth > 0) {
+        figure <- 
+            figure +
+            geom_hline(
+                aes(yintercept=region.start),
+                linetype='solid',
+                color='black',
+                linewidth=ylinewidth
+            ) +
+            geom_hline(
+                aes(yintercept=region.end),
+                linetype='solid',
+                color='black',
+                linewidth=ylinewidth
+            )
+    }
+    # add faceting
+    figure <- 
+        figure %>% 
+        add_faceting(
+            facet_col=facet_col,
+            facet_row=facet_row,
+            scales='fixed'
+        )
+    # change scaling
+    if (!(is.null(cfr))) {
+        figure <- figure + coord_fixed(ratio=cfr)
+    }
+    figure
+}
+
+heatmap_wrapper <- function(
+    contacts,
+    Sample.ID,
+    region.title,
+    resolution,
+    window.size,
+    xlab,
+    ylab,
+    fill_lab,
+    output_file,
+    width=7,
+    height=7,
+    ...){
+    figure <- 
+        contacts %>% 
+        plot_contacts_heatmap(...) +
+        labs(
+            title=glue('{region.title} +/- {window.size}'),
+            subtitle=glue('{Sample.ID} @{resolution}'),
+            fill=fill_lab,
+            x=xlab,
+            y=ylab
+        ) +
+        add_ggtheme() +
+        theme(
+            legend.position='right',
+            strip.text=element_text(face='bold', size=10),
+            axis.title=element_text(face='bold', size=10)
+        ) 
+    ggsave(
+        filename=output_file,
+        plot=figure,
+        width=width, 
+        height=height,
+        units='in',
+        create.dir=TRUE
+    )
 }
