@@ -161,3 +161,75 @@ load_all_TAD_annotations <- function(){
 
 ###############
 # Plot stuff
+plot_nTADs_heatmap <- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    fill_var='',
+    facet_row=NULL,
+    facet_col=NULL,
+    scales='fixed',
+    ...){
+    figure <- 
+        plot.df %>% 
+        ggplot(
+            aes(
+                x=.data[[x_var]],
+                y=.data[[y_var]],
+                fill=.data[[fill_var]],
+            )
+        ) +
+        geom_tile() +
+        scale_fill_viridis(discrete=FALSE) +
+        # labs(title=sprintf('# of TADs TADs @ %sKb', .x$Resolution / 1000)) +
+        theme(
+            legend.position='top',
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.text.x=element_text(angle=45, hjust=1)
+        ) +
+        add_ggtheme()
+    figure <- 
+        add_faceting(
+            figure,
+            facet_col=facet_col,
+            facet_row=facet_row,
+            scales=scales
+        )
+    figure
+}
+
+plot_TADlengths_boxplot <- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    color_var='',
+    facet_row=NULL,
+    facet_col=NULL,
+    scales='fixed',
+    ...){
+    figure <- 
+        plot.df %>% 
+        ggplot(
+            aes(
+                y=.data[[y_var]],
+                x=.data[[x_bar]],
+                color=.data[[color_var]],
+            )
+        ) +
+        geom_boxplot() +
+        theme(
+            axis.title.x=element_blank(),
+            axis.text.x=element_text(angle=45, hjust=1),
+            axis.text.y=element_markdown()
+        ) +
+        add_ggtheme()
+    figure <- 
+        add_faceting(
+            figure,
+            facet_col=facet_row,
+            facet_row=facet_col,
+            scales=scales
+        )
+    figure
+}
