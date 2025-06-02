@@ -40,7 +40,36 @@ add_ggtheme <- function(){
     )
 }
 
+add_faceting <- function(
+    figure,
+    facet_col=NULL,
+    facet_row=NULL,
+    ...){
+    # Facet as specified
+    if (!is.null(facet_col) & !is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
+    } else if (!is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                ...
+            )
+    } else if (!is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
     }
+    figure
 }
 ###############
 # Utility
