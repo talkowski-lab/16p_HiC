@@ -218,12 +218,12 @@ make_pair_qc_df <- function(
         range.end=ifelse(is.na(range.end), Inf, range.end),
         Category=
             case_when(
-                orientation =='-+'   & range.end < 1001    ~ 'self-circle', 
-                orientation =='+-'   & range.end < 1001    ~ 'dangling-end', 
-                range.start >= 20000                       ~ 'Long.Range  >  20Kb',
-                range.start >=  1000 & range.start < 20001 ~ 'Short.Range <= 20Kb',
-                range.end   <=  1000                       ~ 'Too.Short   <=  1Kb',
-                interaction == 'cis' & range.end == Inf    ~ 'Cis.Total',
+                orientation =='-+'   & range.end < 1001    ~ 'Self-Circle', 
+                orientation =='+-'   & range.end < 1001    ~ 'Dangling-End', 
+                range.start >= 20000                       ~ 'Long Range  >  20Kb',
+                range.start >=  1000 & range.start < 20001 ~ 'Short Range <= 20Kb',
+                range.end   <=  1000                       ~ 'Too Short   <=  1Kb',
+                interaction == 'cis' & range.end == Inf    ~ 'Total Cis',
                 interaction == 'trans'                     ~ 'Trans',
             )
     ) %>%
@@ -233,12 +233,12 @@ make_pair_qc_df <- function(
                 Category,
                 levels=
                     c(
-                        'self-circle', 
-                        'dangling-end', 
-                        'Too.Short   <=  1Kb',
-                        'Short.Range <= 20Kb',
-                        'Long.Range  >  20Kb',
-                        'Cis.Total',
+                        'Self-Circle', 
+                        'Dangling-End', 
+                        'Too Short   <=  1Kb',
+                        'Short Range <= 20Kb',
+                        'Long Range  >  20Kb',
+                        'Total Cis',
                         'Trans'
                     )
             )
