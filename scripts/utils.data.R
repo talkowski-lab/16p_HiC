@@ -294,6 +294,54 @@ load_chr_sizes <- function(){
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
 
+load_rgd_regions <- function(
+    normalizations=c("NONE", "ICE"),
+    window.size=1e6,
+    ...){
+    GENOMIC_REGIONS %>% 
+    filter(region.group == "RGDs") %>% 
+    # context window of 1Mb around each region
+    add_column(join_dummy=0) %>% 
+    full_join(
+        .,
+        expand_grid(
+            join_dummy=0,
+            window.size=window.size,
+            normalization=normalizations,
+            cis=TRUE
+        ),
+        relationship='many-to-many'
+    ) %>% 
+    # format querys for loading contacts via fetch()
+    rowwise() %>% 
+    mutate(
+        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
+        range2=range1
+    ) %>%
+    ungroup() %>% 
+    select(-c(region.group, join_dummy))
+}
+
+load_rgd_contacts <- function(
+    region.df,
+    resolutions,
+    ...){
+    load_mcool_files(
+        pattern='*.mapq_30.1000.mcool',
+        resolutions=resolutions,
+        region.df=region.df,
+        range1s=NULL,
+        range2s=NULL,
+        progress=TRUE
+    ) %>% 
+    # group_by(Sample.ID, region) %>% 
+    # add_tally(wt=IF, name='region.total.contacts') %>% 
+    # ungroup() %>%
+    # group_by(Sample.ID, region) %>% 
+    # add_count(name='region.nbins') %>% 
+    # ungroup() %>%
+    select(-c(region.chr, weight, cis))
+}
 ###############
 # Load Files
 load_genome_coverage <- function(
