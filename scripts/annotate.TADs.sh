@@ -9,10 +9,10 @@ ARROWHEAD_BALANCINGS=(KR VC NONE)
 declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
 # cooltools insulation params
 COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
-# COOLTOOLS_MFVP=(0.33 0.66 0.9)
-COOLTOOLS_MFVP=( 0.66 0.9)
-# COOLTOOLS_THRESHOLD=(Li 0)
-COOLTOOLS_THRESHOLD=(Li)
+COOLTOOLS_MFVP=(0.33 0.66 0.9)
+# COOLTOOLS_MFVP=( 0.66 0.9)
+COOLTOOLS_THRESHOLD=(Li 0)
+# COOLTOOLS_THRESHOLD=(Li)
 declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight" ["Raw"]="")
 # Functions
 help() {
