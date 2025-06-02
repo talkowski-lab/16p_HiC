@@ -93,10 +93,40 @@ load_all_hicrep_results <- function(){
     unnest(hicrep.results) %>% 
     select(-c(filepath))
 }
+
+make_heatmap_plotdf <- function(
+    hicrep.results,
+    ...){
+    hicrep.results %>% 
+    group_by(resolution, Sample.ID) %>% 
+    summarize(`Mean HiCRep Score`=mean(hicrep.score)) %>%
+    ungroup() %>% 
+    # Get sample metadata for both samples per pair
+    separate_wider_delim(
+        Sample.ID,
+        delim=' vs ',
+        names=c('A.Sample.ID', 'B.Sample.ID')
+    ) %>%
+    separate_wider_delim(
+        c(A.Sample.ID, B.Sample.ID),
+        delim=fixed('.'),
+        names_sep='.',
+        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
+        cols_remove=FALSE
+    ) %>%
+    rename(
+        'A.Sample.ID'=A.Sample.ID.A.Sample.ID,
+        'B.Sample.ID'=B.Sample.ID.B.Sample.ID
+    ) %>% 
+    rename_with(
+        .fn=~ str_replace(.x, '(A|B)\\.Sample\\.ID\\.(.*)$', '\\1.\\2'),
+        .cols=matches('^(A|B).Sample.ID.')
+    )
+}
 ###############
 # Plot resutls
 plot_hicrep_boxplot <- function(
-    hicrep_results,
+    plot.df,
     sample_group='Celltype',
     fill_var='is.downsampled', 
     facet_row=NULL,
@@ -109,7 +139,7 @@ plot_hicrep_boxplot <- function(
     yintercept=0.95,
     ...){
     figure <- 
-        hicrep_results %>%
+        plot.df %>%
         ggplot(
             aes(
                 x=.data[[sample_group]],
@@ -129,6 +159,14 @@ plot_hicrep_boxplot <- function(
             axis.text.x=element_text(angle=35, hjust=1)
         ) +
         add_ggtheme()
+    # add faceting
+    figure <- 
+        add_faceting(
+            figure,
+            facet_col=facet_row,
+            facet_row=facet_col,
+            scales=scales
+        )
     # Mark specific chromosomes in th boxplot if specified
     if (!(is.null(mark_df))) {
         figure <- 
@@ -149,29 +187,68 @@ plot_hicrep_boxplot <- function(
             figure +
             geom_boxplot(outlier.size=0.5)
     }
-    # Facet as specified
-    if (!is.null(facet_col) & !is.null(facet_col)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                cols=vars(!!sym(facet_col)),
-                scales=scales
+    figure
+}
+
+plot_hicrep_heatmap <- function(
+    plot.df,
+    x_var='A.chr',
+    y_var='B.chr',
+    fill_var='Mean.HiCRep.Score',
+    x_text_angle=25,
+    ...){
+    figure <- 
+        plot.df %>%
+        ggplot(
+            aes(
+                x=.data[[x_var]],
+                y=.data[[y_var]]
             )
-    } else if (!is.null(facet_row)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                scales=scales
+        ) +
+        geom_tile(
+            aes(
+                fill=.data[[fill_var]]
             )
-    } else if (!is.null(facet_col)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                cols=vars(!!sym(facet_col)),
-                scales=scales
-            )
-    }
+        ) +
+        scale_fill_gradient(
+            low='grey90',
+            high='blue'
+        ) +
+        scale_x_discrete(expand=c(0,0)) +
+        scale_y_discrete(expand=c(0,0)) +
+        facet_nested(
+            rows=vars(B.Edit, B.Genotype),
+            cols=vars(A.Edit, A.Genotype),
+            scales='free',
+            space='free',
+            nest_line=
+                element_line(
+                    color='black',
+                    linetype='solid',
+                    linewidth=0.40
+                ),
+        ) +
+        add_ggtheme() +
+        theme(
+            legend.position='right',
+            panel.spacing=unit(0, "lines"),
+            panel.border=
+                element_rect(
+                    fill=NA,
+                    color='black',
+                    linetype='solid',
+                    linewidth=0.40
+                ),
+            strip.background=
+                element_rect(
+                    color='black',
+                    linetype='solid',
+                    linewidth=0.40
+                ),
+            strip.text=element_text(face='bold', size=10),
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.text.x=element_text(angle=x_text_angle, hjust=1)
+        ) 
     figure
 }
