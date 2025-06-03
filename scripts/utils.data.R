@@ -5,7 +5,7 @@ library(glue)
 library(HiCExperiment)
 library(hictkR)
 ###############
-# Utilities
+# Pairsing and Caching
 check_cached_results <- function(
     results_file,
     force_redo=FALSE,
@@ -57,13 +57,6 @@ check_cached_results <- function(
     } else { 
         return(invisible(NULL))
     }
-}
-
-count_dirs <- function(filepath){
-    filepath %>%
-    dirname() %>% 
-    str_split('/') %>% 
-    length()
 }
 
 parse_results_filelist <- function(
@@ -144,6 +137,35 @@ process_matrix_name <- function(
     # Matches Sample.ID in SAMPLE_METADATA_FILE
     mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
     select(-c(Edit, Genotype, SampleNumber, Celltype))
+}
+
+###############
+# Utilities
+scale_numbers <- function(
+    numbers,
+    accuracy=1,
+    toint=FALSE){
+    if (toint) {
+        case_when(
+            grepl('Mb', numbers) ~ str_replace(numbers, 'Mb', '000000'),
+            grepl('Kb', numbers) ~ str_replace(numbers, 'Kb', '000'),
+            TRUE ~ numbers
+        ) %>%
+        as.integer()
+    } else {
+        case_when(
+            numbers >= 1e6 ~ glue('{signif(numbers / 1e6, digits=accuracy)}Mb'),
+            numbers >= 1e3 ~ glue('{signif(numbers / 1e3, digits=accuracy)}Kb'),
+            TRUE ~ as.character(numbers)
+        )
+    }
+}
+
+count_dirs <- function(filepath){
+    filepath %>%
+    dirname() %>% 
+    str_split('/') %>% 
+    length()
 }
 ###############
 # Annotate contacts with specified regions
@@ -527,50 +549,5 @@ load_mcool_files <- function(
     unnest(contacts)
 }
 
-load_sparse_matrix_file <- function(
-    filename,
-    MHC_format=FALSE){
-    # input format compatible with multiHiCCompare functions
-    if (MHC_format) {
-        filename %>% 
-        read.table(
-            .,
-            header=FALSE
-        ) %>% 
-        {.[, c(1, 2, 5, 7)]} %>% 
-        setNames(
-            c(
-                'chr', 
-                'range1',
-                'range2',
-                'IF'
-            )
-        )
-    } else {
-        filename %>% 
-        read.table(
-            header=FALSE,
-            col.names=
-                c(
-                  'A.chr',
-                  'A.start',
-                  'A.end',
-                  'B.chr',
-                  'B.start',
-                  'B.end',
-                  'IF'
-                )
-        )
     }
-}
-
-load_sparse_matrix_files <- function(
-    input_dir,
-    suffix='-sparse.matrix.txt',
-    param_names,
-    MHC_format,
-    ...){
-    input_dir %>% 
-    parse_results_filelist(
-    )
 }
