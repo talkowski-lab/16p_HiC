@@ -316,32 +316,37 @@ load_chr_sizes <- function(){
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
 
-load_rgd_regions <- function(
-    normalizations=c("NONE", "ICE"),
-    window.size=1e6,
     ...){
     GENOMIC_REGIONS %>% 
     filter(region.group == "RGDs") %>% 
-    # context window of 1Mb around each region
     add_column(join_dummy=0) %>% 
     full_join(
-        .,
         expand_grid(
             join_dummy=0,
-            window.size=window.size,
             normalization=normalizations,
-            cis=TRUE
+            resolution=resolutions,
         ),
         relationship='many-to-many'
     ) %>% 
-    # format querys for loading contacts via fetch()
-    rowwise() %>% 
+    # add context of 1/2 the size (rounded to nearest bin) to each side of the region
     mutate(
-        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
-        range2=range1
-    ) %>%
-    ungroup() %>% 
-    select(-c(region.group, join_dummy))
+        window.size=
+            round(
+                region.dist / 2,
+                digits=-log10(resolution)
+            ),
+        across(
+            c(
+              region.start,
+              region.end,
+              region.dist,
+              resolution,
+              window.size
+            ),
+            as.integer
+        )
+    ) %>% 
+    select(-c(join_dummy, region.group))
 }
 
 load_rgd_contacts <- function(
