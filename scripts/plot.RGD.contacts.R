@@ -1,20 +1,20 @@
 ##################
-## Dirs
+## Dependencies
 ##################
 library(here)
 here::i_am('scripts/plot.RGD.contacts.R')
-BASE_DIR=here()
-source(file.path(BASE_DIR, 'scripts/locations.R'))
-# SCRIPT_DIR <- "/home/sid/TalkowskiLab/Projects/HiC/remote.16p/scripts"
-PLOT_DIR <- file.path(RESULTS_DIR, 'plots/RGDs')
-##################
-## Dependencies
-##################
+BASE_DIR <- here()
+SCRIPT_DIR <- file.path(BASE_DIR, 'scripts')
+# SCRIPT_DIR <- "~/TalkowskiLab/Projects/HiC/remote.16p/scripts"
+source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(SCRIPT_DIR, 'locations.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 library(tidyverse)
 library(magrittr)
 library(HiContacts)
-source(file.path(SCRIPT_DIR, 'utils.data.R'))
-source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+library(furrr)
+PLOT_DIR <- file.path(RESULTS_DIR, 'plots/RGDs')
 ##################
 # Load all fileinfo + function params, but not contact data itself
 ##################
