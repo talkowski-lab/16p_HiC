@@ -316,6 +316,9 @@ load_chr_sizes <- function(){
     read_tsv(col_names=c('Chr', 'chr.total.bp'))
 }
 
+fetch_RGD_regions <- function(
+    normalizations,
+    resolutions,
     ...){
     GENOMIC_REGIONS %>% 
     filter(region.group == "RGDs") %>% 
@@ -349,25 +352,42 @@ load_chr_sizes <- function(){
     select(-c(join_dummy, region.group))
 }
 
-load_rgd_contacts <- function(
+format_rgd_plot_params <- function(
     region.df,
-    resolutions,
     ...){
     load_mcool_files(
+        return_metadata_only=TRUE,
         pattern='*.mapq_30.1000.mcool',
-        resolutions=resolutions,
         region.df=region.df,
         range1s=NULL,
         range2s=NULL,
         progress=TRUE
     ) %>% 
+    # format querys for loading contacts via fetch()
+    rowwise() %>% 
+    mutate(
+        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
+        range2=range1
+    ) %>%
+    ungroup() %>% 
+    mutate(
+        cis=TRUE,
+        region.title=glue('{region} RGD Region {region.UCSC}'),
+        output_dir=
+            file.path(
+                PLOT_DIR, 
+                glue('region_{region}'),
+                glue('normalization_{normalization}'),
+                glue('resolution_{scale_numbers(resolution)}'),
+                glue('context_{scale_numbers(window.size)}')
+            )
+    )
     # group_by(Sample.ID, region) %>% 
     # add_tally(wt=IF, name='region.total.contacts') %>% 
     # ungroup() %>%
     # group_by(Sample.ID, region) %>% 
     # add_count(name='region.nbins') %>% 
     # ungroup() %>%
-    select(-c(region.chr, weight, cis))
 }
 ###############
 # Load Files
@@ -446,7 +466,13 @@ load_mcool_file <- function(
         type='df'
     ) %>% 
     as_tibble() %>%
-    add_column(weight=normalization) %>% 
+    {
+        if (normalization == 'weight') {
+            add_column(., weight='ICE')
+        } else {
+            add_column(., weight=normalization)
+        }
+    } %>% 
     # format column names
     {
         if (cis) {
@@ -478,11 +504,12 @@ load_mcool_file <- function(
 
 load_mcool_files <- function(
     pattern,
-    resolutions,
     region.df=NULL,
+    resolutions=NULL,
     range1s=NULL,
     range2s=NULL,
     progress=TRUE,
+    return_metadata_only=FALSE,
     ...){
     COOLERS_DIR %>% 
     list.files(
@@ -521,38 +548,29 @@ load_mcool_files <- function(
         } else {
             full_join(
                 .,
-                region.df %>% 
-                add_column(join_dummy=0) %>%
-                full_join(
-                    expand_grid(
-                        resolution=resolutions,
-                        join_dummy=0
-                    ), 
-                    by=join_by(join_dummy)
-                )
+                region.df %>% add_column(join_dummy=0),
+                relationship='many-to-many'
             )
         }
     } %>% 
+    select(-c(join_dummy)) %>% 
     process_matrix_name() %>% 
     mutate(resolution=as.integer(resolution)) %>% 
-    mutate(
-        contacts=
-            purrr::pmap(
-                .l=.,
-                .f=load_mcool_file,
-                .progress=progress
-            )
-    ) %>% 
-    select(
-        -c(
-            filepath,
-            join_dummy,
-            range1,
-            range2
-        )
-    ) %>%
-    unnest(contacts)
-}
-
+    {
+        if (return_metadata_only) {
+            .
+        } else {
+            mutate(
+                .,
+                contacts=
+                    purrr::pmap(
+                        .l=.,
+                        .f=load_mcool_file,
+                        .progress=progress
+                    )
+            ) %>% 
+            select(-c(filepath, range1, range2)) %>% 
+            unnest(contacts)
+        }
     }
 }

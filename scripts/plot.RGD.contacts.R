@@ -16,67 +16,37 @@ library(HiContacts)
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 ##################
-# regions of interest to plot
-##################
-region.df <- 
-    load_rgd_regions(
-        normalization=c("NONE", "weight"),
-        window.size=1e6
-    )
-##################
-# Load all contacts within eac hregion
+# Load all fileinfo + function params, but not contact data itself
 ##################
 annotated.contacts.df <- 
-    check_cached_results( 
-        results_file=RGD_ANNOTATED_CONTACTS_FILE,
-        force_redo=TRUE,
-        return_data=TRUE,
-        results_fnc=load_rgd_contacts,
-        region.df=region.df,
-        resolutions=c(5e4)
-    ) %>% 
-    mutate(
+    # regions of interest to plot
+    fetch_RGD_regions(
         normalization=
-            case_when(
-                normalization == 'weight' ~ 'ICE',
-                TRUE ~ normalization
+            c(
+                "NONE",
+                "weight"
             ),
-        region.title=glue('{region} RGD Region {region.UCSC}'),
-        across(
-            c(resolution, window.size),
-            scale_numbers
-        ),
-        output_dir=
-            file.path(
-                PLOT_DIR, 
-                glue('region_{region}'),
-                glue('normalization_{normalization}'),
-                glue('resolution_{resolution}'),
-                glue('context_{window.size}')
+        resolutions=
+            c(
+              5e4,
+              5e3
             )
-    )
+    ) %>% 
+    # organize all files + params + coords, 1 plot per file
+    format_rgd_plot_params()
 ##################
 # Plot square contact heatmap
 ##################
 annotated.contacts.df %>% 
-    # Make symmetrical 
-    bind_rows(
-        annotated.contacts.df %>% 
-        rename('range2'=range1, 'range1'=range2) %>%
-        filter(range1 != range2)
-    ) %>% 
-    # Make empty bin-pairs explicit NAs
-    group_by(across(-c(range1, range2, IF))) %>% 
-    complete(range1, range2, fill=list(IF=NA)) %>% 
-    ungroup() %>%
-    nest(contacts=c(region.start, region.end, range1, range2, IF)) %>% 
+    # filter(normalization == 'NONE', grepl('WAPL.DEL.Merged', Sample.ID)) %>% 
+    # Set plot labels/numbers + output_file etc.
     mutate(
-        xlab=glue('{chr} Position'),
-        ylab=glue('{chr} Position'),
+        xlab=glue('{region.chr} Position'),
+        ylab=glue('{region.chr} Position'),
         fill_lab=
             case_when(
                 normalization == 'NONE' ~ 'log10(contacts)',
-                normalization == 'ICE' ~ 'log10(balanced)',
+                normalization == 'weight' ~ 'log10(balanced)',
             ),
         output_file=
             file.path(
@@ -85,7 +55,8 @@ annotated.contacts.df %>%
                 glue('{Sample.ID}-square.heatmap.pdf')
             )
     ) %>% 
-    group_by(Sample.ID, region.title) %>% 
+    # # 1 plot (file) per param combo
+    group_by(output_file) %>% 
     pmap(
          .l=.,
          .f=heatmap_wrapper,
@@ -100,6 +71,7 @@ annotated.contacts.df %>%
          ylinewidth=0.7,
          width=10,
          height=8,
+         na.value="grey50",
          .progress=TRUE
     )
 ##################
@@ -284,66 +256,44 @@ sample.pair.df %>%
 # Transform to position vs distance to plot rectangle matrix
 ##################
 annotated.contacts.df %>%
-    filter(grepl('WAPL.DEL.Merged', Sample.ID)) %>% 
-    # Make empty bin-pairs explicit NAs
-    bind_rows(
-        annotated.contacts.df %>% 
-        rename('range2'=range1, 'range1'=range2) %>%
-        filter(range1 != range2)
-    ) %>% 
-    # Transoforming for triangle version, stolen from HiContacts library
-    # https://github.com/js2264/HiContacts/blob/146485f3e517429f7d4aa408898f6e89d4a04b36/R/plotting.R#L422
+    filter(normalization == 'NONE', grepl('WAPL.DEL.Merged', Sample.ID)) %>% 
+    # Set plot labels/numbers + output_file etc.
     mutate(
-        resolution.int=scale_numbers(resolution, toint=TRUE),
-        window.size.int=scale_numbers(window.size, toint=TRUE),
-        # center1=range1 + (resolution.int / 2),
-        # center2=range2 + (resolution.int / 2),
-        # distance=abs(center2 - center1),
-        distance=abs(range2 - range1),
-        # coord=range1
-        coord=range1 + (range2 - range1) / 2,
-        # coord=center1 + (center2 - center1) / 2,
-    ) %>% 
-    select(-c(range1, range2)) %>% 
-    nest(contacts=c(region.start, region.end, coord, distance, IF)) %>% 
-    mutate(
-        xlab=glue('{chr} Position'),
-        ylab=glue('Distance'),
+        xlab=glue('{region.chr} Position'),
+        ylab=glue('{region.chr} Position'),
         fill_lab=
             case_when(
                 normalization == 'NONE' ~ 'log10(contacts)',
-                normalization == 'ICE' ~ 'log10(balanced)',
+                normalization == 'weight' ~ 'log10(balanced)',
             ),
         output_file=
             file.path(
                 output_dir,
-                'distance.heatmap', 
-                glue('{Sample.ID}-distance.heatmap.pdf')
+                'triangle.heatmap', 
+                glue('{Sample.ID}-triangle.heatmap.pdf')
             )
     ) %>% 
-    group_by(Sample.ID, region.title) %>% 
+    # # 1 plot (file) per param combo
+    group_by(output_file) %>% 
     pmap(
          .l=.,
          .f=heatmap_wrapper,
-         x_var='coord',
-         y_var='distance',
+         x_var='range1',
+         y_var='range2',
          fill_var='IF',
          transform_fnc=log10,
          cmap=coolerColors(),
-         axis_label_accuracy=0.01,
-         x_text_angle=25,
-         na.value="white",
          xlinewidth=0.7,
-         ylinewidth=0,
-         cfr=(1/sqrt(2)/sqrt(2)),
+         ylinewidth=0.0,
          width=10,
-         height=7,
+         height=8,
+         na.value="grey50",
          .progress=TRUE
     )
 ##################
 # TESTING STUFF
 ##################
-# annotated.contacts.df 
+# annotated.contacts.df  %>% distinct(window.size, resolution, range1, region)
 # annotated.contacts.df$output_dir[1:5]
 # annotated.contacts.df %>% colnames()
 # annotated.contacts.df %>% head(2) %>% t()

@@ -184,27 +184,93 @@ make_nested_plot_tabs <- function(
     cat(nl_delim)
 }
 ###############
+# Contact Heatmaps
+make_contact_plot_df <- function(
+    make_triangular=FALSE,
+    make_symmetric=TRUE,
+    add_explicity_empty_bins=FALSE,
+    x_var,
+    y_var,
     ...){
+    load_mcool_file(...) %>% 
+    # Explicitly add unspecified pairs of symetrical data
+    {
+        if (make_symmetric) {
+            bind_rows(
+                .,
+                {.} %>% 
+                rename_with(
+                    .fn=~ case_when(
+                        .x == x_var ~ y_var,
+                        .x == y_var ~ x_var
+                      ),
+                    .cols=starts_with(c(x_var, y_var))
+                ) %>%
+                filter(!!sym(x_var) != !!sym(y_var))
             )
+        } else {
+            . 
+        }
+    } %>% 
+    # Make empty bin-pairs explicit NAs
+    {
+        if (add_explicity_empty_bins) {
+            fill_list <- c(NA)
+            names(fill_list) <- fill_var
+            group_by(
+                .,
+                across(
+                    -c(
+                        x_var,
+                        y_var,
+                        fill_var
+                    )
+                )
+            ) %>% 
+            complete(
+                !!sym(x_var),
+                !!sym(y_var),
+                fill=fill_list
+            ) %>% 
+            ungroup()
+        } else {
+            . 
+        }
+    } %>% 
+    # Transoforming for triangle version, stolen from HiContacts library
+    # https://github.com/js2264/HiContacts/blob/146485f3e517429f7d4aa408898f6e89d4a04b36/R/plotting.R#L422
+    {
+        if (make_triangular) {
+            mutate(
+                .,
+                distance=range2 - range1,
+                coord=range1 + (range2 - range1) / 2
             )
+        } else {
+            .
+        }
     }
 }
 
 plot_contacts_heatmap <- function(
     contacts,
+    resolution,
     x_var='range1',
     y_var='range2',
     fill_var='IF',
     transform_fnc=log10,
+    region.start=NULL, 
+    region.end=NULL,
     facet_col=NULL,
     facet_row=NULL,
     scales='fixed',
     cmap=coolerColors(),
     axis_label_accuracy=0.01,
     x_text_angle=25,
+    linetype='solid',
+    linecolor='black',
     xlinewidth=0.3,
     ylinewidth=0.3,
-    cfr=NULL,
     na.value="white",
     ...){
     figure <- 
@@ -215,7 +281,10 @@ plot_contacts_heatmap <- function(
                 y=.data[[y_var]]
             )
         ) +
-        geom_tile(aes(fill=transform_fnc(.data[[fill_var]]))) +
+        geom_tile(
+            aes(fill=transform_fnc(.data[[fill_var]])),
+            width=resolution
+        ) +
         # geom_tile(aes(fill=fill_data)) +
         scale_fill_gradientn(
             colors=cmap,
@@ -243,15 +312,9 @@ plot_contacts_heatmap <- function(
         figure <- 
             figure +
             geom_vline(
-                aes(xintercept=region.start),
-                linetype='solid',
-                color='black',
-                linewidth=xlinewidth
-            ) +
-            geom_vline(
-                aes(xintercept=region.end),
-                linetype='solid',
-                color='black',
+                xintercept=c(region.start, region.end),
+                linetype=linetype,
+                color=linecolor,
                 linewidth=xlinewidth
             )
     }
@@ -260,15 +323,9 @@ plot_contacts_heatmap <- function(
         figure <- 
             figure +
             geom_hline(
-                aes(yintercept=region.start),
-                linetype='solid',
-                color='black',
-                linewidth=ylinewidth
-            ) +
-            geom_hline(
-                aes(yintercept=region.end),
-                linetype='solid',
-                color='black',
+                yintercept=c(region.start, region.end),
+                linetype=linetype,
+                color=linecolor,
                 linewidth=ylinewidth
             )
     }
@@ -280,32 +337,59 @@ plot_contacts_heatmap <- function(
             facet_row=facet_row,
             scales='fixed'
         )
-    # change scaling
-    if (!(is.null(cfr))) {
-        figure <- figure + coord_fixed(ratio=cfr)
-    }
     figure
 }
 
 heatmap_wrapper <- function(
-    contacts,
+    filepath, normalization, resolution, cis, range1, range2,
+    make_triangular=FALSE, make_symmetric=TRUE, add_explicity_empty_bins=FALSE, 
+    x_var, y_var,
     Sample.ID,
     region.title,
-    resolution,
     window.size,
-    xlab,
-    ylab,
-    fill_lab,
-    output_file,
-    width=7,
-    height=7,
+    xlab, ylab, fill_lab,
+    output_file, width=7, height=7,
     ...){
+    contacts <- 
+        make_contact_plot_df(
+            make_triangular=make_triangular,
+            make_symmetric=make_symmetric,
+            add_explicity_empty_bins=add_explicity_empty_bins,
+            x_var=x_var,
+            y_var=y_var,
+            filepath=filepath,
+            resolution=resolution,
+            normalization=normalization,
+            range1=range1,
+            range2=range2,
+            cis=cis
+        )
+    # Now we can plot the figure
     figure <- 
         contacts %>% 
         plot_contacts_heatmap(...) +
         labs(
-            title=glue('{region.title} +/- {window.size}'),
-            subtitle=glue('{Sample.ID} @{resolution}'),
+            title=glue('{region.title} +/- {scale_numbers(window.size)}'),
+            subtitle=glue('{Sample.ID} @{scale_numbers(resolution)}|normalization={normalization}'),
+            fill=fill_lab,
+            x=xlab,
+            y=ylab
+        ) +
+        add_ggtheme() +
+        theme(
+            legend.position='right',
+            strip.text=element_text(face='bold', size=10),
+            axis.title=element_text(face='bold', size=10)
+        ) 
+    ggsave(
+        filename=output_file,
+        plot=figure,
+        width=width, 
+        height=height,
+        units='in',
+        create.dir=TRUE
+    )
+}
             fill=fill_lab,
             x=xlab,
             y=ylab
