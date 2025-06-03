@@ -390,6 +390,102 @@ heatmap_wrapper <- function(
         create.dir=TRUE
     )
 }
+###############
+# log2FC Heatmaps
+make_sample_pairs <- function(
+    annotated.contacts.df,
+    ...){
+    annotated.contacts.df %>%
+    nest(data=-c(filepath, Sample.ID)) %>% 
+    # Get all pairs of samples with comparable contact matrices
+    full_join(
+        .,
+        {.},
+        suffix=c('.A', '.B'),
+        copy=TRUE,
+        by=join_by(data)  # all other params must be equal
+    ) %>%
+    # Dedup pairs (symetrical)
+    filter(Sample.ID.A != Sample.ID.B) %>% 
+    rowwise() %>% 
+    mutate(pair.id=paste0(sort(c(Sample.ID.A, Sample.ID.B)), collapse="")) %>% 
+    ungroup() %>% 
+    distinct(
+        pair.id, 
+        .keep_all=TRUE
+    ) %>%
+    select(-c(pair.id)) %>% 
+    unnest(data)
+}
+
+NIPBL_WAPL_sample_priority_fnc <- function(Sample.ID){
+    case_when(
+        grepl( 'WAPL.DEL', Sample.ID) ~ 1,
+        grepl('NIPBL.DEL', Sample.ID) ~ 2,
+        grepl( 'WAPL.WT',  Sample.ID) ~ 3,
+        grepl('NIPBL.WT',  Sample.ID) ~ 4,
+        TRUE ~ -Inf
+    )
+}
+
+logfc_heatmap_wrapper <- function(
+    Sample.ID.A, Sample.ID.B,
+    filepath.A, filepath.B,
+    sample_priority_fnc,
+    contact.params, window.size, resolution, normalization,
+    region.title,
+    xlab, ylab, fill_lab,
+    output_file, width=7, height=7,
+    ...){
+    # Determine which sample should be numerator
+    if (sample_priority_fnc(Sample.ID.A) < sample_priority_fnc(Sample.ID.B)) {
+        tmp.ID.holder <- Sample.ID.A
+        tmp.filepath <- filepath.A
+        Sample.ID.A <- Sample.ID.B
+        filepath.A <- filepath.B
+        Sample.ID.B <- tmp.ID.holder
+        filepath.B <- tmp.filepath
+    }
+    # Contacts for sample A
+    contacts.A <- 
+        contact.params %>% 
+        pmap(
+            .f=make_contact_plot_df,
+            filepath=filepath.A
+        ) %>%
+        first()
+    # Contacts for sample B
+    contacts.B <- 
+        contact.params %>% 
+        pmap(
+            .f=make_contact_plot_df,
+            filepath=filepath.B
+        ) %>%
+        first()
+    # Join and calculate logFC of contacts with appropriate numerator
+    contacts <- 
+        inner_join(
+            contacts.A,
+            contacts.B,
+            suffix=c('.A', '.B'),
+            by=
+                join_by(
+                    chr,
+                    range1,
+                    range2
+                )
+        ) %>%
+        mutate(log2fc=log2(IF.A / IF.B))
+    # Now we can plot the figure
+    figure <- 
+        contacts %>% 
+        plot_contacts_heatmap(
+            resolution=resolution,
+            ...
+        ) +
+        labs(
+            title=glue('{Sample.ID.A} vs {Sample.ID.B}'),
+            caption=glue('{region.title} +/- {scale_numbers(window.size)}\nresolution={scale_numbers(resolution)}\nnormalization={normalization}'),
             fill=fill_lab,
             x=xlab,
             y=ylab

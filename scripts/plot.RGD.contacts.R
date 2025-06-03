@@ -75,158 +75,19 @@ annotated.contacts.df %>%
          .progress=TRUE
     )
 ##################
-# Get all pairs of samples for all possible plots
-##################
-sample.pair.df <- 
-    annotated.contacts.df %>%
-    bind_rows(
-        annotated.contacts.df %>% 
-        rename('range2'=range1, 'range1'=range2) %>%
-        filter(range1 != range2)
-    ) %>% 
-    mutate(
-        isMerged=grepl('Merged', Sample.ID),
-        region.chr=chr
-    ) %>% 
-    # region specific info
-    nest(
-        region.info=
-            c(
-                output_dir,
-                region.title,
-                region.chr,
-                region.UCSC,
-                region.dist
-            )
-    ) %>% 
-    # Sample+region specific info
-    nest(
-        contacts=
-            c(
-                region.start,
-                region.end,
-                chr,
-                range1,
-                range2,
-                IF
-            )
-    ) %>% 
-    # Get all pairs of samples with comparable contact matrices
-    full_join(
-        .,
-        {.},
-        suffix=c('.A', '.B'),
-        copy=TRUE,
-        by= # things that must be consistent between samples being compared
-            join_by(
-                isMerged,
-                ReadFilter,
-                region,
-                normalization,
-                resolution,
-                window.size
-            )
-    ) %>%
-    # Dedup pairs (symetrical)
-    rowwise() %>% 
-    mutate(tmp=paste0(sort(c(Sample.ID.A, Sample.ID.B)), collapse="")) %>% 
-    ungroup() %>% 
-    distinct(
-        tmp, 
-        region, 
-        ReadFilter,
-        normalization,
-        resolution,
-        window.size,
-        .keep_all=TRUE
-    ) %>%
-    filter(Sample.ID.A != Sample.ID.B) %>% 
-    # Also make sure Sample.ID.A is always the Deletion or WAPL sample (FC numerator)
-    mutate(
-        Sample.ID.numerator=
-            case_when(
-                grepl('WAPL.DEL', Sample.ID.A)  ~ Sample.ID.A,
-                grepl('WAPL.DEL', Sample.ID.B)  ~ Sample.ID.B,
-                grepl('NIPBL.DEL', Sample.ID.A) ~ Sample.ID.A,
-                grepl('NIPBL.DEL', Sample.ID.B) ~ Sample.ID.B,
-                grepl('WAPL.WT', Sample.ID.A)   ~ Sample.ID.A,
-                grepl('WAPL.WT', Sample.ID.B)   ~ Sample.ID.B,
-                TRUE ~ Sample.ID.A
-            ),
-        Sample.ID.denominator=
-            case_when(
-                Sample.ID.numerator == Sample.ID.A ~ Sample.ID.B,
-                Sample.ID.numerator == Sample.ID.B ~ Sample.ID.A
-            ),
-        contacts.numerator=
-            case_when(
-                Sample.ID.numerator == Sample.ID.A ~ contacts.A,
-                Sample.ID.numerator == Sample.ID.B ~ contacts.B
-            ),
-        contacts.denominator=
-            case_when(
-                Sample.ID.numerator == Sample.ID.A ~ contacts.B,
-                Sample.ID.numerator == Sample.ID.B ~ contacts.A
-            )
-    ) %>% 
-    select(
-        -c(
-            Sample.ID.A,
-            Sample.ID.B,
-            contacts.A,
-            contacts.B
-        )
-    ) %>% 
-    rename(
-        'Sample.ID.A'=Sample.ID.numerator,
-        'Sample.ID.B'=Sample.ID.denominator,
-        'contacts.A'=contacts.numerator,
-        'contacts.B'=contacts.denominator
-    ) %>% 
-    # make plot df for each pair
-    rowwise() %>% 
-    mutate(
-        contacts=
-            inner_join(
-                contacts.A,
-                contacts.B,
-                suffix=c('.A', '.B'),
-                by=
-                    join_by(
-                        region.start,
-                        region.end,
-                        chr,
-                        range1,
-                        range2
-                    )
-            ) %>%
-            mutate(log2fc=log2(IF.A / IF.B)) %>% 
-            # group_by(across(-c(range1, range2, IF.A, IF.B, log2fc))) %>% 
-            # complete(range1, range2, fill=list(IF=NA)) %>% 
-            # ungroup() %>%
-            list()
-    ) %>% 
-    ungroup() %>% 
-    # clean up
-    unnest(region.info.A) %>% 
-    select(
-        -c(
-            region.info.B,
-            tmp,
-            contacts.A,
-            contacts.B
-        )
-    )
-##################
 # Plot contact heatmaps and log2(A/B) heatmaps for regions of interest
 ##################
-sample.pair.df %>%
-    # filter(grepl(Sample.ID, 'WAPL.P2C4')) %>% 
-    rename('chr'=region.chr) %>% 
+# plan(multisession, workers=16)
+annotated.contacts.df %>%
+    mutate(isMerged=grepl('Merged', Sample.ID)) %>% 
+    make_sample_pairs() %>% 
     mutate(
-        Sample.ID=glue('{Sample.ID.A} vs {Sample.ID.B}'),
-        xlab=glue('{chr} Position'),
-        ylab=glue('{chr} Position'),
+        make_symmetric=TRUE,
+        add_explicity_empty_bins=FALSE,
+        x_var='range1',
+        y_var='range2',
+        xlab=glue('{region.chr} Position'),
+        ylab=glue('{region.chr} Position'),
         output_file=
             file.path(
                 output_dir,
@@ -234,23 +95,46 @@ sample.pair.df %>%
                 glue('{Sample.ID.A}_vs_{Sample.ID.B}-logfc.heatmap.pdf')
             )
     ) %>% 
-    group_by(Sample.ID, region.title) %>% 
+    nest(
+        contact.params=
+            c(
+                make_symmetric,
+                add_explicity_empty_bins,
+                x_var,
+                y_var,
+                resolution,
+                normalization,
+                range1,
+                range2,
+                cis
+            )
+    ) %>% 
+    mutate(wide_params=contact.params) %>%
+    unnest(wide_params) %>% 
+    select(
+        -c(
+            make_symmetric,
+            add_explicity_empty_bins,
+            x_var,
+            y_var,
+            range1,
+            range2,
+            cis
+        )
+    ) %>% 
+    group_by(output_file) %>% 
     pmap(
-         .l=.,
-         .f=heatmap_wrapper,
-         x_var='range1',
-         y_var='range2',
-         fill_var='log2fc',
-         fill_lab="log2(A / B)",
-         transform_fnc=function(x) 1 * x,
-         cmap=bgrColors(),
-         axis_label_accuracy=0.01,
-         x_text_angle=25,
-         xlinewidth=0.5,
-         ylinewidth=0.5,
-         width=10,
-         height=8,
-         .progress=TRUE
+        .l=.,
+        .f=logfc_heatmap_wrapper,
+        fill_var='log2fc',
+        fill_lab="log2(A / B)",
+        sample_priority_fnc=NIPBL_WAPL_sample_priority_fnc,
+        transform_fnc=function(x) 1 * x,
+        cmap=bgrColors(),
+        na.value='grey50',
+        width=10,
+        height=8,
+        .progress=TRUE
     )
 ##################
 # Transform to position vs distance to plot rectangle matrix
