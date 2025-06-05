@@ -186,14 +186,15 @@ make_nested_plot_tabs <- function(
 ###############
 # Contact Heatmaps
 make_contact_plot_df <- function(
-    make_triangular=FALSE,
+    make_diagonal=FALSE,
     make_symmetric=TRUE,
-    add_explicity_empty_bins=FALSE,
+    add_NAs=FALSE,
+    fill_var,
     x_var,
     y_var,
     ...){
     load_mcool_file(...) %>% 
-    # Explicitly add unspecified pairs of symetrical data
+    # Explicitly add symetric pairs i.e. 1,2 -> 2,1
     {
         if (make_symmetric) {
             bind_rows(
@@ -202,9 +203,9 @@ make_contact_plot_df <- function(
                 rename_with(
                     .fn=~ case_when(
                         .x == x_var ~ y_var,
-                        .x == y_var ~ x_var
-                      ),
-                    .cols=starts_with(c(x_var, y_var))
+                        .x == y_var ~ x_var,
+                        TRUE ~ .x
+                      )
                 ) %>%
                 filter(!!sym(x_var) != !!sym(y_var))
             )
@@ -214,8 +215,8 @@ make_contact_plot_df <- function(
     } %>% 
     # Make empty bin-pairs explicit NAs
     {
-        if (add_explicity_empty_bins) {
-            fill_list <- c(NA)
+        if (add_NAs) {
+            fill_list <- list(NA)
             names(fill_list) <- fill_var
             group_by(
                 .,
@@ -240,11 +241,11 @@ make_contact_plot_df <- function(
     # Transoforming for triangle version, stolen from HiContacts library
     # https://github.com/js2264/HiContacts/blob/146485f3e517429f7d4aa408898f6e89d4a04b36/R/plotting.R#L422
     {
-        if (make_triangular) {
+        if (make_diagonal) {
             mutate(
                 .,
                 distance=range2 - range1,
-                coord=range1 + (range2 - range1) / 2
+                bin=range1 + (range2 - range1) / 2
             )
         } else {
             .
@@ -269,9 +270,9 @@ plot_contacts_heatmap <- function(
     x_text_angle=25,
     linetype='solid',
     linecolor='black',
-    xlinewidth=0.3,
-    ylinewidth=0.3,
-    na.value="white",
+    xlinewidth=0.7,
+    ylinewidth=0.7,
+    na.color="white",
     ...){
     figure <- 
         contacts %>%
@@ -288,7 +289,7 @@ plot_contacts_heatmap <- function(
         # geom_tile(aes(fill=fill_data)) +
         scale_fill_gradientn(
             colors=cmap,
-            na.value=na.value
+            na.value=na.color
         ) +
         scale_x_continuous(
             expand=c(0,0,0,0),
@@ -342,8 +343,8 @@ plot_contacts_heatmap <- function(
 
 heatmap_wrapper <- function(
     filepath, normalization, resolution, cis, range1, range2,
-    make_triangular=FALSE, make_symmetric=TRUE, add_explicity_empty_bins=FALSE, 
-    x_var, y_var,
+    make_diagonal=FALSE, make_symmetric=TRUE, add_NAs=FALSE, 
+    x_var, y_var, fill_var,
     Sample.ID,
     region.title,
     window.size,
@@ -352,11 +353,12 @@ heatmap_wrapper <- function(
     ...){
     contacts <- 
         make_contact_plot_df(
-            make_triangular=make_triangular,
+            make_diagonal=make_diagonal,
             make_symmetric=make_symmetric,
-            add_explicity_empty_bins=add_explicity_empty_bins,
+            add_NAs=add_NAs,
             x_var=x_var,
             y_var=y_var,
+            fill_var=fill_var,
             filepath=filepath,
             resolution=resolution,
             normalization=normalization,
@@ -365,9 +367,18 @@ heatmap_wrapper <- function(
             cis=cis
         )
     # Now we can plot the figure
+    if (make_diagonal) {
+        x_var <- 'bin'
+        y_var <- 'distance'
+    }
     figure <- 
         contacts %>% 
-        plot_contacts_heatmap(...) +
+        plot_contacts_heatmap(
+            resolution=resolution,
+            x_var=x_var,
+            y_var=y_var,
+            ...
+        ) +
         labs(
             title=glue('{region.title} +/- {scale_numbers(window.size)}'),
             subtitle=glue('{Sample.ID} @{scale_numbers(resolution)}|normalization={normalization}'),
@@ -481,6 +492,7 @@ logfc_heatmap_wrapper <- function(
         contacts %>% 
         plot_contacts_heatmap(
             resolution=resolution,
+            fill_var='log2fc',
             ...
         ) +
         labs(
