@@ -16,6 +16,13 @@ GENOTYPES <-
       'DEL',
       'DUP'
     )
+# have consistent colors for genotypes across figures
+GENOTYPE_COLORS <- 
+    c(
+        'WT'='#b3b3ff',
+        'DEL'='#ff0000',
+        'DUP'='#0000ff'
+    )
 CELLTYPES <- 
     c(
       'NSC',
@@ -41,18 +48,6 @@ RESOLUTIONS <-
        2500000,
        5000000
     )
-RESOLUTION_NAMES <- 
-    RESOLUTIONS %>%
-    tibble(resolution=.) %>% 
-    mutate(resolution.name=resolution / 1000) %>% 
-    mutate(
-        resolution.name=
-            case_when(
-                resolution.name >= 1000 ~ paste0(resolution.name / 1000, "Mb"),
-                resolution.name >= 1    ~ paste0(resolution.name, "Kb")
-            ) %>% 
-            factor(., levels=.)
-    )
 # Match ideal smoothing param to specified resolution based on this
 # https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
 RESOLUTION_IDEAL_H <- 
@@ -66,13 +61,6 @@ RESOLUTION_IDEAL_H <-
             500000,        1,
            1000000,        1,
            1000000,        0
-    )
-# TO have consistent colors for genotypes across figures
-GENOTYPE_COLORS <- 
-    c(
-        'WT'='#b3b3ff',
-        'DEL'='#ff0000',
-        'DUP'='#0000ff'
     )
 # Genomic region boundaries to refernce during analysis plotting
 # 16p deleteion and telomere are to replicate Fig 4B in this paper:
@@ -111,4 +99,3 @@ GENOMIC_REGIONS <-
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
         region.dist=region.end - region.start
     )
-
