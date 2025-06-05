@@ -11,6 +11,79 @@
 - [ ] Find QC stats/thresholds for calling loops
 - [ ] Find QC stats/thresholds for calling compartments
 
+## Lab Meeting 
+
+- [ ] make pipeline diagram
+- [ ] animate pairtools parsing slide
+- [ ] review how pairtools parsing works
+- [ ] make fastq+fastp stats table
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] distance decay plots
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] Pair statistics tables (pairtools multiqc)
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] line plots of normalized vs 
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] Plot contact heatmaps of specific regions at min resolution
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] QC Figures
+  - [ ] remake bar plot figures for 16p
+  - [ ] remake bar plot figures for NIPBL+WAPL
+- [ ] Calculate minimum viable resolution table (Raot et al. 2014)
+  - [ ] 16p samples
+  - [ ] NIPBL+WAPL Samples
+- [ ] HiCRep
+  - [ ] re-read method details
+  - [ ] generate results with 5e6 windowsize
+  - [ ] plot hyper-parameter differences
+  - [ ] NIPBL+WAPL
+    - [ ] compare genotypes
+    - [ ] compare individual vs merged
+    - [ ] compare Edits
+    - [ ] 1 example of per-chromosome scores
+  - [ ] 16p
+    - [ ] compare genotypes
+    - [ ] compare individual vs merged
+    - [ ] compare 6 original vs 3 new samples
+    - [ ] 1 example of per-chromosome scores
+- [ ] TADs
+- [ ] multiHiCCompare
+  - [ ] generate results for minimum resolutions
+  - [ ] plot in regions of interest
+  - [ ] calcualte genome-wide summary stats
+
+## R01 Materials
+
+- [ ] Write methods
+  - [x] distiller pipeline
+  - [ ] add statistics
+    - [ ] fastq reads
+  - [ ] how QC barplot stats are calculated
+  - [ ] HiCRep method
+  - [ ] TAD calling strategies
+    - [ ] cooltools
+    - [ ] hiTAD single-level
+    - [ ] compare TAD similarity
+- [x] QC barplot
+  - [x] add cutoff lines based on ENCODE thresholds (15%, 35%)
+- [x] HiCRep Heatmap
+  - all samples vs all samples
+  - get gw-hicrep by taking avg of all chr scores
+  - unmerged matrices only
+- [ ] contact heatmaps
+  - [ ] raw contacts
+  - [ ] balanced contacts (ICE)
+  - [ ] log2 ratio between matrices
+- [ ] TAD figures
+  - [ ] number of TADs
+  - [ ] TAD length
+  - [ ] compare TAD similarity
+
 ## Code
 
 - [x] MiSeq QC analysis
@@ -19,12 +92,12 @@
 - [x] calculate minimum viable resolution with Rao et al. 2014 definition 
 - [x] create table of genomic regions to plot
 - [x] plot read pair orientation for pairs
-- [ ] plot pair-category statistics with raw number (not %)
+- [x] plot pair-category statistics with raw number (not %)
 - [x] Plot HiCRep per chromosome (fix spacing)
 - [ ] plot comparing raw vs balanced matrices
 - [ ] create coverage line plot function
 - [ ] create contact heatmap function
-- [ ] Finish TAD annotation results parser
+- [x] Finish TAD annotation results parser
 - [ ] implement TAD similarity metrics
 - [ ] finish re-write of multHiCCompare results generator
 
