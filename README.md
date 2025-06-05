@@ -1,5 +1,22 @@
 # 16p HiC Analysis
 
+Analysis and code of HiC data for 16p, NIPBL and WAPL cells.
+
+## Links to figures/notebooks
+
+NIPBL+WAPL
+- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/hicrep.html
+- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/matrix.QC.html
+- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/TADs.html
+- /data/talkowski/Samples/WAPL_NIPBL/HiC/results.iN/plots/
+
+16p
+- /data/talkowski/Samples/16p_HiC/notebooks/hicrep.html
+- /data/talkowski/Samples/16p_HiC/notebooks/matrix.QC.html
+- /data/talkowski/Samples/16p_HiC/notebooks/replicate.robinson.results.html
+
+## Repo+Results structure
+
 Analysis and code of HiC data for 16p editied cell lines
 File tree
 ```
