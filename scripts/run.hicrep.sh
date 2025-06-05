@@ -18,7 +18,7 @@ get_smooting_param() {
     esac
     echo ${h}
 }
-MAX_WINDOW_SIZE=(100000 500000 1000000)
+MAX_WINDOW_SIZE=(100000 500000 1000000 5000000)
 DOWNSAMPLE=(1 0)
 # Unput files
 OUTPUT_DIR="${1}"
