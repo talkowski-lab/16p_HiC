@@ -167,6 +167,20 @@ count_dirs <- function(filepath){
     str_split('/') %>% 
     length()
 }
+
+join_all_rows <- function(
+    df1,
+    df2,
+    ...){
+    full_join(
+        df1 %>% add_column(join_dummy=0),
+        df2 %>% add_column(join_dummy=0),
+        relationship='many-to-many',
+        by=join_by(join_dummy),
+        ...
+    ) %>% 
+    select(-c(join_dummy))
+}
 ###############
 # Annotate contacts with specified regions
 annotate_contact_region_pairs <- function(
@@ -179,18 +193,15 @@ annotate_contact_region_pairs <- function(
     # For each bin (1, left and 2, right) in each pair of bins annotate the region is belongs to
     region.pairs.of.interest <- 
         regions.of.interest %>%
-        add_column(join_dummy=0) %>% 
         # all possible pairs of regions to annotate
         # each bin-pair will be assigned 1 region pair, even if regions overlap/contain eachother
-        full_join(
+        join_all_rows(
             .,
             {.},
             suffix=c('1','2'),
             relationship='many-to-many',
-            by='join_dummy'
         ) %>% 
         filter(region.chr1 == region.chr2) %>% 
-        select(-c(join_dummy)) %>% 
         # factor order so most specific region interactions have the lowest factor level
         mutate(
             region=
@@ -322,14 +333,11 @@ fetch_RGD_regions <- function(
     ...){
     GENOMIC_REGIONS %>% 
     filter(region.group == "RGDs") %>% 
-    add_column(join_dummy=0) %>% 
-    full_join(
+    join_all_rows(
         expand_grid(
-            join_dummy=0,
             normalization=normalizations,
-            resolution=resolutions,
-        ),
-        relationship='many-to-many'
+            resolution=resolutions
+        )
     ) %>% 
     # add context of 1/2 the size (rounded to nearest bin) to each side of the region
     mutate(
@@ -349,7 +357,7 @@ fetch_RGD_regions <- function(
             as.integer
         )
     ) %>% 
-    select(-c(join_dummy, region.group))
+    select(-c(region.group))
 }
 
 format_rgd_plot_params <- function(
@@ -519,41 +527,34 @@ load_mcool_files <- function(
     ) %>% 
     tibble(filepath=.) %>% 
     mutate(matrix.name=basename(filepath)) %>% 
-    mutate(join_dummy=0) %>% 
     {
         if (is.null(region.df)) {
             if (is.null(range2s)) {
-                full_join(
-                    expand_grid(
-                        .,
-                        resolution=resolutions,
-                        range1=range1s,
-                        join_dummy=0
-                    ) %>%
-                    mutate(range2=range1),
-                    relationship='many-to-many',
-                )
-            } else {
-                full_join(
+                join_all_rows(
                     .,
                     expand_grid(
                         resolution=resolutions,
                         range1=range1s,
-                        range2=range2s,
-                        join_dummy=0
-                    ),
-                    relationship='many-to-many',
+                    ) %>%
+                    mutate(range2=range1)
+                )
+            } else {
+                join_all_rows(
+                    .,
+                    expand_grid(
+                        resolution=resolutions,
+                        range1=range1s,
+                        range2=range2s
+                    )
                 )
             }
         } else {
-            full_join(
+            join_all_rows(
                 .,
-                region.df %>% add_column(join_dummy=0),
-                relationship='many-to-many'
+                region.df
             )
         }
     } %>% 
-    select(-c(join_dummy)) %>% 
     process_matrix_name() %>% 
     mutate(resolution=as.integer(resolution)) %>% 
     {
