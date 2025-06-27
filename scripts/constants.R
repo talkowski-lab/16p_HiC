@@ -56,6 +56,7 @@ RESOLUTION_IDEAL_H <-
              10000,       20,
              25000,       10,
              40000,        5,
+             50000,        5,
             100000,        3,
             500000,        2,
             500000,        1,
@@ -93,9 +94,19 @@ GENOMIC_REGIONS <-
     "RGDs",        "17q12",                    "chr17",          36222499,    38194356,
     "RGDs",        "17q21.31",                 "chr17",            452200,     1272274,
     "RGDs",        "22q11.21_DGS_VCFS_common", "chr22",          18518837,    21562827,
-	)	%>%	
+	) %>%	
     mutate(
-        # region=fct_reorder(region, region.dist)
+        region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
+        region.dist=region.end - region.start
+    )
+LAB_MEETING_REGIONS <- 
+    tribble(
+    ~region.group, ~region,           ~region.chr, ~region.start, ~region.end,
+    "16p",         "16p11.2 CNV",         "chr16",      29488679,    30188679,
+    "WAPL",        "chr10q23.1-23.2",     "chr10",      79788887,    87316288,
+    "NIPBL",       "chr5p13.2",           "chr5",       33800001,    38400000,
+    ) %>% 
+    mutate(
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
         region.dist=region.end - region.start
     )
