@@ -145,7 +145,6 @@ process_matrix_name <- function(
         }
     }
 }
-
 ###############
 # Utilities
 scale_numbers <- function(
@@ -179,16 +178,18 @@ count_dirs <- function(filepath){
 join_all_rows <- function(
     df1,
     df2,
+    join_keys=c(),
     ...){
     full_join(
         df1 %>% add_column(join_dummy=0),
         df2 %>% add_column(join_dummy=0),
         relationship='many-to-many',
-        by=join_by(join_dummy),
+        by=c('join_dummy', join_keys),
         ...
     ) %>% 
     select(-c(join_dummy))
 }
+
 get_all_row_combinations <- function(
     df1,
     df2,
@@ -303,14 +304,12 @@ annotate_contact_region_pairs <- function(
 load_annotated_contacts_pairs <- function(
     pattern,
     range1s,
-    resolutions,
     regions.of.interest,
     ...){
     # Load all contacts
     load_mcool_files(
         pattern=pattern,
         range1s=range1s,
-        resolutions=resolutions,
     ) %>%
     mutate(is.Merged=grepl('Merged', Sample.ID)) %>%
     separate_wider_delim(
@@ -330,11 +329,17 @@ load_annotated_contacts_pairs <- function(
     )
 }
 ###############
-# Load Data
-load_sample_metadata <- function(
-    sample_metadata_file=SAMPLE_METADATA_FILE,
-    clean=TRUE){
-    sample_metadata_file %>%
+# Load Specific Data
+load_sample_metadata <- function(){
+    SAMPLE_METADATA_FILE %>%
+    read_tsv()
+}
+
+load_chr_sizes <- function(){
+    CHROMOSOME_SIZES_FILE %>% 
+    read_tsv(col_names=c('Chr', 'chr.total.bp'))
+}
+
 get_min_resolution_per_matrix <- function(
     df,
     int_res=TRUE,
@@ -370,17 +375,12 @@ get_min_resolution_per_matrix <- function(
     }
 }
 
-load_chr_sizes <- function(){
-    CHROMOSOME_SIZES_FILE %>% 
-    read_tsv(col_names=c('Chr', 'chr.total.bp'))
-}
-
-fetch_RGD_regions <- function(
+fetch_regions <- function(
+    regions.df,
     normalizations,
     resolutions,
     ...){
-    GENOMIC_REGIONS %>% 
-    filter(region.group == "RGDs") %>% 
+    regions.df %>% 
     join_all_rows(
         expand_grid(
             normalization=normalizations,
@@ -408,8 +408,9 @@ fetch_RGD_regions <- function(
     select(-c(region.group))
 }
 
-format_rgd_plot_params <- function(
+format_plot_params <- function(
     region.df,
+    title.prefix='RGD Region',
     ...){
     load_mcool_files(
         return_metadata_only=TRUE,
@@ -428,7 +429,7 @@ format_rgd_plot_params <- function(
     ungroup() %>% 
     mutate(
         cis=TRUE,
-        region.title=glue('{region} RGD Region {region.UCSC}'),
+        region.title=glue('{title.prefix} {region} {region.UCSC}'),
         output_dir=
             file.path(
                 PLOT_DIR, 
