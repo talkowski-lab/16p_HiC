@@ -24,14 +24,15 @@ output:
 ```{r knitr}
 library(knitr)
 knitr::opts_chunk$set(
-    dev=c('png', 'pdf', 'tiff'),
+    dev=c('png', 'pdf', 'svg'),
     dpi=300
 )
 ```
 Set up file locations + load dependenies
 ```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
-BASE_DIR <- here::i_am('notebooks/hicrep.Rmd')
+here::i_am('notebooks/hicrep.Rmd')
+BASE_DIR <- here()
 SCRIPT_DIR <- here('scripts')
 source(file.path(SCRIPT_DIR, 'locations.R'))
 source(file.path(SCRIPT_DIR, 'constants.R'))
@@ -46,22 +47,43 @@ library(purrr)
 ```
 Load hicrep data
 ```{r load_results, results=FALSE, message=FALSE, warning=FALSE}
+sample.metadata <- 
+    load_sample_metadata() %>%
+    mutate(Sequencing.Run=factor(Sequencing.Run)) %>%
+    mutate(Batch=glue('Batch {as.integer(Sequencing.Run)}'))
 hicrep.results <- 
     check_cached_results( 
         HICREP_RESULTS_FILE,
         force_redo=FALSE,
         return_data=TRUE,
         results_fnc=load_all_hicrep_results
-    )
+    ) %>%
+    left_join(
+        RESOLUTION_IDEAL_H,
+        relationship='many-to-many',
+        by=join_by(resolution)
+    ) %>% 
+    # get_min_resolution_per_matrix(filter_res=FALSE) %>% 
+    filter(ReadFilter == 'mapq_30 vs mapq_30') %>%
+    select(-c(ReadFilter)) %>% 
+    filter(!grepl('iN', Celltype))
+# hicrep.results
 ```
 Print sample rows
 ```{r example_results, rows.print=5}
-HICREP_PARAM_NAMES <- 
-    hicrep.results %>% 
-    select(-c(Edit, Genotype, SampleNumber, Celltype, chr, hicrep.score)) %>%
-    colnames()
 hicrep.results %>% 
-    arrange(resolution, h, is.downsampled, window.size, chr, SampleNumber)
+    arrange(
+        across(
+            c(
+                resolution,
+                h,
+                is.downsampled,
+                window.size,
+                chr, 
+                SampleNumber
+            )
+        )
+    )
 ```
 
 # Params Used
@@ -69,100 +91,117 @@ hicrep.results %>%
 How many different parameter combinations we tried
 ```{r param_combos, rows.print=5}
 hicrep.results %>%
-    filter(chr == 'chr16') %>% 
-    group_by(across(all_of(HICREP_PARAM_NAMES))) %>% 
-    dplyr::count()
+    count(
+        resolution,
+        h,
+        is.downsampled,
+        window.size,
+        chr
+    )
 ```
 
 How many different pairs of sample matrices were compared
 ```{r n_samples, rows.print=5}
 hicrep.results %>%
-    filter(chr == 'chr16') %>% 
-    dplyr::count(
-        Genotype,
-        SampleNumber,
-        Celltype,
-        Edit
-    )
-```
-
-```{r include=FALSE, rows.print=5}
-# All sample pairs + conditions where HiCRep scores were calculated
-hicrep.results %>%
     group_by(
         across(
-            c(
-                HICREP_PARAM_NAMES,
-                'Genotype',
-                'SampleNumber',
-                'Celltype',
-                'Edit'
+            -c(
+                chr,
+                resolution,
+                h,
+                is.downsampled,
+                window.size
             )
         )
     ) %>% 
-    dplyr::count()
+    count()
 ```
-
-# Plotting HiCRep scores {.tabset}
 
 Prepare data for plotting
 ```{r prep_plot_df, include=FALSE}
 plot.df <- 
     hicrep.results %>%
-    filter(ReadFilter == 'mapq_30') %>% 
-    # Pretty names
-    mutate(resolution=as.integer(resolution)) %>% 
-    left_join(
-        RESOLUTION_NAMES,
-        by=join_by(resolution)
-    ) %>%
-    select(-c(resolution)) %>% 
-    rename(resolution=resolution.name) %>% 
-    mutate(window.size=format(window.size, scientific=FALSE)) %>%
-    rowwise() %>% 
-    # Comparison labels
     mutate(
-            across(
-                c(Genotype, Celltype, SampleNumber, isMerged),
-                ~ case_when(
-                    grepl('vs', .x) ~ .x,
-                    TRUE ~ paste(.x, 'vs', .x, collapse=" ")
-                )
+        chr=factor(chr, levels=CHROMOSOMES),
+        across(
+            c(resolution, window.size),
+            ~ factor(
+                scale_numbers(as.integer(.x)),
+                levels=scale_numbers(sort(unique(as.integer(.x))))
+            )
+        )
+    ) %>% 
+    # Add batch information
+    separate_wider_delim(
+        Sample.ID,
+        delim=' vs ',
+        names=c('Sample.ID.A', 'Sample.ID.B')
+    ) %>% 
+    left_join(
+        sample.metadata %>% select(Sample.ID, Batch),
+        by=join_by(Sample.ID.A == Sample.ID)
+    ) %>% 
+    left_join(
+        sample.metadata %>% select(Sample.ID, Batch),
+        suffix=c('.A', '.B'),
+        by=join_by(Sample.ID.B == Sample.ID)
+    ) %>% 
+    mutate(
+        across(
+            starts_with('Batch'),
+            ~ ifelse(is.na(.x), 'Merged', .x)
+        ),
+        Batch=
+            pmap_chr(
+                list(Batch.A, Batch.B),
+                ~ paste(sort(c(...)), collapse=' vs ')
             )
     ) %>% 
-    ungroup() %>% 
-    mutate(chr=factor(chr, levels=CHROMOSOMES)) %>% 
-    mutate(
-        sample1.is.new=grepl('(G7|p46|H10) vs', SampleNumber),
-        sample2.is.new=grepl('vs (G7|p46|H10)', SampleNumber),
-        SampleNovelty=
-            case_when(
-                 sample1.is.new &  sample2.is.new ~ 'New vs New',
-                 sample1.is.new & !sample2.is.new ~ 'New vs Old',
-                !sample1.is.new &  sample2.is.new ~ 'New vs Old',
-                !sample1.is.new & !sample2.is.new ~ 'Old vs Old',
-                TRUE ~ 'error'
-            )
-    ) %>%
-    select(-c(sample1.is.new, sample2.is.new))
+    select(-ends_with(c('.A', '.B')))
 ```
 
-## Compare hyper-params
+# Compare hyper-params
 
 Compare values by hyper-param to showcase the variability
 ```{r hyperparam_boxplox, results='asis', echo=FALSE, out.width='100%', fig.height=7}
 plot.df %>% 
-    mutate(window.size=glue('Window Size={window.size}')) %>% 
     make_nested_plot_tabs(
-        group_cols=c('resolution', 'Celltype'),
+        group_cols=c('isMerged'),
         plot_fnc=plot_hicrep_boxplot,
         sample_group='window.size',
         fill_var='is.downsampled', 
-        facet_row='isMerged',
-        facet_col='Genotype',
+        facet_col='resolution',
+        facet_row='Batch',
         max_header_lvl=3
     )
 ```
+
+```{r pick_param_set}
+plot.df <- 
+    plot.df %>% 
+    filter(
+        is.downsampled,
+        window.size == '5Mb',
+        h == Ideal_H,
+        resolution == '25Kb'
+    )
+plot.df %>% distinct(h, window.size, resolution, is.downsampled)
+```
+
+# Lab Meeting Plot
+
+```{r lab_meeting, results='asis', fig.align='center', out.width='100%', fig.height=6}
+plot.df %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        fill_var=NA,
+        plot_fnc=plot_hicrep_boxplot,
+        sample_group='chr',
+        facet_col='Genotype'
+    )
+```
+
+# Plotting HiCRep scores {.tabset}
 
 ## Compare Individual Samples
 
@@ -170,11 +209,8 @@ Boxplot of hicrep scores by various levels
 ```{r new_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
     filter(isMerged == 'Individual vs Individual') %>% 
-    filter(is.downsampled) %>% 
     plot_hicrep_boxplot(
         sample_group='Genotype',
-        # fill_var='is.downsampled', 
-        fill_var='window.size', 
         facet_row='resolution',
         facet_col='Celltype',
         mark_df={. %>% filter(chr %in% c('chr16'))},
@@ -188,20 +224,16 @@ Boxplot of hicrep scores by various levels
 ```{r merged_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
 plot.df %>% 
     filter(isMerged == 'Merged vs Merged') %>% 
-    filter(is.downsampled) %>% 
     plot_hicrep_boxplot(
         sample_group='Genotype',
         facet_col='Celltype',
-        # fill_var='is.downsampled', 
-        fill_var='window.size', 
-        facet_row='resolution'
     )
 ```
 
 ## HiCRep scores per chromosome 
 
 See if there are any trends in HiCRep scores across chromosomes and if they are influenced by HiCRep params or samples genotype
-```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7}
+```{r per_chr, results='asis', echo=FALSE, out.width='100%', fig.height=7, eval=FALSE}
 plot.df %>%
     filter(isMerged == 'Individual vs Individual') %>% 
     filter(is.downsampled) %>% 
@@ -214,51 +246,5 @@ plot.df %>%
         facet_row='Genotype',
         yintercept=0.95,
         max_header_lvl=3
-    )
-```
-
-## Plot first 6 processed samples only
-
-Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
-```{r old_boxplot, echo=FALSE, fig.align='center', out.width='100%', fig.height=7}
-plot.df %>% 
-    filter(SampleNovelty == 'Old vs Old') %>% 
-    filter(isMerged == 'Individual vs Individual') %>% 
-    plot_hicrep_boxplot(
-        sample_group='Genotype',
-        fill_var='is.downsampled', 
-        facet_row='resolution',
-        facet_col='Celltype' 
-    )
-```
-
-## Compare Differences between New/Old samples
-
-How many new vs old samples pairs being compared
-```{r novel_table, rows.print=6}
-plot.df %>% 
-    filter(chr == 'chr16') %>% 
-    filter(isMerged == 'Individual vs Individual') %>% 
-    group_by(
-        resolution,
-        h,
-        is.downsampled,
-        window.size,
-        ReadFilter
-    ) %>% 
-    dplyr::count(SampleNovelty)
-```
-Now plot individual sample pair distributions to see if the 3 new samples are less reproducible than the 6 original samples
-```{r novel_boxplot, results='asis', echo=FALSE, fig.align='center', out.width='100%', fig.height=8}
-plot.df %>% 
-    filter(isMerged == 'Individual vs Individual') %>% 
-    make_nested_plot_tabs(
-        group_cols=c('resolution'),
-        plot_fnc=plot_hicrep_boxplot,
-        max_header_lvl=3,
-        sample_group='SampleNovelty',
-        fill_var='is.downsampled', 
-        facet_row='Genotype',
-        facet_col='Celltype'
     )
 ```
