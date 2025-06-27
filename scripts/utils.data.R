@@ -150,21 +150,22 @@ process_matrix_name <- function(
 # Utilities
 scale_numbers <- function(
     numbers,
-    accuracy=1,
-    toint=FALSE){
-    if (toint) {
+    accuracy=2){
+    print(is.numeric(numbers))
+    if (is.character(numbers)) {
         case_when(
-            grepl('Mb', numbers) ~ str_replace(numbers, 'Mb', '000000'),
-            grepl('Kb', numbers) ~ str_replace(numbers, 'Kb', '000'),
-            TRUE ~ numbers
-        ) %>%
-        as.integer()
-    } else {
+            grepl('Mb', numbers) ~ as.integer(str_remove(numbers, 'Mb')) * 1e6,
+            grepl('Kb', numbers) ~ as.integer(str_remove(numbers, 'Kb')) * 1e3,
+            TRUE ~ as.integer(numbers)
+        )
+    } else if (is.numeric(numbers)) {
         case_when(
             numbers >= 1e6 ~ glue('{signif(numbers / 1e6, digits=accuracy)}Mb'),
             numbers >= 1e3 ~ glue('{signif(numbers / 1e3, digits=accuracy)}Kb'),
             TRUE ~ as.character(numbers)
         )
+    } else {
+        numbers
     }
 }
 
