@@ -31,7 +31,8 @@ knitr::opts_chunk$set(
 Set up file locations + load dependenies
 ```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
-BASE_DIR <- here::i_am('notebooks/replicate.robinson.results.Rmd')
+here::i_am('notebooks/replicate.robinson.results.Rmd')
+BASE_DIR <- here()
 SCRIPT_DIR <- here('scripts')
 source(file.path(SCRIPT_DIR, 'locations.R'))
 source(file.path(SCRIPT_DIR, 'constants.R'))
@@ -81,7 +82,7 @@ Specifically we want to comapre if contacts between the chr16p CNV region and th
 These regions are defined as follows
 ```{r regions, rows.print=50}
 regions.of.interest %>%
-    mutate(region.dist=sprintf('%0.1f Kb', region.dist/1000)) %>% 
+    mutate(region.dist=scale_numbers(region.dist)) %>% 
     select(c(region, region.chr, region.start, region.end, region.dist, region.UCSC)) %>%
     rename(
         'Region'=region,
@@ -104,7 +105,6 @@ deletion.start <-
     {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.start)}
 deletion.end <- 
     {regions.of.interest %>% filter(region == 'chr16p.deletion') %>% pull(region.end)}
-# print(c(telomere.start, telomere.end, deletion.start, deletion.end))
 # Distance ranges to compare
 dist.min <- 
     round(
@@ -117,6 +117,8 @@ dist.max <-
         digits=-5 # round to nearest 100Kb bin
     )
 # print
+glue("Telomere region is between {telomere.start}-{telomere.end}")
+glue("Deletion region is between {deletion.start}-{deletion.end}")
 glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart") %>% message()
 ```
 
@@ -147,7 +149,6 @@ plot.df <-
     ) %>%
     # Filter for relevant contacts
     mutate(contact.dist=range2 - range1) %>% 
-    # filter(between(contact.dist, dist.min, dist.max)) %>% 
     filter(
         contact.dist > dist.min,
         contact.dist < dist.max
@@ -220,13 +221,23 @@ plot.df <-
 plot.df %>% dplyr::count(IF.Threshold, Sample.ID, region.title)
 ```
 
+```{r manual_check_regions, eval=FALSE}
+plot.df %>% 
+    filter(region.title %in% c('16p.Distance-matched control', '16p11.2 CNV - Telomere')) %>% 
+    group_by(Sample.ID, IF.Threshold, region) %>%
+    mutate(group=cur_group_id()) %>%
+    ungroup() %>%
+    filter(group == 2) %>% 
+    count(range1, range2) %>% print(n=Inf)
+```
+
 ## Weiner et al. 2022 replication {.tabset}
 
 Here I just recreate the figure+results as simply as possible
 
 ### Individual Samples
 
-```{r basic_individual, results='asis', message=FALSE, fig.height=7, fig.width=7} 
+```{r basic_individual, results='asis', message=FALSE, fig.height=7, fig.width=8} 
 plot.df %>% 
     filter(ReplicateNum != 'Merged') %>% 
     filter(
@@ -248,12 +259,13 @@ plot.df %>%
         n_size=2.5,
         test_offset_y=7,
         expansion=c(0.05, 0.01, 0.1, 0.01),
+        plot.margin=margin(0.05, 0.05, 0.05, 0.5, "in")
     )
 ```
 
 ### Merged Samples
 
-```{r basic_merged, results='asis', message=FALSE, fig.height=4, fig.width=6} 
+```{r basic_merged, results='asis', message=FALSE, fig.height=5, fig.width=7} 
 plot.df %>% 
     filter(ReplicateNum == 'Merged') %>% 
     filter(
@@ -275,6 +287,7 @@ plot.df %>%
         n_size=3,
         test_offset_y=4,
         expansion=c(0.05, 0.01, 0.1, 0.01),
+        plot.margin=margin(0.05, 0.05, 0.05, 0.6, "in")
     )
 ```
 
@@ -313,7 +326,7 @@ plot.df %>%
 
 ### Merged
 
-```{r extra_regions_merged, results='asis', message=FALSE, fig.width=12, fig.height=8, eval=FALSE} 
+```{r extra_regions_merged, results='asis', message=FALSE, fig.width=14, fig.height=8, eval=FALSE} 
 plot.df %>% 
     filter(ReplicateNum == 'Merged') %>% 
     filter(

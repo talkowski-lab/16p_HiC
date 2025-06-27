@@ -88,15 +88,14 @@ pairs.plot.df <-
 
 ```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=5}
 pairs.plot.df %>% 
-    rename('# Unique Contacts'=value) %>% 
+    rename('Unique Pairs'=value) %>% 
     plot_qc_barplot(
-        y_val='# Unique Contacts',
+        y_val='Unique Pairs',
         fill_col='Sample.ID',
         facet_col='Celltype',
         facet_row='isMerged',
-        pct_breaks=FALSE,
         scales='free_y',
-        linewidth=0
+        scale_y_method='log10'
     )
 ```
 
@@ -104,13 +103,14 @@ pairs.plot.df %>%
 
 ```{r plot_pct_pairs, echo=FALSE, fig.align='center', fig.height=5}
 pairs.plot.df %>% 
-    rename('% Unique Contacts'=frac) %>% 
-    plot_qc_barplot(
-        y_val='% Unique Contacts',
+    rename('Unique Pairs'=frac) %>% 
+    add_lines_qc_barplot(
+        y_val='Unique Pairs',
         fill_col='Sample.ID',
         facet_col='Celltype',
         facet_row='isMerged',
-        linewidth=0.25
+        scale_y_method='pct',
+        scales='fixed',
     )
 ```
 

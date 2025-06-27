@@ -257,11 +257,11 @@ make_pair_qc_df <- function(
 plot_qc_barplot <- function(
     plot.df,
     y_val,
+    scale_y_method,
     fill_col='Sample.ID',
     facet_col='Edit',
     facet_row='isMerged',
-    expansion=c(0.00, 0.00, 0.00, 0.00),
-    pct_breaks=TRUE,
+    expand=c(0.00, 0.00, 0.00, 0.00),
     scales='fixed',
     ...){
     figure <- 
@@ -291,19 +291,12 @@ plot_qc_barplot <- function(
                 )
         ) + 
         add_ggtheme()
-    if (pct_breaks) {
-        figure <- 
-            figure +
-            scale_y_continuous(
-                breaks=seq(0, max(plot.df[[y_val]]), 5),
-                expand=expansion
-            )
-    } else {
-        figure <- 
-            figure +
-            scale_y_continuous(expand=expansion)
-    }
-    figure
+    # scale axis
+    figure %>% 
+    scale_y_axis(
+        mode=scale_y_method,
+        expand=expand
+    )
 }
 
 add_lines_qc_barplot <- function(
@@ -312,6 +305,20 @@ add_lines_qc_barplot <- function(
     linetype='dashed',
     ...){
     plot.df %>% 
+    mutate(
+        x_line=
+            ifelse(
+                grepl('long range', Category, ignore.case=TRUE), 
+                as.numeric(Category) - 0.55,
+                NA
+            ),
+        xend_line=
+            ifelse(
+                grepl('long range', Category, ignore.case=TRUE),
+                as.numeric(Category) + 0.55,
+                NA
+            )
+    ) %>% 
     plot_qc_barplot(...) +
     # Draw extra line on qc plot
     geom_segment(
@@ -319,8 +326,8 @@ add_lines_qc_barplot <- function(
             x=x_line,
             xend=xend_line
         ),
-        y=15, 
-        yend=15,
+        y=0.15, 
+        yend=0.15,
         color='red',
         linewidth=linewidth,
         linetype=linetype
@@ -330,13 +337,12 @@ add_lines_qc_barplot <- function(
             x=x_line,
             xend=xend_line
         ),
-        y=40,
-        yend=40,
+        y=0.40,
+        yend=0.40,
         color='green',
         linewidth=linewidth,
         linetype=linetype
     )
-
 }
 
 plot_pair.orientation_lineplot <- function(

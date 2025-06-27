@@ -100,7 +100,10 @@ plot_contacts_regions_boxplot <- function(
         hjust=0.5,
         vjust=0.5
     ) +
-    scale_y_continuous(expand=expansion) +
+    scale_y_continuous(
+        expand=expansion,
+        breaks=c(0, 25, 50, 75)
+    ) +
     labs(y='HiC-Contacts') +
     facet_grid2(
         rows=vars(!!sym(facet_row)), 
