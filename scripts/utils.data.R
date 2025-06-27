@@ -117,6 +117,7 @@ parse_results_filelist <- function(
 process_matrix_name <- function(
     df,
     filename.column.name='matrix.name',
+    keep_metadata_columns=FALSE,
     ...){
     df %>% 
     separate_wider_delim(
@@ -136,7 +137,13 @@ process_matrix_name <- function(
     ) %>% 
     # Matches Sample.ID in SAMPLE_METADATA_FILE
     mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
-    select(-c(Edit, Genotype, SampleNumber, Celltype))
+    {
+        if (keep_metadata_columns) {
+            .
+        } else {
+            select(., -c(Edit, Genotype, SampleNumber, Celltype))
+        }
+    }
 }
 
 ###############
@@ -398,7 +405,7 @@ format_rgd_plot_params <- function(
     # ungroup() %>%
 }
 ###############
-# Load Files
+# Load Filetypes
 load_genome_coverage <- function(
     filepath,
     ...){
@@ -480,11 +487,11 @@ load_mcool_file <- function(
 load_mcool_files <- function(
     pattern,
     region.df=NULL,
-    resolutions=NULL,
     range1s=NULL,
     range2s=NULL,
     progress=TRUE,
     return_metadata_only=FALSE,
+    keep_metadata_columns=FALSE,
     ...){
     COOLERS_DIR %>% 
     list.files(
@@ -495,35 +502,34 @@ load_mcool_files <- function(
     tibble(filepath=.) %>% 
     mutate(matrix.name=basename(filepath)) %>% 
     {
-        if (is.null(region.df)) {
-            if (is.null(range2s)) {
+        if (!is.null(region.df)) {
+            join_all_rows(
+                .,
+                region.df
+            )
+        } else {
+            if ((is.null(range1s)) & (is.null(range2s))) {
+                .
+            } else if (is.null(range2s)) {
                 join_all_rows(
                     .,
-                    expand_grid(
-                        resolution=resolutions,
+                    tibble(
                         range1=range1s,
-                    ) %>%
-                    mutate(range2=range1)
+                        range2=range1s
+                    )
                 )
             } else {
                 join_all_rows(
                     .,
                     expand_grid(
-                        resolution=resolutions,
                         range1=range1s,
                         range2=range2s
                     )
                 )
             }
-        } else {
-            join_all_rows(
-                .,
-                region.df
-            )
         }
     } %>% 
-    process_matrix_name() %>% 
-    mutate(resolution=as.integer(resolution)) %>% 
+    process_matrix_name(keep_metadata_columns=keep_metadata_columns) %>% 
     {
         if (return_metadata_only) {
             .
