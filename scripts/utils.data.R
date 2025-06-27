@@ -335,28 +335,35 @@ load_sample_metadata <- function(
     sample_metadata_file=SAMPLE_METADATA_FILE,
     clean=TRUE){
     sample_metadata_file %>%
+get_min_resolution_per_matrix <- function(
+    df,
+    int_res=TRUE,
+    filter_res=TRUE){
+    # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
+    MIN_SAMPLE_RESOLUTION_FILE %>%
     read_tsv() %>%
+    rename('resolution'=`Min. Viable Resolution`) %>% # as character e.g. 50Kb
+    select(Sample.ID, resolution) %>% 
     {
-        if (clean) {
-            select(
-                ., 
-                -c(
-                    # Sequencing.Run,
-                    Lane,
-                    Investigator.ID,
-                    Sample.Info,
-                    Fastq.R1,
-                    Fastq.R2
-                    # Date,
-                    # Edit,
-                    # Genotype,
-                    # Sample.Number,
-                    # Celltype,
-                    # Sample.ID,
-                    # Sample.Name,
-                )
+        if (int_res) {
+            mutate(., resolution=scale_numbers(resolution))
+        } else {
+            .
+        }
+    } %>% 
+    add_column(is.smallest.resolution=TRUE) %>% 
+    right_join(
+        df,
+        by=
+            join_by(
+                Sample.ID,
+                resolution
             )
-
+    ) %>%
+    { 
+        if (filter_res) {
+            filter(., is.smallest.resolution) %>%
+            select(-c(is.smallest.resolution))
         } else {
             .
         }
