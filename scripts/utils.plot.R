@@ -71,8 +71,45 @@ add_faceting <- function(
     }
     figure
 }
+
+scale_y_axis <- function(
+    figure,
+    mode='',
+    pct_max=100,
+    axis_label_accuracy=2,
+    ...){
+    if (mode == 'pct') {
+        figure +
+        scale_y_continuous(
+            labels=label_percent(),
+            ...
+        )
+    } else if (mode == 'mb') {
+        figure +
+        scale_y_continuous(
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis_label_accuracy
+                ),
+            ...
+        )
+    } else if (mode == 'log10') {
+        figure +
+        scale_y_continuous(
+            labels=
+                label_log(
+                    base=10,
+                    signed=FALSE
+                ),
+            ...
+        )
+    } else {
+        figure
+    }
+}
 ###############
-# Utility
+# Make tabs per plot in RmD
 plot_figure_tabs <- function(
     plot.df,
     group_col,
@@ -307,7 +344,10 @@ plot_contacts_heatmap <- function(
                     accuracy=axis_label_accuracy
                 )
         ) +
-        theme(axis.text.x=element_text(angle=x_text_angle, hjust=1)) 
+        theme(
+            axis.text.x=element_text(angle=x_text_angle, hjust=1),
+            legend.position='top'
+        ) 
     # add vertical lines
     if (xlinewidth > 0) {
         figure <- 
@@ -381,7 +421,7 @@ heatmap_wrapper <- function(
         ) +
         labs(
             title=glue('{region.title} +/- {scale_numbers(window.size)}'),
-            subtitle=glue('{Sample.ID} @{scale_numbers(resolution)}|normalization={normalization}'),
+            subtitle=glue('{Sample.ID} | {scale_numbers(resolution)} | normalization={normalization}'),
             fill=fill_lab,
             x=xlab,
             y=ylab
@@ -413,7 +453,6 @@ make_sample_pairs <- function(
         .,
         {.},
         suffix=c('.A', '.B'),
-        copy=TRUE,
         by=join_by(data)  # all other params must be equal
     ) %>%
     # Dedup pairs (symetrical)
