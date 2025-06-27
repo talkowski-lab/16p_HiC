@@ -189,6 +189,39 @@ join_all_rows <- function(
     ) %>% 
     select(-c(join_dummy))
 }
+get_all_row_combinations <- function(
+    df1,
+    df2,
+    cols_to_pair,
+    keep_self=TRUE,
+    ...){
+    # df1=comparisons; df2=comparisons; cols_to_pair=c('is.Merged')
+    join_all_rows(
+        df1 %>% ungroup() %>% mutate(index=row_number()),
+        df2 %>% ungroup() %>% mutate(index=row_number()),
+        join_keys=cols_to_pair,
+        suffix=c('.A', '.B')
+    ) %>%
+    mutate(
+        index.pair=
+            pmap_chr(
+                list(index.A, index.B),
+                ~ paste(sort(c(...)), collapse='~')
+            )
+    ) %>%
+    distinct(
+        index.pair,
+        .keep_all=TRUE
+    ) %>%
+    {
+        if (keep_self) {
+            .
+        } else {
+            filter(., index.A != index.B)
+        }
+    } %>% 
+    select(-c(starts_with('index')))
+}
 ###############
 # Annotate contacts with specified regions
 annotate_contact_region_pairs <- function(
