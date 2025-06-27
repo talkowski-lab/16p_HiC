@@ -157,15 +157,28 @@ plot_hicrep_boxplot <- function(
     mark_size=1,
     yintercept=0.95,
     ...){
-    figure <- 
-        plot.df %>%
-        ggplot(
-            aes(
-                x=.data[[sample_group]],
-                y=hicrep.score,
-                fill=.data[[fill_var]]
+    if (is.na(fill_var)) {
+        figure <- 
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[sample_group]],
+                    y=hicrep.score
+                )
             )
-        ) +
+    } else {
+        figure <- 
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[sample_group]],
+                    y=hicrep.score,
+                    fill=.data[[fill_var]]
+                )
+            )
+    }
+    figure <- 
+        figure + 
         geom_hline(
             yintercept=yintercept,
             color='black',
@@ -190,6 +203,7 @@ plot_hicrep_boxplot <- function(
     if (!(is.null(mark_df))) {
         figure <- 
             figure +
+            geom_boxplot(outliers=FALSE) +
             geom_jitter(
                 data=mark_df,
                 aes(
@@ -199,8 +213,7 @@ plot_hicrep_boxplot <- function(
                 ),
                 alpha=mark_alpha,
                 size=mark_size
-            ) +
-            geom_boxplot(outliers=FALSE)
+            )
     } else {
         figure <- 
             figure +
