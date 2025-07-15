@@ -150,7 +150,6 @@ process_matrix_name <- function(
 scale_numbers <- function(
     numbers,
     accuracy=2){
-    print(is.numeric(numbers))
     if (is.character(numbers)) {
         case_when(
             grepl('Mb', numbers) ~ as.integer(str_remove(numbers, 'Mb')) * 1e6,
@@ -193,16 +192,18 @@ join_all_rows <- function(
 get_all_row_combinations <- function(
     df1,
     df2,
-    cols_to_pair,
+    cols_to_pair=c(),
+    suffixes=c('.A', '.B'),
     keep_self=TRUE,
     ...){
-    # df1=comparisons; df2=comparisons; cols_to_pair=c('is.Merged')
+    # Get all combinations of rows with matching attributes (cols_to_pair)
     join_all_rows(
         df1 %>% ungroup() %>% mutate(index=row_number()),
         df2 %>% ungroup() %>% mutate(index=row_number()),
         join_keys=cols_to_pair,
-        suffix=c('.A', '.B')
+        suffix=suffixes
     ) %>%
+    # Keep only distinct pairs of rows (order doesnt matter
     mutate(
         index.pair=
             pmap_chr(
@@ -214,6 +215,7 @@ get_all_row_combinations <- function(
         index.pair,
         .keep_all=TRUE
     ) %>%
+    # keep/remove pairs of a row matched to itself
     {
         if (keep_self) {
             .
@@ -332,7 +334,7 @@ load_annotated_contacts_pairs <- function(
 # Load Specific Data
 load_sample_metadata <- function(){
     SAMPLE_METADATA_FILE %>%
-    read_tsv()
+    read_tsv(show_col_types=FALSE)
 }
 
 load_chr_sizes <- function(){
@@ -350,20 +352,20 @@ get_min_resolution_per_matrix <- function(
     rename('resolution'=`Min. Viable Resolution`) %>% # as character e.g. 50Kb
     select(Sample.ID, resolution) %>% 
     {
-        if (int_res) {
+        if (int_res && !is.numeric(.$resolution)) {
             mutate(., resolution=scale_numbers(resolution))
-        } else {
+        } else if (!int_res && is.numeric(.$resolution)) {
+            mutate(., resolution=scale_numbers(resolution))
+        } else if ( int_res &&  is.numeric(.$resolution)) {
+            .
+        } else if (!int_res && !is.numeric(.$resolution)) {
             .
         }
     } %>% 
     add_column(is.smallest.resolution=TRUE) %>% 
     right_join(
         df,
-        by=
-            join_by(
-                Sample.ID,
-                resolution
-            )
+        by=join_by(Sample.ID)
     ) %>%
     { 
         if (filter_res) {
@@ -490,13 +492,13 @@ load_mcool_file <- function(
         type='df'
     ) %>% 
     as_tibble() %>%
-    {
-        if (normalization == 'weight') {
-            add_column(., weight='ICE')
-        } else {
-            add_column(., weight=normalization)
-        }
-    } %>% 
+    # {
+    #     if (normalization == 'weight') {
+    #         add_column(., weight='ICE')
+    #     } else {
+    #         add_column(., weight=normalization)
+    #     }
+    # } %>% 
     # format column names
     {
         if (cis) {
