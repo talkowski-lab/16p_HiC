@@ -20,6 +20,14 @@ PLOT_DIR <- file.path(RESULTS_DIR, 'plots/lab.meeting')
 ##################
 # Load all fileinfo + regions, but not contact data itself
 ##################
+# plot shapes
+plot.params <- 
+    tribble(
+    ~plot_type,         ~make_diagonal, ~make_symmetric, ~add_NAs, ~ylinewidth, ~height,
+    'square.heatmap',            FALSE,            TRUE,     TRUE,         0.7,       8,
+    # 'diagonal.heatmap',           TRUE,            TRUE,    FALSE,           0,       8,
+    # 'triangle.heatmap',           TRUE,           FALSE,    FALSE,           0,       6
+)
 # RGD regions
 # Genomic deletion regions
 annotated.contacts.df <- 
@@ -39,36 +47,27 @@ annotated.contacts.df <-
                 5e3
             )
     ) %>% 
-    format_plot_params() #%>% 
-    # get_min_resolution_per_matrix(
-    #     int_res=TRUE,
-    #     filter_res=TRUE
-    # )
-# plot shape
-plot.params <- 
-    tribble(
-~plot_type,         ~make_diagonal,  ~make_symmetric,  ~add_NAs, ~ylinewidth, ~height,
-'square.heatmap',            FALSE,             TRUE,      TRUE,         0.7,       8,
-# 'diagonal.heatmap',           TRUE,             TRUE,     FALSE,           0,       8,
-# 'triangle.heatmap',           TRUE,            FALSE,     FALSE,           0,       6
-)
-# annotated.contacts.df %>% count(Sample.ID, resolution)
-# RGD regions
-# annotated.contacts.df <- 
-#     LAB_MEETING_REGIONS %>% 
-#     fetch_regions(
-#         normalization=
-#             c(
-#                 "NONE",
-#                 "weight"
-#             ),
-#         resolutions=
-#             c(
-#                 50e3,
-#                 5e3
-#             )
-#     ) %>% 
-#     format_plot_params()
+    format_plot_params(
+        plot_dir=PLOT_DIR,
+        title.prefix='RGD Region'
+    )
+annotated.contacts.df %>% count(Sample.ID, resolution)
+RGD regions
+annotated.contacts.df <- 
+    LAB_MEETING_REGIONS %>% 
+    fetch_regions(
+        normalization=
+            c(
+                "NONE",
+                "weight"
+            ),
+        resolutions=
+            c(
+                50e3,
+                5e3
+            )
+    ) %>% 
+    format_plot_params(plot_dir=PLOT_DIR)
 ##################
 # Plot contact heatmaps
 ##################
