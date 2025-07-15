@@ -35,7 +35,6 @@ load_pairtools_stats <- function(
         ) %>%
         select(-c(filepath)) %>%
         unnest(stats)
-    all.stats.df
     all.stats.df <- 
         all.stats.df %>% 
         separate_wider_delim(
@@ -208,6 +207,7 @@ make_summary_stats_table <- function(
 
 make_pair_qc_df <- function(
     pair.stats.list,
+    cols_to_keep=c(),
     ...){
     pair.stats.list$general.stats %>% 
     select(-c(category)) %>% 
@@ -247,8 +247,10 @@ make_pair_qc_df <- function(
     group_by(Sample.ID, Category) %>% 
     summarize(
         value=sum(value),
-        # total per sample
-        total.unique.contacts=unique(total.unique.contacts)
+        across(
+            c('total.unique.contacts', cols_to_keep),
+            ~ unique(.x)
+        )
     ) %>% 
     ungroup() %>% 
     mutate(frac=(value / total.unique.contacts))
@@ -337,12 +339,16 @@ get_all_matrix_minimum_resolutions <- function(
 plot_qc_barplot <- function(
     plot.df,
     y_val,
-    scale_y_method,
     fill_col='Sample.ID',
     facet_col='Edit',
     facet_row='isMerged',
-    expand=c(0.00, 0.00, 0.00, 0.00),
     scales='fixed',
+    scale_y_method='',
+    log_base=10,
+    axis_label_accuracy=1,
+    expand=c(0.00, 0.00, 0.00, 0.00),
+    n_breaks=5,
+    limits=NULL,
     ...){
     figure <- 
         plot.df %>%
@@ -360,7 +366,7 @@ plot_qc_barplot <- function(
             cols=vars(!!sym(facet_col)),
             scales=scales
         ) +
-        labs(y=y_val) +
+        # labs(y=y_val) +
         theme(
             ...,
             axis.title.x=element_blank(),
@@ -375,7 +381,11 @@ plot_qc_barplot <- function(
     figure %>% 
     scale_y_axis(
         mode=scale_y_method,
-        expand=expand
+        axis_label_accuracy=axis_label_accuracy,
+        log_base=log_base,
+        expand=expand,
+        n_breaks=n_breaks,
+        limits=limits
     )
 }
 
