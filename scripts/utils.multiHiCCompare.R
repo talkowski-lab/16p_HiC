@@ -113,34 +113,125 @@ sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
 }
 
 run_multiHiCCompare <- function(
-    sparse.matrix,
-    sample_groups,
+    samples.df,
+    sample_group_priority_fnc,
+    covariates.df=NULL,
+    resolution,
+    range1,
+    range2,
+    remove.regions,
     md_plot_file,
+    p.method,
     ...){
+    # samples.df=tmp$samples.df[[1]]; resolution=tmp$resolution[[1]]; range1=tmp$range1[[1]]; range2=tmp$range2[[1]]; md_plot_file=tmp$md_plot_file[[1]]; remove.regions=hg38_cyto; p.method='fdr'
+    # Get sample groups, ensure consistent num/denom for fc estimates
+    # function with more priority (smaller number) will be numerator
+    # should be no ties, but ties are broken alphabetically
+    samples.df <- 
+        samples.df %>%
+        mutate(
+            group.priority=sample_group_priority_fnc(Sample.Group),
+            Sample.Group=
+                fct_reorder(
+                    Sample.Group,
+                    group.priority,
+                    .desc=TRUE
+                )
+        ) %>%
+        arrange(Sample.Group)
+    # Get contacts for all samples + region
+    samples.contacts <- 
+        samples.df %>%
+        select(-c(resolution)) %>% 
+        pmap(
+            .l=,
+            .f=load_mcool_file,
+            resolution=resolution,
+            range1=range1,
+            range2=range2,
+            normalization="NONE",
+            .progress=FALSE
+        )
+    # Handle covariates if specified
+    if (is_tibble(covariates.df)) {
+        covariates.df <- 
+            samples.df %>% 
+            select(Sample.ID, Sample.Group) %>% 
+            left_join(
+                covariates.df,
+                by='Sample.ID'
+            )
+        covariates <- 
+            covariates.df %>% 
+            select(-c(Sample.ID)) %>% 
+            colnames()
+        contrast <- 
+            sprintf(
+                '~ Sample.Group + %s',
+                paste(covariates, collapse=' + ')
+            ) %>% 
+            formula()
+    } else {
+        NULL
+    }
     # Make experiment object with relevant params/data
     make_hicexp(
-        data_list=sparse.matrix,
-        groups=sample_group,  
-        ...
+        data_list=samples.contacts,
+        groups=samples.df %>% pull(Sample.Group),
+        covariates=covariates.df,
+        remove_zeroes=FALSE,
+        # ...
+        filter=TRUE,  
     ) %>% 
     # Normalize hic data, use cyclic loess with automatically calculated span
-    fastlo(
+     cyclic_loess(
         verbose=TRUE,
         parallel=TRUE,
         span=NA
     ) %T>% 
-    # Plot normalized IFs 
+    # Plot normalized IFs for all sample pairs
     {
-        pdf(md_plot_file, height=nrow(.@metadata) * 2, width=6)
-        MD_hicexp(., pcol=2)
+        dir.create(
+            dirname(md_plot_file),
+            showWarnings=FALSE,
+            recursive=TRUE
+        )
+        pdf(
+            md_plot_file,
+            height=nrow(.@metadata) * 2,
+            width=6
+        )
+        MD_hicexp(
+            .,
+            pcol=2
+        )
         dev.off()
     } %>%
-    # Now preform differential testing
-    hic_exactTest(
-        p.method='fdr',
-        parallel=TRUE
-    ) %>% 
-    results() %>%
+    # Preform differential testing on  contacts 
+    {
+        if (is_tibble(covariates.df)) {
+            hic_glm(
+                .,
+                design=
+                    model.matrix(
+                        contrast,
+                        covariates.df
+                    ),
+                coef=2,  # Sample.Group (only correct if 2 levels), 1 would be intercept
+                method="QLFTest",
+                p.method=p.method,
+                parallel=TRUE
+            )
+        } else {
+            hic_exactTest(
+                .,
+                p.method=p.method,
+                parallel=TRUE
+            )
+            # Get differential results
+        }
+    } %>% 
+    results() %>% 
     as_tibble() %>%
     arrange(p.adj)
 }
