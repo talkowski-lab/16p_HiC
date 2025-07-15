@@ -11,6 +11,29 @@ library(cowplot)
 library(gtable)
 ###############
 # Generate resutls
+sample_group_priority_fnc_16p <- function(Sample.Group){
+    case_when(
+        grepl('16p.DUP.NSC', Sample.Group) ~ 1,  # always numerator in FCs
+        grepl('16p.DUP.iN',  Sample.Group) ~ 2,
+        grepl('16p.DEL.NSC', Sample.Group) ~ 3,
+        grepl('16p.DEL.iN',  Sample.Group) ~ 4,
+        grepl('16p.WT.NSC',  Sample.Group) ~ 5,
+        grepl('16p.WT.iN',   Sample.Group) ~ 6,
+        TRUE ~ -Inf
+    )
+}
+
+sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
+    case_when(
+        grepl('WAPL.DEL',  Sample.Group) ~ 1,
+        grepl('NIPBL.DEL', Sample.Group) ~ 2,
+        grepl('All.WT',    Sample.Group) ~ 3,
+        grepl('WAPL.WT',   Sample.Group) ~ 4,
+        grepl('NIPBL.WT',  Sample.Group) ~ 5,
+        TRUE ~ -Inf
+    )
+}
+
 run_multiHiCCompare <- function(
     sparse.matrix,
     sample_groups,
