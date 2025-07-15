@@ -41,41 +41,15 @@ library(magrittr)
 library(ggplot2)
 library(ggh4x)
 library(purrr)
-library(downloadthis)
-sample.metadata <- load_sample_metadata()
 ```
 
 # Generate + load all differential contact results
 
-Parameter combinations used to run multiHiCCompare
-```{r}
-param_combos <- 
+Set up all combinations of parameters and sample groups to test
+```{r set_up_sample_comparisons}
+# All combinations of analysis hyper-params 
+hyper.params.df <- 
     expand_grid(
-        chr=c(paste0('chr', 1:22), 'chrX'),
-        resolution=c(500000, 100000, 50000, 10000, 5000),
-        sample_groups=
-            list(
-              c('16p11.DEL', '16p11.WT'),
-              c('16p11.DUP', '16p11.WT'),
-              c('16p11.DUP', '16p11.DEL')
-            ),
-        zero.p=c(0, 0.2, 0.8, 1),
-        A.min=c(0, 1, 5, 10)
-    ) %>% 
-    rowwise() %>% 
-    mutate(
-        output_file=
-            file.path(
-                MULTIHICCOMPARE_DIR,
-                glue("resolution_{resolution}"),
-                glue("zero.p_{zero.p}"),
-                glue("A.min_{A.min}"),
-                glue("chr_{region}"),
-                glue("{paste(sample_groups, collapse='-')}.tsv").tsv
-            )
-    ) %>% 
-    ungroup()
-param_combos %>% dim()
 ```
 Generate + cache results per chr
 ```{r}
@@ -93,6 +67,9 @@ param_combos %>%
          .f=run_multiHiCCompare,
          sample_df=sample_df,
          .progress=TRUE
+        # zero.p=c(0.6, 0.8),
+        zero.p=c(0.8),
+        A.min=c(5)
     )
 ```
 Load results all generated results

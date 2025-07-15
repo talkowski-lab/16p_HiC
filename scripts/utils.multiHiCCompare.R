@@ -11,6 +11,84 @@ library(cowplot)
 library(gtable)
 ###############
 # Generate resutls
+set_up_sample_comparisons <- function(...){
+    # get info + filepaths for all contact matrices
+    load_mcool_files(
+        return_metadata_only=TRUE,
+        pattern='*.mapq_30.1000.mcool',
+        range1s=NULL,
+        range2s=NULL,
+        keep_metadata_columns=TRUE,
+        progress=TRUE
+    ) %>%
+    # Only keep relevant matrices
+    filter(ReadFilter == 'mapq_30') %>% select(-c(ReadFilter)) %>% 
+    mutate(isMerged=grepl('Merged', Sample.ID)) %>% 
+    # filter(!grepl('Merged', Sample.ID)) %>% 
+    # Define minimum viable resolution for each matrix
+    get_min_resolution_per_matrix(int_res=TRUE) %>% 
+    # Now group samples by condition, 
+    # these are the groups being comapred to find differential cotacts
+    # Also include groups with all DEL and all WTs from both edits
+    bind_rows(
+        filter(., !isMerged) %>% 
+        mutate(Edit='All') %>%
+        group_split(Genotype, .keep=TRUE),
+    ) %>% 
+    mutate(
+        Sample.Group=glue('{Edit}.{Genotype}.{Celltype}'),
+        Sample.Group.copy=Sample.Group
+    ) %>% 
+    group_by(
+        isMerged,
+        Sample.Group.copy
+    ) %>%
+    nest(
+        samples.df=
+            c(
+                Sample.Group,
+                filepath,
+                Sample.ID,
+                resolution,
+                Edit,
+                Genotype,
+                SampleNumber,
+                Celltype
+            )
+    ) %>% 
+    ungroup() %>% 
+    rename('Sample.Group'=Sample.Group.copy) %>% 
+    get_all_row_combinations(
+        .,
+        {.},
+        cols_to_pair=c('isMerged'),
+        keep_self=FALSE
+    ) %>% 
+    mutate(
+        samples.df=
+            pmap(
+                .l=list(samples.df.A, samples.df.B),
+                bind_rows
+            )
+    ) %>%
+    select(-c(starts_with('samples.df.'))) %>% 
+    # Now each row represents a single compairson of 2 sample groups with all samples 
+    rowwise() %>% 
+    mutate(
+        resolution.max=max(samples.df$resolution),
+        resolution.min=min(samples.df$resolution),
+    ) %>% 
+    ungroup() %>% 
+    pivot_longer(
+        starts_with('resolution.'),
+        names_to='resolution.type',
+        names_prefix='resolution.',
+        values_to='resolution'
+    ) %>% 
+    # list all chromosomes separately,
+    join_all_rows(tibble(chr=CHROMOSOMES))
+}
+
 sample_group_priority_fnc_16p <- function(Sample.Group){
     case_when(
         grepl('16p.DUP.NSC', Sample.Group) ~ 1,  # always numerator in FCs
