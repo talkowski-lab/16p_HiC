@@ -76,17 +76,24 @@ scale_y_axis <- function(
     figure,
     mode='',
     pct_max=100,
+    log_base=10,
     axis_label_accuracy=2,
+    n_breaks=NULL,
+    limits=NULL,
     ...){
     if (mode == 'pct') {
         figure +
+        coord_cartesian(ylim=limits) +
         scale_y_continuous(
+            n.breaks=n_breaks,
             labels=label_percent(),
             ...
         )
     } else if (mode == 'mb') {
         figure +
+        coord_cartesian(ylim=limits) +
         scale_y_continuous(
+            n.breaks=n_breaks,
             labels=
                 label_bytes(
                     units="auto_si",
@@ -96,16 +103,24 @@ scale_y_axis <- function(
         )
     } else if (mode == 'log10') {
         figure +
-        scale_y_continuous(
+        coord_cartesian(ylim=limits) +
+        scale_y_log10(
+            guide='axis_logticks',
+            # minor_breaks=scales::minor_breaks_log(detail=1),
             labels=
                 label_log(
-                    base=10,
+                    base=log_base,
+                    digits=axis_label_accuracy,
                     signed=FALSE
                 ),
             ...
         )
     } else {
-        figure
+        figure + 
+        coord_cartesian(ylim=limits) +
+        scale_y_continuous(...)
+        # scale_y_continuous(...)
+            
     }
 }
 ###############
