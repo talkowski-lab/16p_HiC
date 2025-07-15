@@ -23,7 +23,7 @@ output:
 ```{r knitr}
 library(knitr)
 knitr::opts_chunk$set(
-    dev=c('png', 'pdf', 'tiff'),
+    dev=c('png', 'pdf', 'svg'),
     dpi=300
 )
 ```
@@ -36,6 +36,7 @@ source(file.path(BASE_DIR, 'scripts/locations.R'))
 source(file.path(SCRIPT_DIR, 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'utils.multiHiCCompare.R'))
 library(tidyverse)
 library(magrittr)
 library(ggplot2)
@@ -50,48 +51,48 @@ Set up all combinations of parameters and sample groups to test
 # All combinations of analysis hyper-params 
 hyper.params.df <- 
     expand_grid(
-```
-Generate + cache results per chr
-```{r}
-numCores <- 4
-register(MulticoreParam(workers=numCores), default=TRUE)
-data('hg38_cyto') # GRanges object with Centro/Telomere regions to filter
-param_combos %>% 
-    filter(resolution == 10000) %>% 
-    filter(grepl('16p11.*.vs.16p11.WT', combo_name)) %>% 
-    filter(zero.p == 0.8) %>% 
-    filter(A.min == 5) %>% 
-    # filter(region == 'chrX') %>%
-    pmap(
-         .l=.,
-         .f=run_multiHiCCompare,
-         sample_df=sample_df,
-         .progress=TRUE
         # zero.p=c(0.6, 0.8),
         zero.p=c(0.8),
         A.min=c(5)
     )
-```
-Load results all generated results
-```{r load_results}
-all.results <- 
-    check_cached_results(
-        results_file=MULTIHICCOMPARE_RESULTS_FILE,
-        force_redo=FALSE,
-        return_data=TRUE,
-        results_fnc=load_all_multiHiCCompare_results,
-        multiHiCCompare_results_dir=MULTIHICCOMPARE_DIR
-        resolution=100000,
-        comparison='16p11.*.vs.16p11.WT',
-        fdr.threshold=0.1
-        # nom.threshold=0.05
+# no covariates to control for
+sample.metadata.df <- load_sample_metadata()
+covariates.df <- 
+    sample.metadata.df %>% 
+    select(
+        Sample.ID,
+        Flowcell.ID
+    ) %>%
+    rename('Batch'=Flowcell.ID) %>% 
+    mutate(Batch=as.factor(Batch))
+# All pairs of sample groups to compare for differential contacts
+comparisons.df <- 
+    set_up_sample_comparisons() %>% 
+    # ignore old iN samples
+    filter(
+        !grepl('.iN$', Sample.Group.A),
+        !grepl('.iN$', Sample.Group.B)
     )
+comparisons.df
 ```
-Print results summary
-```{r summary}
-all.results %>% head(2) %>% t()
-all.results %>% dplyr::count(zero.p, A.min, Is.Filtered, Resolution, Comparison)
-all.results %>% dplyr::count(Chr, chr, sig.lvl, Comparison)
+For every group of samples + parameter combination run multiHiCCompare and cache the results.
+```{r run_multihiccompare}
+# GRanges object with Centro/Telomere regions to filter
+data('hg38_cyto') 
+# parallelizing params
+library(BiocParallel)
+numCores <- 32
+register(MulticoreParam(workers=numCores), default=TRUE)
+# Run multiHiCComapre on all comparisons
+run_all_multiHiCCompare(    
+    comparisons.df %>% arrange(isMerged),
+    hyper.params.df,
+    covariates.df,
+    sample_group_priority_fnc=sample_group_priority_fnc_16p,
+    force_redo=FALSE,
+    remove.regions=hg38_cyto,
+    p.method='fdr'
+)
 ```
 
 # Plot sgtuff

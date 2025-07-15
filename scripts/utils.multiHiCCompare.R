@@ -146,24 +146,85 @@ run_multiHiCCompare <- function(
 }
 
 run_all_multiHiCCompare <- function(
-    sample.df,
-    suffix="sparse.matrix.txt"){
-    # sample_groups=c('16p11.WT', '16p11.DEL'); region='chr2'; resolution=100000; zero.p=0.8; A.min=5; filter_bins=TRUE; remove.regions=hg38_cyto; output_file=glue('{MULTIHICCOMPARE_DIR}/results/test_results.tsv'); md_plot_file=glue('{MULTIHICCOMPARE_DIR}/MD_plots/test_mdplot.pdf')
-    sample.df %>% 
-    # extract contact matrices, each row is a pair of bins + raw interaction freq.
-    rowwise() %>% 
-        zero.p=zero.p, # remove rows where (avg interaction freq) < A.min
-        A.min=A.min,   # remove rows with (% interactions == 0) >=  zero.p
-        filter=TRUE,   # filter low coverage bins
-        remove.regions=remove.regions  # remove regions before filtering
+    comparisons.df,
+    hyper.params.df,
+    covariates.df,
+    sample_group_priority_fnc,
+    force_redo=FALSE,
+    ...){
+    # force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
+    comparisons.df %>% 
+    # for each comparison list all paramter combinations
+    join_all_rows(hyper.params.df) %>% 
+    # Determine sample group priority i.e. 
+    # which sample group is numerator in fold-change values (lower priority value) and 
+    # which sample group is denominator in fold change values (higher priority value)
     mutate(
-        filepath=
+        across(
+            matches('Sample.Group.(A|B)'),
+            ~ sample_group_priority_fnc(.x),
+            .names='{.col}.Priority'
+        )
+    ) %>%
+    mutate(
+        Sample.Group.Numerator=
+            case_when(
+                Sample.Group.A.Priority < Sample.Group.B.Priority ~ Sample.Group.A,
+                Sample.Group.A.Priority > Sample.Group.B.Priority ~ Sample.Group.B,
+                TRUE ~ NA
+            ),
+        Sample.Group.Denominator=
+            case_when(
+                Sample.Group.Numerator == Sample.Group.A ~ Sample.Group.B,
+                Sample.Group.Numerator == Sample.Group.B ~ Sample.Group.A,
+                TRUE ~ NA
+            ),
+    ) %>% 
+    select(-c(matches('Sample.Group.(A|B)'))) %>% 
+    # Create nested directory structure listing all relevant analysis parameters
+    # Name output file as {numerator}_vs_{denominator}-*.tsv
+    mutate(
+        range1=chr, range2=chr,
+        output_dir=
             file.path(
-                MATRIX_DIR, 
-                glue('resolution_{resolution}'),
-                glue('chr_{chr}'),
-                glue('{Sample.ID}-{suffix}')
+                MULTIHICCOMPARE_DIR,
+                'results',
+                glue('merged_{isMerged}'),
+                glue('zero.p_{zero.p}'),
+                glue('A.min_{A.min}'),
+                glue('resolution_{scale_numbers(resolution)}'),
+                glue('region_{chr}')
+            ),
+        md_plot_file=
+            file.path(
+                output_dir,
+                glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-MD.plot.pdf')
+            ),
+        results_file=
+            file.path(
+                output_dir,
+                glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-multiHiCCompare.tsv')
             )
+    ) %>% 
+    # {.} -> tmp
+    pmap(
+        .l=.,
+        .f=
+            # Need this wrapper to pass ... arguments to run_multiHiCCompare
+            function(results_file, ...){ 
+                check_cached_results(
+                    results_file=results_file,
+                    force_redo=force_redo,
+                    return_data=FALSE,
+                    show_col_types=FALSE,
+                    results_fnc=run_multiHiCCompare,
+                    sample_group_priority_fnc=sample_group_priority_fnc,
+                    covariates.df=covariates.df,
+                    ...
+                )
+            },
+        ...,  # passed from this function call
+        .progress=TRUE
     )
 }
 
