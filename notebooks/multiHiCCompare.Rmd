@@ -30,9 +30,9 @@ knitr::opts_chunk$set(
 Set up file locations + load dependenies
 ```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
-BASE_DIR <- here::i_am('notebooks/matrix.QC.Rmd')
-SCRIPT_DIR <- here('scripts')
-source(file.path(SCRIPT_DIR, 'locations.R'))
+here::i_am('notebooks/matrix.QC.Rmd')
+BASE_DIR <- here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
 source(file.path(SCRIPT_DIR, 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))

@@ -1,5 +1,10 @@
 library(here)
-# BASE_DIR <- here()
+# Script dir location
+if (grepl('/home/', BASE_DIR)) {
+    SCRIPT_DIR <- here('../remote.16p/scripts')
+} else {
+    SCRIPT_DIR <- here('scripts')
+}
 # Input Data
 GENOME_REF_DIR                 <- '/data/talkowski/tools/ref/Hi_c_noalt'
 CHROMOSOME_SIZES_FILE          <- file.path(GENOME_REF_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes')
