@@ -237,6 +237,46 @@ make_nested_plot_tabs <- function(
 }
 ###############
 # Contact Heatmaps
+format_plot_params <- function(
+    region.df,
+    plot_dir,
+    title.prefix='RGD Region',
+    ...){
+    load_mcool_files(
+        return_metadata_only=TRUE,
+        pattern='*.mapq_30.1000.mcool',
+        region.df=region.df,
+        range1s=NULL,
+        range2s=NULL,
+        progress=TRUE
+    ) %>% 
+    # format querys for loading contacts via fetch()
+    rowwise() %>% 
+    mutate(
+        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
+        range2=range1
+    ) %>%
+    ungroup() %>% 
+    mutate(
+        cis=TRUE,
+        region.title=glue('{title.prefix} {region} {region.UCSC}'),
+        output_dir=
+            file.path(
+                PLOT_DIR, 
+                glue('region_{region}'),
+                glue('normalization_{normalization}'),
+                glue('resolution_{scale_numbers(resolution)}'),
+                glue('context_{scale_numbers(window.size)}')
+            )
+    )
+    # group_by(Sample.ID, region) %>% 
+    # add_tally(wt=IF, name='region.total.contacts') %>% 
+    # ungroup() %>%
+    # group_by(Sample.ID, region) %>% 
+    # add_count(name='region.nbins') %>% 
+    # ungroup() %>%
+}
+
 make_contact_plot_df <- function(
     make_diagonal=FALSE,
     make_symmetric=TRUE,
