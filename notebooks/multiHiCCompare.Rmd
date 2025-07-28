@@ -139,3 +139,75 @@ plot_df <-
     )
 plot_df %>% head(2) %>% t()
 ```
+```{r plot_manhattan}
+chr='chr16'
+resolution=all.results$resolution[[1]] %>% scale_numbers()
+plot.obj <- 
+    plot_df %>%
+    filter(chr == 'chr16') %>% 
+    filter(zero.p == 0.8) %>%
+    filter(grepl('WT', Sample.Group.Denominator)) %>% 
+    filter(region1.bp != region2.bp) %>% 
+    pivot_longer(
+        c(region1.bp, region2.bp),
+        names_to='contact.side',
+        values_to='region.bp'
+    ) %>% 
+    mutate(Comparison=glue('{Sample.Group.Numerator} vs WT')) %>% 
+    select(Comparison, region, region.bp, log.p.adj, logFC) %>%
+    pivot_longer(
+        c(logFC, log.p.adj),
+        names_to='statistic',
+        values_to='value'
+    ) %>% 
+    ggplot() +
+    geom_jitter(
+        aes(
+            x=region.bp,
+            y=value,
+            color=Comparison
+        ), 
+        size=0.5,
+        alpha=0.7
+    ) +
+    facet_wrap(
+        ~ statistic,
+        ncol=1,
+        scales='free_y'
+    ) +
+    geom_hline(
+        yintercept=0,
+        linewidth=0.01,
+        linetype='solid',
+        color='black',
+    ) +
+    geom_vline(
+        xintercept=c(29488679, 30188679),
+        linewidth=0.001,
+        linetype='dashed',
+        color='orange',
+    ) +
+    labs(
+        x=glue('{chr}p @{resolution}')
+    ) +
+    scale_x_continuous(
+        expand=c(0.01, 0.01, 0.01, 0.01),
+        n.breaks=10,
+        labels=
+            label_bytes(
+                units="auto_si",
+                accuracy=2
+            )
+    ) +
+    theme(axis.text=element_text(size=6, hjust=1, angle=35), legend.position='right') +
+    add_ggtheme()
+ggsave(
+    file.path(MULTIHICCOMPARE_DIR, 'manhattan.plot.png'),
+    dpi=300,
+    plot=plot.obj,
+    width=9,
+    height=6,
+    units='in'
+)
+r
+```
