@@ -197,40 +197,136 @@ hitad.annotations <-
 # setdiff(union(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()), intersect(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()))
 ```
 
-# Plot TAD length Distribution
+# Plot TAD Stats
 
-```{r plot_TAD_length}
-tad.annotations %>%
-    filter(chr %in% paste0('chr', c(1,3,5,10,16,20,'X'))) %>% 
-    mutate(TAD.length=(TAD.end - TAD.start) / Resolution) %>% 
-    mutate(Resolution=glue('{Resolution / 1000}Kb')) %>% 
-    mutate(Resolution=factor(Resolution, levels=c('100Kb', '50Kb', '10Kb', '5Kb'))) %>% 
-    group_by(Method) %>%
-    group_map(
-        ~ ggplot(
-            .x, 
-            aes(
-                y=TAD.length,
-                x=Genotype,
-                color=Replicate,
-            )
-        ) +
-        geom_boxplot() +
-        labs(x='TAD Length (bins)') +
-        ggh4x::facet_grid2(cols=vars(chr), rows=vars(Resolution), scales='free_y') + #, independent='y') +
-        theme(
-            axis.title.x=element_blank(),
-            axis.text.x=element_text(angle=45, hjust=1),
-            axis.text.y=element_markdown()
-        ) +
-        add_ggtheme(),
-        .keep=TRUE
-    ) %>% 
-    cowplot::plot_grid(
-        plotlist=.,
-        align='v',
-        ncol=1
+Now plot number of TADs/boundaries 
+```{r PLOT_cooltools_tad_number, results='asis', fig.width=8, fig.height=6}
+cooltools.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    group_by(isMerged, resolution, Sample.ID, chr) %>% 
+    dplyr::count(name='nBoundaries') %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_heatmap,
+        x_var='chr',
+        y_var='Sample.ID',
+        fill_var='nBoundaries',
+        facet_row='resolution',
+        scales='fixed'
     )
+    # group_by(isMerged) %>%
+    # group_map(
+    #     ~ plot_heatmap(
+    #         plot.df=.x,
+    #         x_var='chr',
+    #         y_var='Sample.ID',
+    #         fill_var='nBoundaries',
+    #         facet_row='resolution',
+    #         scales='fixed'
+    #     )
+    # ) %>% 
+    # cowplot::plot_grid(
+    #     plotlist=.,
+    #     align='v',
+    #     ncol=1
+    # ) %>% 
+    # ggsave(
+    #     file.path(PLOT_DIR, 'cooltools.nBoundariess.heatmap.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+Plot tads for hitads
+```{r PLOT_hitad_tad_number, results='asis', fig.width=8, fig.height=6}
+hitad.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    group_by(isMerged, resolution, Sample.ID, chr) %>% 
+    dplyr::count(name='nTADs') %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_heatmap,
+        x_var='chr',
+        y_var='Sample.ID',
+        fill_var='nTADs',
+        facet_row='resolution',
+        scales='fixed'
+    )
+    # group_by(isMerged) %>%
+    # group_map(
+    #     ~ plot_heatmap(
+    #         plot.df=.x,
+    #         x_var='chr',
+    #         y_var='Sample.ID',
+    #         fill_var='nTADs',
+    #         facet_row='resolution',
+    #         scales='fixed'
+    #     )
+    # ) %>% 
+    # cowplot::plot_grid(
+    #     plotlist=.,
+    #     align='v',
+    #     ncol=1
+    # ) %>% 
+    # ggsave(
+    #     file.path(PLOT_DIR, 'HiTAD.nTADs.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+Plot TAD lengths
+```{r PLOT_hitad_tad_length, results='asis', fig.width=8, fig.height=6}
+# hitad.annotations %>% group_by(isMerged, Genotype, chr,  resolution) %>% slice_head(n=5) %>% select(TAD.length)
+hitad.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='chr',
+        y_var='TAD.length',
+        fill_var='Genotype',
+        facet_row='resolution',
+        scales='free_y',
+        scale_mode='mb',
+        y_accuracy=0.1
+    )
+    # group_by(isMerged) %>%
+    # group_map(
+    #     ~ plot_boxplot(
+    #         plot.df=.x,
+    #         x_var='chr',
+    #         y_var='TAD.length',
+    #         fill_var='Genotype',
+    #         # fill_var='nTADs',
+    #         facet_row='resolution',
+    #         scales='free_y'
+    #     )
+    # ) %>% 
+    # lapply(
+    #     scale_y_axis,
+    #     mode='mb',
+    #     axis_label_accuracy=0.1
+    # ) %>% 
+    # cowplot::plot_grid(
+    #     plotlist=.,
+    #     align='v',
+    #     ncol=1
+    # ) %>% 
+    # ggsave(
+    #     file.path(PLOT_DIR, 'HiTAD.TAD.length.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+
 # TAD Similarity
 
 ```{r calculate_mocs}
