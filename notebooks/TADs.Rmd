@@ -63,6 +63,41 @@ tad.annotations <-
     ) 
 tad.annotations %>% head(2) %>% t()
 tad.annotations %>% count(method, resolution, weight, threshold, mfvp, Sample.ID)
+Separate results per method
+```{r methods.dfs}
+# tad.annotations %>% colnames()
+# tad.annotations %>% filter(region != chr)
+PLOT_DIR <- file.path(here(), 'notebooks', 'TADs_files')
+# Cooltools annotations
+all.cooltools.annotations <- 
+    tad.annotations %>%
+    filter(method == 'cooltools') %>% 
+    rename('TAD.boundary'=TAD.start) %>% 
+    mutate(
+        window.size.bins=window.size / resolution,
+        window.size=scale_numbers(window.size),
+        resolution=scale_numbers(resolution)
+    ) %>% 
+    select(-c(TAD.end, window.size, method))
+# HiTAD Annotations
+all.hitad.annotations <- 
+    tad.annotations %>%
+    filter(method == 'hiTAD') %>% 
+    mutate(TAD.length=TAD.end - TAD.start) %>% 
+    select(
+        isMerged,
+        Edit,
+        Genotype,
+        SampleNumber,
+        Celltype,
+        Sample.ID,
+        resolution,
+        weight,
+        chr,
+        TAD.start,
+        TAD.end,
+        TAD.length
+    )
 ```
 
 # Plot number of TADs across samples
