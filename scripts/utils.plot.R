@@ -40,38 +40,6 @@ add_ggtheme <- function(){
     )
 }
 
-add_faceting <- function(
-    figure,
-    facet_col=NULL,
-    facet_row=NULL,
-    ...){
-    # Facet as specified
-    if (!is.null(facet_col) & !is.null(facet_col)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                cols=vars(!!sym(facet_col)),
-                ...
-            )
-    } else if (!is.null(facet_row)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                ...
-            )
-    } else if (!is.null(facet_col)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                cols=vars(!!sym(facet_col)),
-                ...
-            )
-    }
-    figure
-}
-
 scale_y_axis <- function(
     figure,
     mode='',
@@ -115,7 +83,7 @@ scale_y_axis <- function(
                 ),
             ...
         )
-    } else {
+    } else if (mode == '') {
         figure + 
         coord_cartesian(ylim=limits) +
         scale_y_continuous(...)
@@ -234,6 +202,145 @@ make_nested_plot_tabs <- function(
         ...
     )
     cat(nl_delim)
+}
+###############
+# Basic Plots
+add_faceting <- function(
+    figure,
+    facet_group=NULL,
+    facet_col=NULL,
+    facet_row=NULL,
+    ...){
+    # print(facet_row)
+    # print(facet_col)
+    # print(facet_group)
+    # Facet as specified
+    if (!is.null(facet_col) & !is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
+    } else if (!is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                ...
+            )
+    } else if (!is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
+    } else if (!is.null(facet_group)) {
+        figure <- 
+            figure +
+            facet_wrap2(
+                vars(!!sym(facet_group)),
+                ...
+            )
+    }
+    figure
+}
+
+plot_boxplot <- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    fill_var=NULL, 
+    facet_row=NULL,
+    facet_col=NULL,
+    facet_group=NULL,
+    scales='fixed',
+    scale_mode='',
+    y_accuracy=1,
+    ...){
+    figure <- 
+        if (is.null(fill_var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]]
+                )
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
+                    fill=.data[[fill_var]]
+                )
+            )
+        }
+    figure <- 
+        figure + 
+        geom_boxplot() +
+        theme(
+            legend.position='top',
+            axis.text.x=element_text(angle=55, hjust=1)
+        ) +
+        add_ggtheme()
+    # add faceting
+    figure <- 
+        add_faceting(
+            figure,
+            facet_row=facet_row,
+            facet_col=facet_col,
+            facet_group=facet_group,
+            scales=scales
+        )
+    figure <- 
+        figure %>% 
+        scale_y_axis(
+            mode=scale_mode,
+            axis_label_accuracy=y_accuracy
+        )
+    figure
+}
+
+plot_heatmap <- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    fill_var='', 
+    facet_row=NULL,
+    facet_col=NULL,
+    facet_group=NULL,
+    scales='fixed',
+    legend.position='right',
+    ...){
+    figure <- 
+        ggplot(
+            plot.df,
+            aes(
+                x=.data[[x_var]],
+                y=.data[[y_var]],
+                fill=.data[[fill_var]]
+            )
+        ) +
+        geom_tile() +
+        theme(
+            legend.position=legend.position,
+            axis.text.x=element_text(angle=55, hjust=1)
+        ) +
+        add_ggtheme()
+    # add faceting
+    figure <- 
+        add_faceting(
+            figure,
+            facet_row=facet_row,
+            facet_col=facet_col,
+            facet_group=facet_group,
+            scales=scales
+        )
+    figure
 }
 ###############
 # Contact Heatmaps
