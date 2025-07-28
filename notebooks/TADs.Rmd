@@ -100,38 +100,101 @@ all.hitad.annotations <-
     )
 ```
 
-# Plot number of TADs across samples
+# Cooltools plot parameter variability
 
-```{r plot_TAD_n}
-tad.annotations %>%
-    dplyr::count(Resolution, Genotype, SampleName, chr) %>%
-    group_by(Resolution) %>%
-    group_map(
-        ~ ggplot(
-            .x, 
-            aes(
-                x=chr,
-                y=SampleName,
-                fill=n
+Number of boundaries per chr + sample across param combos
+```{r PLOT_boundaries_per_paramset, results='asis', fig.width=8, fig.height=6}
+all.cooltools.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
+    group_by(
+        across(
+            -c(
+               chr,
+               TAD.boundary,
+               n_valid_pixels,
+               boundary_strength
             )
-        ) +
-        geom_tile() +
-        scale_fill_viridis(discrete=FALSE) +
-        labs(title=sprintf('16p sample TADs @ %sKb', .x$Resolution / 1000)) +
-        theme(
-            axis.title.x=element_blank(),
-            axis.title.y=element_blank(),
-            axis.text.x=element_text(angle=45, hjust=1),
-            axis.text.y=element_markdown()
-        ) +
-        add_ggtheme(),
-        .keep=TRUE
+        )
     ) %>% 
-    cowplot::plot_grid(
-        plotlist=.,
-        align='v',
-        ncol=2
+    dplyr::count(name='nBoundaries') %>%
+    ungroup() %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='params',
+        y_var='nBoundaries',
+        fill_var='isMerged',
+        facet_col='threshold',
+        facet_row='resolution',
+        scales='free_y',
     )
+    # plot_boxplot(
+    #     x_var='params',
+    #     y_var='nBoundaries',
+    #     fill_var='isMerged',
+    #     facet_col='threshold',
+    #     facet_row='resolution',
+    #     scales='free_y'
+    # ) %>%
+    # ggsave(
+    #     file.path(PLOT_DIR, 'cooltools.boundaries_per_paramset.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+Strength of annotated boundaries per across param comvos
+```{r PLOT_boundary_strength_per_paramset, results='asis', fig.width=8, fig.height=6}
+all.cooltools.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='params',
+        y_var='boundary_strength',
+        fill_var='isMerged',
+        facet_col='threshold',
+        facet_row='resolution',
+        scales='fixed'
+    )
+    # plot_boxplot(
+    #     x_var='params',
+    #     y_var='boundary_strength',
+    #     fill_var='isMerged',
+    #     facet_col='threshold',
+    #     facet_row='resolution',
+    #     scales='fixed'
+    # ) %>%
+    # ggsave(
+    #     file.path(PLOT_DIR, 'cooltools.boundary_strength_per_paramset.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+Choose relevant parameter sets to use
+```{r choose_params}
+# Filter tads to relevant parameter set
+cooltools.annotations <- 
+    all.cooltools.annotations %>%
+    filter(
+        weight == 'ICE',
+        mfvp == 0.9,
+        window.size.bins == 60,
+        threshold == 'Li'
+    ) %>%
+    mutate(group_col=glue('{resolution},{Sample.ID},{chr}'))
+hitad.annotations <- 
+    all.hitad.annotations %>% 
+    filter(weight == 'ICE') %>% 
+    mutate(group_col=glue('{resolution},{Sample.ID},{chr}'))
+# setdiff(union(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()), intersect(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()))
 ```
 
 # Plot TAD length Distribution
