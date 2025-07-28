@@ -151,17 +151,41 @@ scale_numbers <- function(
     numbers,
     accuracy=2){
     if (is.character(numbers)) {
-        case_when(
-            grepl('Mb', numbers) ~ as.integer(str_remove(numbers, 'Mb')) * 1e6,
-            grepl('Kb', numbers) ~ as.integer(str_remove(numbers, 'Kb')) * 1e3,
-            TRUE ~ as.integer(numbers)
-        )
+        numbers %>%
+        tibble(resolution.str=.) %>%
+        mutate(
+            suffix=str_extract(resolution.str, '[KMG]b'),
+            magnitude=
+                case_when(
+                    suffix == 'Kb' ~ 1e3,
+                    suffix == 'Mb' ~ 1e6,
+                    suffix == 'Gb' ~ 1e9,
+                    TRUE ~ 1
+                ),
+            resolution=
+                resolution.str %>% 
+                str_remove('[KMG]b') %>%
+                as.integer() %>%
+                multiply_by(magnitude)
+        ) %>% 
+        pull(resolution)
     } else if (is.numeric(numbers)) {
-        case_when(
-            numbers >= 1e6 ~ glue('{signif(numbers / 1e6, digits=accuracy)}Mb'),
-            numbers >= 1e3 ~ glue('{signif(numbers / 1e3, digits=accuracy)}Kb'),
-            TRUE ~ as.character(numbers)
-        )
+        numbers %>%
+        tibble(resolution=.) %>%
+        mutate(
+            magnitude=resolution %>% log10() %>% floor() %>% {. %/% 3} %>% {. * 3},
+            suffix=
+                case_when(
+                    magnitude == 3 ~ 'Kb',
+                    magnitude == 6 ~ 'Mb',
+                    magnitude == 9 ~ 'Gb',
+                    TRUE ~ ''
+                ),
+            resolution.digits=signif(resolution / 10**magnitude, digits=accuracy),
+            resolution.str=glue('{resolution.digits}{suffix}')
+        ) %>% 
+        mutate(resolution.str=fct_reorder(resolution.str, resolution)) %>% 
+        pull(resolution.str)
     } else {
         numbers
     }
