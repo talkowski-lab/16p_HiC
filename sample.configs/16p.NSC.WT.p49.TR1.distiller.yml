@@ -23,13 +23,13 @@
 # -- sra:<SRA_NUMBER>, optionally followed by the indices of the first and
 # the last entry in the SRA in the form of "?start=<first>&end=<last>
 input:
-    raw_reads_paths:
-        # substitute the location of your fastq files:
-        # an example of a 1-lane library:
-        16p.DEL.H10.NSC.HiC:
-          lane1:
-            - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R1_001.fastq.gz
-            - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pDELH10NSCHiC_S1_L003_R2_001.fastq.gz
+  raw_reads_paths:
+    # substitute the location of your fastq files:
+    # an example of a 1-lane library:
+    16p.NSC.WT.p49.TR1:
+      lane1:
+        - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pWTp49NSCHiC_S5_L003_R1_001.fastq.gz
+        - /data/talkowski/Samples/16p_HiC/fastq/22LWWYLT4_3_3582217279_16pWTp49NSCHiC_S5_L003_R2_001.fastq.gz
     # Truncate input fastqs to a small number of reads (e.g. 10000) for
     # semi-dry test runs.
     # NOTE: when the inputs are specified as an SRA number, only this number of
@@ -41,13 +41,13 @@ input:
     # of the reference genome, and a tab-separated table with contig sizes
     # (known as "chrom.sizes"). The latter is used to specify the subset and the
     # order of contigs in a resulting contact map.
-    genome:
-        assembly_name: 'hg38'
-        bwa_index_wildcard_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.*'
-        chrom_sizes_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes'
+  genome:
+    assembly_name: 'hg38'
+    bwa_index_wildcard_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.*'
+    chrom_sizes_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes'
 
 # Choose if you want to do FastQC of the input files:
-do_fastqc: True
+do_fastqc: true
 
 # Control how reads are mapped to the reference genomes.
 map:
@@ -173,10 +173,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.DEL.H10.NSC.HiC'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.DEL.H10.NSC.HiC'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.DEL.H10.NSC.HiC'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.DEL.H10.NSC.HiC'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.DEL.H10.NSC.HiC'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.DEL.H10.NSC.HiC'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.DEL.H10.NSC.HiC'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.NSC.WT.p49.TR1'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.NSC.WT.p49.TR1'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.NSC.WT.p49.TR1'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.NSC.WT.p49.TR1'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.NSC.WT.p49.TR1'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.NSC.WT.p49.TR1'
+        tats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.NSC.WT.p49.TR1'

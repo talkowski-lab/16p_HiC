@@ -26,10 +26,10 @@ input:
     raw_reads_paths:
         # substitute the location of your fastq files:
         # an example of a 1-lane library:
-        16p.DEL.B8.NSC.HiC:
+        16p.NSC.WT.FACS1.TR1:
           lane1:
-            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R1_001.fastq.gz
-            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R2_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pWTFACS1NSCHiC_S5_L003_R1_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pWTFACS1NSCHiC_S5_L003_R2_001.fastq.gz
     # Truncate input fastqs to a small number of reads (e.g. 10000) for
     # semi-dry test runs.
     # NOTE: when the inputs are specified as an SRA number, only this number of
@@ -47,7 +47,8 @@ input:
         chrom_sizes_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes'
 
 # Choose if you want to do FastQC of the input files:
-do_fastqc: True
+# do_fastqc: True
+do_fastqc: true
 
 # Control how reads are mapped to the reference genomes.
 map:
@@ -57,7 +58,7 @@ map:
     # The optimal chunk size is defined by the balance between mapping and merging.
     # Smaller chunks (~30M) are better for clusters with many weak nodes,
     # however, having >~10 chunks per run slow down merging.
-    chunksize: 0 
+    chunksize: 0
     # chunksize: 100000000 # 100,000,000
 
     # Specify extra BWA mapping options.
@@ -173,10 +174,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.DEL.B8.NSC.HiC'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.DEL.B8.NSC.HiC'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.DEL.B8.NSC.HiC'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.DEL.B8.NSC.HiC'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.DEL.B8.NSC.HiC'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.DEL.B8.NSC.HiC'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.DEL.B8.NSC.HiC'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.NSC.WT.FACS1.TR1'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.NSC.WT.FACS1.TR1'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.NSC.WT.FACS1.TR1'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.NSC.WT.FACS1.TR1'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.NSC.WT.FACS1.TR1'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.NSC.WT.FACS1.TR1'
+        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.NSC.WT.FACS1.TR1'

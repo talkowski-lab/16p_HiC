@@ -26,10 +26,10 @@ input:
     raw_reads_paths:
         # substitute the location of your fastq files:
         # an example of a 1-lane library:
-        16p.DUP.C5.NSC.HiC:
+        16p.NSC.DEL.B8.TR1:
           lane1:
-            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDUPC5NSCHiC_S3_L003_R1_001.fastq.gz
-            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDUPC5NSCHiC_S3_L003_R2_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R1_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/22LCC2LT4_3_2148261314_16pDELB8NSCHiC_S2_L003_R2_001.fastq.gz
     # Truncate input fastqs to a small number of reads (e.g. 10000) for
     # semi-dry test runs.
     # NOTE: when the inputs are specified as an SRA number, only this number of
@@ -134,7 +134,7 @@ dedup:
     # Note that on cluster the job can be "Killed" if the task uses more than the memory limit.
     dedup_options: ''
 
-  # Control how Hi-C pairs are binned into contact maps, stored in .cool files.
+# Control how Hi-C pairs are binned into contact maps, stored in .cool files.
 bin:
     # Specify which resolutions should be included in the multi-resolution .cool file.
     # The lowest (base) resolution _must_ be the common denominator of all other
@@ -173,10 +173,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.DUP.C5.NSC.HiC'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.DUP.C5.NSC.HiC'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.DUP.C5.NSC.HiC'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.DUP.C5.NSC.HiC'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.DUP.C5.NSC.HiC'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.DUP.C5.NSC.HiC'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.DUP.C5.NSC.HiC'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.NSC.DEL.B8.TR1'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.NSC.DEL.B8.TR1'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.NSC.DEL.B8.TR1'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.NSC.DEL.B8.TR1'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.NSC.DEL.B8.TR1'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.NSC.DEL.B8.TR1'
+        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.NSC.DEL.B8.TR1'
