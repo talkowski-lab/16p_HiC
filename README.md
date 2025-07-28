@@ -203,6 +203,21 @@ $ ./scripts/run.hicrep.sh
 
 After this there is a `.Rmd` notebook that coallates these files into a single neat dataframe that is used for plotting.
 
+### TAD Analysis
+
+#### TAD Annotation
+
+#### TAD Comparison
+
+### Loop Analysis
+
+#### Loop Annotation
+
+#### Loop Comparison
+
+
+### Differential Contact Analysis
+
 ## Misc
 
 ### Restriction Fragment Analysis
