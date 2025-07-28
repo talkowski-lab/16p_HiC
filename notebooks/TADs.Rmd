@@ -133,6 +133,129 @@ tad.annotations %>%
         align='v',
         ncol=1
     )
+# TAD Similarity
+
+```{r calculate_mocs}
+hitad.mocs <- 
+    check_cached_results(
+        results_file=TAD_MOC_FILE,
+        force_redo=FALSE,
+        return_data=TRUE,
+        show_col_types=FALSE,
+        results_fnc=
+            function(hitad.annotations){
+                hitad.annotations %>% 
+                select(-c(group_col)) %>% 
+                nest(
+                    SampleInfo=
+                        c(
+                            Edit,
+                            Genotype,
+                            SampleNumber,
+                            Celltype
+                        )
+                ) %>%
+                nest(
+                    TADs=
+                        c(
+                            TAD.start,
+                            TAD.end,
+                            TAD.length
+                        )
+                ) %>%
+                calculate_all_pairs_MoCs(
+                    pair_grouping_cols=
+                        c(
+                            'resolution',
+                            'isMerged',
+                            'weight',
+                            'chr'
+                        )
+                )
+            },
+        hitad.annotations=hitad.annotations
+    ) %>%
+    mutate(
+        resolution=scale_numbers(resolution),
+        chr=factor(chr, levels=CHROMOSOMES),
+        isMerged=ifelse(grepl('Merged', SampleNumber), 'Merged', 'Individual')
+    )
+hitad.mocs
+```
+```{r plot_MoCs_boxplot, results='as.is'}
+hitad.mocs %>% 
+    rename('Measure.of.Concordance'=mocs) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='Genotype',
+        y_var='Measure.of.Concordance',
+        facet_row='resolution',
+        scales='fixed'
+    )
+    # group_by(isMerged) %>%
+    # group_map(
+    #     ~ plot_boxplot(
+    #         plot.df=.x,
+    #         x_var='Genotype',
+    #         y_var='Measure.of.Concordance',
+    #         facet_row='resolution',
+    #         scales='fixed'
+    #     )
+    # ) %>% 
+    # cowplot::plot_grid(
+    #     plotlist=.,
+    #     align='v',
+    #     ncol=1
+    # ) %>% 
+    # ggsave(
+    #     file.path(PLOT_DIR, 'HiTAD.TAD.MoCs.boxplot.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
+```
+```{r plot_MoCs_heatmap, results='as.is'}
+hitad.mocs %>% 
+    rename('Measure.of.Concordance'=mocs) %>% 
+    group_by(weight, resolution, isMerged, chr, Genotype) %>%
+    summarize(mean.MoC=mean(Measure.of.Concordance)) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_heatmap,
+        x_var='chr',
+        y_var='Genotype',
+        fill_var='mean.MoC',
+        facet_row='resolution',
+        scales='fixed'
+    )
+    # group_by(isMerged) %>%
+    # group_map(
+    #     ~ plot_heatmap(
+    #         plot.df=.x,
+    #         x_var='chr',
+    #         y_var='Genotype',
+    #         fill_var='mean.MoC',
+    #         facet_row='resolution',
+    #         scales='fixed'
+    #     )
+    # ) %>% 
+    # cowplot::plot_grid(
+    #     plotlist=.,
+    #     align='v',
+    #     ncol=1
+    # )
+    # ) %>% 
+    # ggsave(
+    #     file.path(PLOT_DIR, 'HiTAD.TAD.MoCs.heatmap.pdf'),
+    #     .,
+    #     width=10,
+    #     height=10,
+    #     units='in'
+    # )
 ```
 
 # Load Directionality Index scores

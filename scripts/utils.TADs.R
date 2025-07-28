@@ -243,77 +243,137 @@ load_all_TAD_annotations <- function(){
 }
 ###############
 # Compute stuff
-###############
-# Plot stuff
-plot_nTADs_heatmap <- function(
-    plot.df,
-    x_var='',
-    y_var='',
-    fill_var='',
-    facet_row=NULL,
-    facet_col=NULL,
-    scales='fixed',
+calculate_pair_MoC <- function(
+    TADs.P,
+    TADs.Q,
     ...){
-    figure <- 
-        plot.df %>% 
-        ggplot(
-            aes(
-                x=.data[[x_var]],
-                y=.data[[y_var]],
-                fill=.data[[fill_var]],
-            )
-        ) +
-        geom_tile() +
-        scale_fill_viridis(discrete=FALSE) +
-        # labs(title=sprintf('# of TADs TADs @ %sKb', .x$Resolution / 1000)) +
-        theme(
-            legend.position='top',
-            axis.title.x=element_blank(),
-            axis.title.y=element_blank(),
-            axis.text.x=element_text(angle=45, hjust=1)
-        ) +
-        add_ggtheme()
-    figure <- 
-        add_faceting(
-            figure,
-            facet_col=facet_col,
-            facet_row=facet_row,
-            scales=scales
-        )
-    figure
+    # TADs.P, TADs.Q should be tibble with columns TAD.start, TAD.end, TAD.length
+    # 1 row per TAD
+    # Number of TADs
+    nTADs.P <- nrow(TADs.P)
+    nTADs.Q <- nrow(TADs.Q)
+    # Skip trivial cases
+    if (nTADs.P == nTADs.Q & nTADs.P == 1) {
+        1
+    } else {
+        norm_const <- 1 / (sqrt(nTADs.P * nTADs.Q) - 1)
+        # Get all pairs of TADs
+        cross_join(
+            TADs.P,
+            TADs.Q,
+            suffix=c('.P', '.Q')
+        ) %>%
+        # only keep pairs of TADs that overlap at all
+        filter(
+            between(TAD.start.P, TAD.start.Q, TAD.end.Q) |
+            between(TAD.end.P,   TAD.start.Q, TAD.end.Q)
+        ) %>% 
+        #   000000000111111111122222222223333
+        #   123456789012345678901234567890123
+        # P ---|++++|------|+++++|-----------
+        # Q ------|++++|------------|++++|---
+        # P 04-09, 16-22
+        # Q 07-12, 25-30
+        rowwise() %>% 
+        # Based on formula in this paper under "Assessing concordance between TAD partitions"
+        # https://genomebiology.biomedcentral.com/articles/10.1186/s13059-018-1596-9 
+        mutate(
+            rightmost.start=max(TAD.start.P, TAD.start.Q),
+            leftmost.end=min(TAD.end.P, TAD.end.Q),
+            overlap=leftmost.end  - rightmost.start,
+            # observed overlap / total possible overlap
+            inner.term=((overlap**2) / (TAD.length.P * TAD.length.Q))
+        ) %>%
+        pull(inner.term) %>% 
+        sum() %>% 
+        {(. - 1) * norm_const}
+    }
 }
 
-plot_TADlengths_boxplot <- function(
-    plot.df,
-    x_var='',
-    y_var='',
-    color_var='',
-    facet_row=NULL,
-    facet_col=NULL,
-    scales='fixed',
+calculate_pair_boundary_conservation <- function(
+    TADs.P,
+    TADs.Q,
+    tolerance=50000,
     ...){
-    figure <- 
-        plot.df %>% 
-        ggplot(
-            aes(
-                y=.data[[y_var]],
-                x=.data[[x_bar]],
-                color=.data[[color_var]],
-            )
-        ) +
-        geom_boxplot() +
-        theme(
-            axis.title.x=element_blank(),
-            axis.text.x=element_text(angle=45, hjust=1),
-            axis.text.y=element_markdown()
-        ) +
-        add_ggtheme()
-    figure <- 
-        add_faceting(
-            figure,
-            facet_col=facet_row,
-            facet_row=facet_col,
-            scales=scales
+    # TADs.P, TADs.Q should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
+    # 1 row per TAD
+    cross_join(
+        TADs.P,
+        TADs.Q,
+        suffix=c('.P', '.Q')
+    ) %>%
+    mutate(
+        case_when(
+            resolution.P == resolution.Q ~ TRUE,
         )
-    figure
+    )
 }
+
+calculate_all_pairs_MoCs <- function(
+    tad.annotations,
+    pair_grouping_cols,
+    ...){
+    # tad.annotations Must contain the following columns
+    # SampleInfo: nested tibble of Sample attributes
+    # TADs: nested tibble with 3 columns; TAD.start, TAD.end, TAD.length
+    # pair_grouping_cols: all columns listed here, only compare pairs of TAD sets that match
+    # that match along these attributes e.g. resolution, chr
+    tad.annotations %>% 
+    # Only compare pairs of annotations with the following matching params
+    get_all_row_combinations(
+        cols_to_pair=pair_grouping_cols,
+        suffixes=c('.P', '.Q'),
+        keep_self=FALSE
+    ) %>% 
+    # Now format sample metadata per pair for easy grouping+plotting
+    rowwise() %>% 
+    mutate(
+        SamplePairInfo=
+            bind_rows(
+                SampleInfo.P,
+                SampleInfo.Q
+            ) %>% 
+            mutate(PairIndex=c('P', 'Q')) %>% 
+            pivot_longer(
+                -PairIndex,
+                names_to='SampleAttribute',
+                values_to='SampleValue'
+            ) %>% 
+            pivot_wider(
+                names_from=PairIndex,
+                values_from=SampleValue
+            ) %>% 
+            rowwise() %>% 
+            # Now group pairs by difference in specific sample metadata (genotype, celltype)
+            mutate(
+                PairValue=
+                    case_when(
+                        P == Q ~ glue('{P} vs {Q}'),
+                        P != Q ~ 
+                            c(P, Q) %>% 
+                            sort() %>%  
+                            paste(collapse=" vs ")
+                    )
+            ) %>%
+            select(SampleAttribute, PairValue) %>%
+            pivot_wider(
+                names_from=SampleAttribute,
+                values_from=PairValue
+            ) %>% 
+            list()
+    ) %>% 
+    select(-c(starts_with('SampleInfo'))) %>% 
+    unnest(SamplePairInfo) %>% 
+    mutate(
+        mocs=
+            pmap(
+                .l=.,
+                .f=calculate_pair_MoC,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(mocs) %>%
+    select(-c(TADs.Q, TADs.P))
+}
+###############
+# Plot stuff

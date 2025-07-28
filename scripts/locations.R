@@ -34,3 +34,4 @@ MULTIHICCOMPARE_RESULTS_FILE   <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompar
 # TAD Annotations
 TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 TAD_RESULTS_FILE               <- file.path(TAD_DIR, 'all.TAD.annotations.tsv')
+TAD_MOC_FILE                   <- file.path(TAD_DIR, 'all.TAD.sets.MoCs.tsv')
