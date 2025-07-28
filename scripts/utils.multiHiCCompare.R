@@ -9,6 +9,7 @@ library(ggplot2)
 library(viridis)
 library(cowplot)
 library(gtable)
+library(furrr)
 ###############
 # Generate resutls
 set_up_sample_comparisons <- function(...){
@@ -318,7 +319,6 @@ run_all_multiHiCCompare <- function(
         .progress=TRUE
     )
 }
-
 ###############
 # Load resutls
 load_multiHiCCompare_results <- function(
@@ -333,32 +333,52 @@ load_multiHiCCompare_results <- function(
 }
 
 load_all_multiHiCCompare_results <- function(
-    comparisons=NULL,
+    file_suffix='-multiHiCCompare.tsv',
+    sample_group_priority_fnc=NULL,
     resolutions=NULL,
     fdr.threshold=1,
     nom.threshold=1,
     ...){
     parse_results_filelist(
-        input_dir=MULTIHICCOMPARE_DIR,
-        suffix='-multiHiCCompare.tsv',
-        filename.column.name='matrix.name',
+        input_dir=file.path(MULTIHICCOMPARE_DIR, 'results'),
+        suffix=file_suffix,
+        filename.column.name='pair.name',
         param_delim='_',
     ) %>%
+    mutate(pair.name=str_remove(pair.name, file_suffix)) %>% 
+    separate_wider_delim(
+        pair.name,
+        delim='_vs_',
+        names=c('Sample.Group.A', 'Sample.Group.B')
+    ) %>% 
+    # filter(grepl('16p', Sample.Group.A), grepl('16p', Sample.Group.B)) %>% 
+    # filter(
+    #     resolution == 25000,
+    #     zero.p == 0.8,
+    #     !grepl('.iN', Sample.Group.A), 
+    #     !grepl('.iN', Sample.Group.B)
+    # ) %>% 
+    mutate(
+        across(
+            starts_with('Sample.Group'),
+            sample_group_priority_fnc,
+            .names='{.col}.Priority'
+        )
+    ) %>% 
+    mutate(
+        Sample.Group.Numerator=
+            case_when(
+                Sample.Group.A.Priority < Sample.Group.B.Priority ~ Sample.Group.A,
+                Sample.Group.A.Priority > Sample.Group.B.Priority ~ Sample.Group.B
+            ),
+        Sample.Group.Denominator=
+            case_when(
+                Sample.Group.Numerator == Sample.Group.A ~ Sample.Group.B,
+                Sample.Group.Numerator == Sample.Group.B ~ Sample.Group.A
+            )
+    ) %>% 
+    select(-ends_with(c('.A', '.B', '.Priority'))) %>% 
     # Only load results with specific params
-    { 
-        if (is.null(resolution)) {
-            .
-        } else {
-            filter(., resolution %in% c(resolutions))
-        }
-    } %>%
-    { 
-        if (is.null(comparisons)) {
-            .
-        } else {
-            filter(., grepl(comparisons, Comparison))
-        }
-    } %>%
     mutate(
         results=
             pmap(
