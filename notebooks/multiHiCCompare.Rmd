@@ -44,7 +44,7 @@ library(ggh4x)
 library(purrr)
 ```
 
-# Generate + load all differential contact results
+# Generate all differential contact results
 
 Set up all combinations of parameters and sample groups to test
 ```{r set_up_sample_comparisons}
@@ -76,12 +76,13 @@ comparisons.df <-
 comparisons.df
 ```
 For every group of samples + parameter combination run multiHiCCompare and cache the results.
-```{r run_multihiccompare}
+```{r run_multihiccompare, eval=FALSE}
 # GRanges object with Centro/Telomere regions to filter
 data('hg38_cyto') 
 # parallelizing params
 library(BiocParallel)
-numCores <- 32
+numCores <- length(availableWorkers())
+print(numCores)
 register(MulticoreParam(workers=numCores), default=TRUE)
 # Run multiHiCComapre on all comparisons
 run_all_multiHiCCompare(    
@@ -95,22 +96,45 @@ run_all_multiHiCCompare(
 )
 ```
 
-# Plot sgtuff
+# Load all differential contact results
+
+```{r load_results}
+results.df <- 
+    load_all_multiHiCCompare_results(
+        file_suffix='-multiHiCCompare.tsv',
+        sample_group_priority_fnc=sample_group_priority_fnc_16p,
+        resolutions=NULL,
+        fdr.threshold=1,
+        nom.threshold=0.05
+    )
+results.df %>%
+    count(merged, zero.p, A.min, resolution, Sample.Group.Numerator, Sample.Group.Denominator)
+```
+
+# Plot stuff
 
 Prepare data for plotting
-```{r}
+```{r make_plot_df}
 plot_df <- 
     all.results %>% 
-    mutate(logFC=-logFC) %>%
-    mutate(log.p.adj=-log10(p.adj)) %>%
-    left_join(load_chr_sizes(), by='Chr') %>% 
+    select(-c(chr, zero.p, merged, A.min)) %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    # left_join(
+    #     load_chr_sizes() %>% rename('chr'=Chr),
+    #     by='chr'
+    # ) %>% 
+    mutate(
+        logFC=-logFC,
+        log.p.adj=-log10(p.adj),
+        chr=factor(chr, levels=CHROMOSOMES),
+    ) %>%
     rename(
-        region1='region1.bp',
-        region2='region2.bp'
+        'region1.bp'=region1,
+        'region2.bp'=region2
     ) %>% 
     mutate(
-        region1.bin=region1.bp / Resolution,
-        region2.bin=region2.bp / Resolution,
+        region1.bin=region1.bp / resolution,
+        region2.bin=region2.bp / resolution,
         region1.pct=100 * (region1.bp / chr.total.bp),
         region2.pct=100 * (region2.bp / chr.total.bp)
     ) %>% 
@@ -118,27 +142,14 @@ plot_df <-
         distance.bp=region2.bp - region1.bp,
         distance.kb=distance.bp / 1000,
         distance.bin=region2.bin - region1.bin,
-        distance.pct=region2.pct - region1.pct
-    ) %>%
-    mutate(
-        distance.discrete=
-            case_when(
-                distance.kb <= 5     ~  '    .< 5Kb',
-                distance.kb <= 20    ~ ' 5Kb<.<20Kb',
-                distance.kb <= 50    ~ '20Kb<.<50Kb',
-                distance.kb <= 1000  ~ '50Kb<.< 1Mb',
-                distance.kb <= 5000  ~ ' 1Mb<.<50Kb',
-                distance.kb <= 30000 ~ ' 5Mb<.<30Kb',
-                distance.kb >  30000 ~ '30Mb<.     ',
-            ) %>%
-            factor(levels=c('    .<  5Kb', ' 5Kb<.<20Kb', '20Kb<.<50Kb', '50Kb<.< 1Mb', ' 1Mb<.<50Kb', ' 5Mb<.<30Kb', '30Mb<.     '))
-    ) %>% 
-    mutate(
-        Chr=factor(Chr, levels=c(paste0('chr', 1:22), 'chrX')),
-        Resolution=fct_reorder(glue('{Resolution / 1000}Kb'), Resolution)
+        distance.pct=region2.pct - region1.pct,
+        distance.discrete=scale_numbers(distance.bp),
+        resolution=scale_numbers(resolution)
     )
 plot_df %>% head(2) %>% t()
 ```
+
+
 ```{r plot_manhattan}
 chr='chr16'
 resolution=all.results$resolution[[1]] %>% scale_numbers()
