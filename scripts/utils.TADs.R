@@ -176,27 +176,31 @@ load_hiTAD_TAD_annotation <- function(
                 'TAD.start',
                 'TAD.end'
             )
-    )
+    ) %>%
+    add_column(is_boundary=TRUE)
 }
 
 load_cooltools_TAD_annotation <- function(
     filepath,
     ...){
+    # filepath="/data/talkowski/Samples/16p_HiC/results/TADs/method_cooltools/resolution_100000/weight_ICE/threshold_0/mfvp_0.33/16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000-TAD.tsv"
     filepath %>% 
     load_cooltools_file() %>% 
     filter(!is_bad_bin) %>% 
+    filter(is_boundary) %>% 
     select(
         # is_bad_bin,
-        is_boundary,
+        # is_boundary,
         # log2_insulation_score,
         n_valid_pixels,
         boundary_strength,
+        window.size,
         # sum_balanced,
         # sum_counts,
         region,
-        chrom,
-        start,
-        end
+        chr,
+        TAD.start,
+        TAD.end
     )
 }
 
@@ -225,21 +229,15 @@ load_all_TAD_annotations <- function(){
     process_matrix_name() %>% 
     mutate(
         TADs=
-            pmap(
+            # pmap(
+            future_pmap(
                 .,
                 load_TAD_annotation,
                 .progress=TRUE
             )
     ) %>%
-    select(-c(filepath)) %>% 
     unnest(TADs) %>% 
-    mutate(
-        is_boundary=
-            case_when(
-                method == 'hiTAD' & is.na(is_boundary) ~ TRUE, 
-                TRUE ~ is_boundary
-            )
-    )
+    select(-c(filepath))
 }
 ###############
 # Compute stuff
