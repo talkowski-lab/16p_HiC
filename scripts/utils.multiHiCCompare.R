@@ -26,7 +26,7 @@ set_up_sample_comparisons <- function(...){
     mutate(isMerged=grepl('Merged', Sample.ID)) %>% 
     # filter(!grepl('Merged', Sample.ID)) %>% 
     # Define minimum viable resolution for each matrix
-    get_min_resolution_per_matrix(int_res=TRUE) %>% 
+    get_min_resolution_per_matrix(as_int=TRUE, filter_res=TRUE) %>% 
     # Now group samples by condition, 
     # these are the groups being comapred to find differential cotacts
     # Also include groups with all DEL and all WTs from both edits

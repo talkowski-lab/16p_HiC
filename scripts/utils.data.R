@@ -393,7 +393,7 @@ load_chr_sizes <- function(){
 
 get_min_resolution_per_matrix <- function(
     df,
-    int_res=TRUE,
+    as_int=TRUE,
     filter_res=TRUE){
     # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
     MIN_SAMPLE_RESOLUTION_FILE %>%
@@ -401,13 +401,13 @@ get_min_resolution_per_matrix <- function(
     rename('resolution'=`Min. Viable Resolution`) %>% # as character e.g. 50Kb
     select(Sample.ID, resolution) %>% 
     {
-        if (int_res && !is.numeric(.$resolution)) {
+        if (as_int && !is.numeric(.$resolution)) {
             mutate(., resolution=scale_numbers(resolution))
-        } else if (!int_res && is.numeric(.$resolution)) {
+        } else if (!as_int && is.numeric(.$resolution)) {
             mutate(., resolution=scale_numbers(resolution))
-        } else if ( int_res &&  is.numeric(.$resolution)) {
+        } else if ( as_int &&  is.numeric(.$resolution)) {
             .
-        } else if (!int_res && !is.numeric(.$resolution)) {
+        } else if (!as_int && !is.numeric(.$resolution)) {
             .
         }
     } %>% 
