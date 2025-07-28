@@ -200,33 +200,55 @@ count_dirs <- function(filepath){
 
 join_all_rows <- function(
     df1,
-    df2,
+    df2=NULL,
     join_keys=c(),
     ...){
-    full_join(
-        df1 %>% add_column(join_dummy=0),
-        df2 %>% add_column(join_dummy=0),
-        relationship='many-to-many',
-        by=c('join_dummy', join_keys),
-        ...
-    ) %>% 
-    select(-c(join_dummy))
+    if (is_tibble(df2)) {
+        full_join(
+            df1 %>% add_column(join_dummy=0),
+            df2 %>% add_column(join_dummy=0),
+            relationship='many-to-many',
+            by=c('join_dummy', join_keys),
+            ...
+        ) %>% 
+        select(-c(join_dummy))
+    } else {
+        full_join(
+            df1 %>% add_column(join_dummy=0),
+            df1 %>% add_column(join_dummy=0),
+            relationship='many-to-many',
+            by=c('join_dummy', join_keys),
+            ...
+        ) %>% 
+        select(-c(join_dummy))
+    }
 }
 
 get_all_row_combinations <- function(
     df1,
-    df2,
+    df2=NULL,
     cols_to_pair=c(),
     suffixes=c('.A', '.B'),
     keep_self=TRUE,
     ...){
     # Get all combinations of rows with matching attributes (cols_to_pair)
-    join_all_rows(
-        df1 %>% ungroup() %>% mutate(index=row_number()),
-        df2 %>% ungroup() %>% mutate(index=row_number()),
-        join_keys=cols_to_pair,
-        suffix=suffixes
-    ) %>%
+    {
+        if (is_tibble(df2)) {
+            join_all_rows(
+                df1 %>% ungroup() %>% mutate(index=row_number()),
+                df2 %>% ungroup() %>% mutate(index=row_number()),
+                join_keys=cols_to_pair,
+                suffix=c('.A', '.B')
+            )
+        } else {
+            join_all_rows(
+                df1 %>% ungroup() %>% mutate(index=row_number()),
+                df1 %>% ungroup() %>% mutate(index=row_number()),
+                join_keys=cols_to_pair,
+                suffix=c('.A', '.B')
+            )
+        }
+    } %>% 
     # Keep only distinct pairs of rows (order doesnt matter
     mutate(
         index.pair=
@@ -247,7 +269,10 @@ get_all_row_combinations <- function(
             filter(., index.A != index.B)
         }
     } %>% 
-    select(-c(starts_with('index')))
+    # rename with suffixes
+    select(-c(starts_with('index'))) %>%
+    rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
+    rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
 }
 ###############
 # Annotate contacts with specified regions
