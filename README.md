@@ -17,12 +17,22 @@ NIPBL+WAPL
 
 ## Repo+Results structure
 
-Analysis and code of HiC data for 16p editied cell lines
-File tree
+Analysis and code of HiC data for 16p editied cell lines.
+Notice that all files contain a `SampleID` specifying which library the results are.
+Some files contain a pair of `SampleID`s since they are comparing 2 samples e.g. HiCRep.
+All SampleIDs are follow the same format format `Project.CellType.Genotype.BioRepID.TechRepID` e.g. 16p.NSC.DEL.A3.TR1 
+
+- `16p`: project this sample is a part of
+- `NSC`: Celltype {NSC, iN}
+- `DEL`: Genotype of the sample for the region/gene of interest {WT,DEL,DUP}
+- `A3`: ID string specifiying which biological replicate the sample is
+- `TR1`: ID string specifiyng which technical replicate the sample is
+
+
 ```
-# Note ... indicates that thee files exist for all samples, truncated for brevity
+# Note ... indicates that these files exist for all samples/pairs, truncated for brevity
 ./
-├── publicData.              # Public HiC data 
+├── public.data/             # Public HiC datasets to compare against
 ├── distiller-nf/            # distiller nextflow installation
 ├── notebooks/               # results+figures
 ├── scripts/                 # scripts+notebook backends
@@ -31,13 +41,13 @@ File tree
 │   ├── distiller.env.yml
 │   ├── TADLib.env.yml
 │   └── README.md
-├── sample.metadata.tsv     # metadata for all HiC samples
+├── 16p.sample.metadata.tsv     # metadata for all HiC samples
 ├── fastq/                  # Raw reads for HiC samples
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz
 │   └── ....fastq.gz
 ├── sample.configs/         # Config files for distiller
-│   ├── 16p.DELA3.NSC.HiC.distiller.yml
+│   ├── 16p.NSC.DEL.A3.TR1.distiller.yml
 │   └── ....distiller.yml
 └── results/                # all HiC results
     ├── sample.QC/
@@ -47,43 +57,43 @@ File tree
     │   │   ├── pairtools.multiqc.html
     │   │   └── qc3C.multiqc.html
     │   └── qc3C/
-    │       ├── 16p.DEL.A3.NSC.HiC/
+    │       ├── 16p.NSC.DEL.A3.TR1/    # SampleID, unique to each sample (library)
     │       │   └── report.qc3C.json 
     │       └── ../
     ├── coolers_library/
-    │   ├── 16p.DEL.A3.NSC.HiC/
-    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.cool
-    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000.mcool
-    │   │   ├── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.cool
-    │   │   └── 16p.DEL.A3.NSC.HiC.hg38.no_filter.1000.mcool
+    │   ├── 16p.NSC.DEL.A3.TR1/
+    │   │   ├── 16p.NSC.DEL.A3.TR1.hg38.mapq_30.1000.cool
+    │   │   ├── 16p.NSC.DEL.A3.TR1.hg38.mapq_30.1000.mcool
+    │   │   ├── 16p.NSC.DEL.A3.TR1.hg38.no_filter.1000.cool
+    │   │   └── 16p.NSC.DEL.A3.TR1.hg38.no_filter.1000.mcool
     │   └── .../
     ├── fastqc/
-    │   ├── 16p.DEL.A3.NSC.HiC/
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.html
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.2_fastqc.zip
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.0.1_fastqc.html
-    │   │   └── 16p.DEL.A3.NSC.HiC.lane1.0.1_fastqc.zip
+    │   ├── 16p.NSC.DEL.A3.TR1/
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.0.2_fastqc.html
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.0.2_fastqc.zip
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.0.1_fastqc.html
+    │   │   └── 16p.NSC.DEL.A3.TR1.lane1.0.1_fastqc.zip
     │   └── .../
     ├── mapped_parsed_sorted_chunks
-    │   ├── 16p.DEL.A3.NSC.HiC/
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.fastp.json
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.fastp.html
-    │   │   ├── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.pairsam.gz
-    │   │   └── 16p.DEL.A3.NSC.HiC.lane1.hg38.0.bam
+    │   ├── 16p.NSC.DEL.A3.TR1/
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.fastp.json
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.fastp.html
+    │   │   ├── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.pairsam.gz
+    │   │   └── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.bam
     │   └── .../
     └── pairs_library
-        ├── 16p.DEL.A3.NSC.HiC/
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dedup.stats
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dups.bam
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.dups.pairs.gz
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.nodups.bam
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.nodups.pairs.gz
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.unmapped.bam
-        │   ├── 16p.DEL.A3.NSC.HiC.hg38.unmapped.pairs.gz
-        │   └── 16p.DEL.A3.NSC.HiC.hg38.nodups.pairs.gz.px2
+        ├── 16p.NSC.DEL.A3.TR1/
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.dedup.stats
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.bam
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.pairs.gz
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.nodups.bam
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.nodups.pairs.gz
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.unmapped.bam
+        │   ├── 16p.NSC.DEL.A3.TR1.hg38.unmapped.pairs.gz
+        │   └── 16p.NSC.DEL.A3.TR1.hg38.nodups.pairs.gz.px2
         └── .../
-
 ```
+
 ## Producing Results
 
 ### Running distiller pipeline
@@ -165,14 +175,14 @@ which produces the following files
 ```
 results 
 └── coolers_library
-    ├── 16p.WT.Merged.NSC.HiC/
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.cool
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.mapq_30.1000.mcool
-    │   ├── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.cool
-    │   └── 16p.WT.Merged.NSC.HiC.hg38.no_filter.1000.mcool
-    ├── 16p.DEL.Merged.NSC.HiC/
+    ├── 16p.NSC.WT.Merged.TR1/
+    │   ├── 16p.NSC.WT.Merged.TR1.hg38.mapq_30.1000.cool
+    │   ├── 16p.NSC.WT.Merged.TR1.hg38.mapq_30.1000.mcool
+    │   ├── 16p.NSC.WT.Merged.TR1.hg38.no_filter.1000.cool
+    │   └── 16p.NSC.WT.Merged.TR1.hg38.no_filter.1000.mcool
+    ├── 16p.NSC.DEL.Merged.TR1/
     │   └── ...
-    └── 16p.DUP.Merged.NSC.HiC/
+    └── 16p.NSC.DUP.Merged.TR1/
         └── ...
 ```
 
