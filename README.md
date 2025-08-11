@@ -191,14 +191,14 @@ results
 We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
 
 ```bash
-# Compare all pairs of matrices where all contacts have both mates MAPQ > 30
+# Compare all pairs of Individual sample matrices
 $ ./scripts/run.hicrep.sh 
         ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool")
-# Compare all pairs of matrices with no MAPQ filtering
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged')
+# Compare all pairs of Merged matrices
 $ ./scripts/run.hicrep.sh 
         ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.no_filter.1000.mcool")
+        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
 ```
 
 After this there is a `.Rmd` notebook that coallates these files into a single neat dataframe that is used for plotting.
@@ -268,4 +268,3 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 #### Compartment Comparison
 
 ### Differential Contact Analysis
-
