@@ -50,6 +50,8 @@ library(downloadthis)
 Load output of `pairtools stats` 
 ```{r load_stats, rows.print=5, message=FALSE, results=FALSE}
 pair.stats.list <- load_pairtools_stats()
+sample.metadata <- load_sample_metadata(filter=TRUE)
+samples.to.include <- sample.metadata %>% filter(Included) %>% pull(SampleID)
 ```
 
 # Calculate minimum resolution from pair orientations
@@ -73,10 +75,13 @@ Now print all resolutions which are usable according to the Rao et al. 2014 defi
 ```{r print_valid_resolutions, paged.print=TRUE, max.print=10000}
 min.resolutions <- 
     coverage.summary %>% 
+    filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
     filter(
         ReadFilter == 'mapq_30',
         metric == 'cis',
         chr == 'genome.wide',
+        str_detect(SampleID, 'Merged') | 
+            (ReadFilter == 'mapq_30' & metric == 'cis' & chr == 'genome.wide'),
         bins.pct.covered >= 0.80
     ) %>% 
     group_by(Sample.ID) %>% 

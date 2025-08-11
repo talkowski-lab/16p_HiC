@@ -546,9 +546,16 @@ load_annotated_contacts_pairs <- function(
 }
 ###############
 # Load Specific Data
-load_sample_metadata <- function(){
+load_sample_metadata <- function(filter=TRUE){
     SAMPLE_METADATA_FILE %>%
-    read_tsv(show_col_types=FALSE)
+    read_tsv(show_col_types=FALSE) %>%
+    {
+        if(filter) {
+            filter(., Included)
+        } else {
+            .
+        }
+    }
 }
 
 load_chr_sizes <- function(){
