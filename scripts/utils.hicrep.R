@@ -157,6 +157,7 @@ plot_hicrep_boxplot <- function(
     mark_size=1,
     yintercept=0.95,
     ...){
+    # Make base boxplot
     if (is.na(fill_var)) {
         figure <- 
             ggplot(
@@ -177,28 +178,6 @@ plot_hicrep_boxplot <- function(
                 )
             )
     }
-    figure <- 
-        figure + 
-        geom_hline(
-            yintercept=yintercept,
-            color='black',
-            linetype='solid',
-            linewidth=0.15
-        ) +
-        scale_y_continuous(labels=function(x) format(x, digits=2)) +
-        theme(
-            legend.position='top',
-            axis.text.x=element_text(angle=35, hjust=1)
-        ) +
-        add_ggtheme()
-    # add faceting
-    figure <- 
-        add_faceting(
-            figure,
-            facet_col=facet_row,
-            facet_row=facet_col,
-            scales=scales
-        )
     # Mark specific chromosomes in th boxplot if specified
     if (!(is.null(mark_df))) {
         figure <- 
@@ -219,7 +198,36 @@ plot_hicrep_boxplot <- function(
             figure +
             geom_boxplot(outlier.size=0.5)
     }
-    figure
+    # Add reference line for comparison
+    figure <- 
+        figure + 
+        geom_hline(
+            yintercept=yintercept,
+            color='black',
+            linetype='solid',
+            linewidth=0.15
+        )
+        # scale_y_continuous(labels=function(x) format(x, digits=2)) +
+    # Add faceting + theming
+    figure <- 
+        figure %>% 
+        post_process_plot(
+            facet_col=facet_row,
+            facet_row=facet_col,
+            scales=scales,
+            scale_mode='',
+            log_base=10,
+            axis_label_accuracy=2,
+            legend.position='top',
+            axis.text.x=element_text(angle=35, hjust=1),
+            ...
+            # n_breaks=NULL,
+            # limits=NULL,
+            # expand=c(0.00, 0.00, 0.00, 0.00),
+            # legend.position='right',
+            # legend.ncols=1,
+            # axis.text.x=element_text(angle=35, hjust=1),
+        )
 }
 
 plot_hicrep_heatmap <- function(
@@ -260,8 +268,8 @@ plot_hicrep_heatmap <- function(
                     linewidth=0.40
                 ),
         ) +
-        add_ggtheme() +
-        theme(
+        make_ggtheme(
+            ...,
             legend.position='right',
             panel.spacing=unit(0, "lines"),
             panel.border=
