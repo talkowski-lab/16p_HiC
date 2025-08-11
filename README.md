@@ -216,10 +216,25 @@ We generate the TAD annotations we use 2 different programs:
 2. [cooltools insulation](https://cooltools.readthedocs.io/en/latest/cli.html#cooltools-insulation)
 
 For `HiTAD` we only generate single-level TADs (not hierarchical) using default parameters. This produces a set of bin-pairs, each pair marking the start and end of the predicted TAD.
+```bash
+$ ./scripts/annotate.TADs.sh
+    --output-dir ./results/TADs/
+    --resolution  "100000,50000,25000,10000"
+    HiTAD
+    ./results/coolers_library/**/*.mapq_30.1000.mcool
+```
 
 For `cooltools insulation` it only annotates whether a bin is a TAD boundary or not, it does not group a pair of boundaries to explicitly define the start/end of a specific TAD.
 This changes the downstream analysis, but it is easy to adjust for the sake of making comparisons between 2 different TAD annotations.
-For cooltools we also compute TAD annotations for multiple sets of hyper-parameters, just to asses how much these parameters affect the annotations.
+For cooltools we also compute TAD annotations for multiple sets of hyper-parameters, just to asses how much these parameters affect the annotations. 
+These parameter are hard-coded in the `annotate.TAD.sh` script at the top
+```bash
+$ ./scripts/annotate.TADs.sh
+    --output-dir ./results/TADs/
+    --resolution  "100000,50000,25000,10000"
+    cooltools
+    ./results/coolers_library/**/*.mapq_30.1000.mcool
+```
 
 Both of these tools also output the Diamond Insulation (DI) score calcualted per genomic bin.
 This can be used to score regions to compare the relative insulation of regions. 
