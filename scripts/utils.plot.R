@@ -7,6 +7,7 @@ library(ggh4x)
 library(scales)
 ###############
 # Formatting
+# Handling/formatting plots
 add_ggtheme <- function(){
     theme(
         panel.grid.major=element_blank(), 
@@ -43,16 +44,19 @@ add_ggtheme <- function(){
 scale_y_axis <- function(
     figure,
     mode='',
-    pct_max=100,
     log_base=10,
     axis_label_accuracy=2,
     n_breaks=NULL,
     limits=NULL,
+    expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
+    # Scale y axis based on mode argumetn
     if (mode == 'pct') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
+            # limits=limits,
+            expand=expand,
             n.breaks=n_breaks,
             labels=label_percent(),
             ...
@@ -61,6 +65,8 @@ scale_y_axis <- function(
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
+            # limits=limits,
+            expand=expand,
             n.breaks=n_breaks,
             labels=
                 label_bytes(
@@ -73,8 +79,9 @@ scale_y_axis <- function(
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_log10(
+            # limits=limits,
+            expand=expand,
             guide='axis_logticks',
-            # minor_breaks=scales::minor_breaks_log(detail=1),
             labels=
                 label_log(
                     base=log_base,
@@ -84,11 +91,19 @@ scale_y_axis <- function(
             ...
         )
     } else if (mode == '') {
-        figure + 
-        coord_cartesian(ylim=limits) +
-        scale_y_continuous(...)
+        if (is.null(limits)) {
+            figure
+        } else {
+            figure + 
+            coord_cartesian(ylim=limits) +
+            scale_y_continuous(
+                # limits=limits,
+                expand=expand,
+                ...
+            )
+        }
+        # coord_cartesian(ylim=limits) +
         # scale_y_continuous(...)
-            
     }
 }
 add_faceting <- function(
