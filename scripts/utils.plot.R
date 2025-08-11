@@ -91,6 +91,46 @@ scale_y_axis <- function(
             
     }
 }
+add_faceting <- function(
+    figure,
+    facet_group=NULL,
+    facet_col=NULL,
+    facet_row=NULL,
+    ...){
+    # Facet as specified
+    if (!is.null(facet_col) & !is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
+    } else if (!is.null(facet_row)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                rows=vars(!!sym(facet_row)),
+                ...
+            )
+    } else if (!is.null(facet_col)) {
+        figure <- 
+            figure +
+            facet_grid2(
+                cols=vars(!!sym(facet_col)),
+                ...
+            )
+    } else if (!is.null(facet_group)) {
+        figure <- 
+            figure +
+            facet_wrap2(
+                vars(!!sym(facet_group)),
+                ...
+            )
+    }
+    figure
+}
+
 ###############
 # Make tabs per plot in RmD
 plot_figure_tabs <- function(
@@ -205,44 +245,8 @@ make_nested_plot_tabs <- function(
 }
 ###############
 # Basic Plots
-add_faceting <- function(
-    figure,
-    facet_group=NULL,
-    facet_col=NULL,
-    facet_row=NULL,
     ...){
-    # print(facet_row)
-    # print(facet_col)
-    # print(facet_group)
-    # Facet as specified
-    if (!is.null(facet_col) & !is.null(facet_row)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                cols=vars(!!sym(facet_col)),
-                ...
             )
-    } else if (!is.null(facet_row)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                ...
-            )
-    } else if (!is.null(facet_col)) {
-        figure <- 
-            figure +
-            facet_grid2(
-                cols=vars(!!sym(facet_col)),
-                ...
-            )
-    } else if (!is.null(facet_group)) {
-        figure <- 
-            figure +
-            facet_wrap2(
-                vars(!!sym(facet_group)),
-                ...
             )
     }
     figure
