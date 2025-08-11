@@ -133,91 +133,75 @@ done
 # Merging matrices 
 merge_matrices() {
     # Arg list
-    output_dir="${1}"
-    merged_name="${2}"
-    filter_status="${3}"
+    cooler_dir="${1}"
+    sample_group="${2}"
+    read_filter="${3}"
     hic_matrices=${@:4}
-    output_dir="${output_dir}/${merged_name}"
-    mkdir -p "${output_dir}"
+    # ignore any existing merged files
+    hic_matrices=$(ls ${hic_matrices} | grep -vi 'merged')
     echo ${hic_matrices[@]}
+    # process args
+    merged_name="${sample_group}.Merged.Merged"
+    output_dir="${cooler_dir}/${merged_name}"
+    mkdir -p "${output_dir}"
     # Merge contacts
-    cool_file="${output_dir}/${merged_name}.hg38.${filter_status}.1000.cool"
-        cooler merge "${cool_file}" ${hic_matrices[@]}
+    merged_cool_file="${output_dir}/${merged_name}.hg38.${read_filter}.1000.cool"
+    cooler merge              \
+        "${merged_cool_file}" \
+        ${hic_matrices[@]}
     # Bin + balance merged matrix at all specified resolutions
-    mcool_file="${cool_file%%.cool}.mcool"
-        cooler zoomify                     \
-            --nproc ${THREADS}             \
-            --resolutions "${RESOLUTIONS}" \
-            --balance                      \
-            --out "${mcool_file}"          \
-            "${cool_file}"
+    merged_mcool_file="${cool_file%%.cool}.mcool"
+    cooler zoomify                     \
+        --nproc ${THREADS}             \
+        --resolutions "${RESOLUTIONS}" \
+        --balance                      \
+        --out "${merged_mcool_file}"   \
+        "${merged_cool_file}"
 }
 merge_16p_matrices() {
     cooler_dir="$(readlink -e "${1}")"
     activate_conda 'cooler'
     # Merge matrices with and without MAPQ filtering
-    for filter_name in ${MAPQ_FITERS[@]}; do 
-        # WTs
-        merge_matrices            \
-            "${cooler_dir}"       \
-            16p.WT.Merged.NSC.HiC \
-            ${filter_name}        \
-            ${cooler_dir}/16p.WT.{p46,FACS1,p49}.NSC.HiC/*.${filter_name}.1000.cool
-        # DELs
-        merge_matrices             \
-            "${cooler_dir}"        \
-            16p.DEL.Merged.NSC.HiC \
-            ${filter_name}         \
-            ${cooler_dir}/16p.DEL.{A3,B8,H10}.NSC.HiC/*.${filter_name}.1000.cool
-        # DUPs
-        merge_matrices             \
-            "${cooler_dir}"        \
-            16p.DUP.Merged.NSC.HiC \
-            ${filter_name}         \
-            ${cooler_dir}/16p.DUP.{C5,D12,G7}.NSC.HiC/*.${filter_name}.1000.cool
+    for read_filter in ${MAPQ_FITERS[@]}; do 
+        for celltype in ${CELLTYPES[@]}; do 
+            for genotype in ${genotypes[@]}; do 
+                # merge across all biological + technical replicates
+                sample_group="16p.${celltype}.${genotype}"
+                merge_matrices                      \
+                    "${cooler_dir}"                 \
+                    "${sample_group}.Merged.Merged" \
+                    "${read_filter}"                \
+                    ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
+            done
+        done
     done
 }
 merge_NIPBLWAPL_matrices() {
     activate_conda 'cooler'
     cooler_dir="$(readlink -e "${1}")"
-    # Merge matrices with and without MAPQ filtering
-    for filter_name in ${MAPQ_FITERS[@]}; do 
-        # NIBPL WTs 
-        merge_matrices             \
-            "${cooler_dir}"        \
-            NIBPL.WT.Merged.iN.HiC \
-            ${filter_name}         \
-            ${cooler_dir}/NIPBL.WT.{P1A1,P2B6,P2F4}.iN.HiC/*.${filter_name}.1000.cool
-        # NIBPL DELs 
-        merge_matrices              \
-            "${cooler_dir}"         \
-            NIBPL.DEL.Merged.iN.HiC \
-            ${filter_name}          \
-            ${cooler_dir}/NIPBL.DEL.{P1H10,P2E1,P2E6}.iN.HiC/*.${filter_name}.1000.cool
-        # WAPL WTs
-        merge_matrices            \
-            "${cooler_dir}"       \
-            WAPL.WT.Merged.iN.HiC \
-            ${filter_name}        \
-            ${cooler_dir}/WAPL.WT.{P1B10,P1E5,P2F2}.iN.HiC/*.${filter_name}.1000.cool
-        # WAPL DELs
-        merge_matrices             \
-            "${cooler_dir}"        \
-            WAPL.DEL.Merged.iN.HiC \
-            ${filter_name}         \
-            ${cooler_dir}/WAPL.DEL.{P1B5,P1E9,P2C4}.iN.HiC/*.${filter_name}.1000.cool
-        # All WTs 
-        merge_matrices           \
-            "${cooler_dir}"      \
-            All.WT.Merged.iN.HiC \
-            ${filter_name}       \
-            ${cooler_dir}/NIPBL.WT.{P1A1,P2B6,P2F4}.iN.HiC/*.${filter_name}.1000.cool ${cooler_dir}/WAPL.WT.{P1B10,P1E5,P2F2}.iN.HiC/*.${filter_name}.1000.cool
-        # # All DELs 
-        # merge_matrices             \
-        #     "${cooler_dir}"        \
-        #     \
-        #     ${filter_name}         \
-        #     ${cooler_dir}//*.${filter_name}.1000.cool
+    # For all groups of matrices
+    for read_filter in ${MAPQ_FITERS[@]}; do 
+        for celltype in ${CELLTYPES[@]}; do 
+            for genotype in ${genotypes[@]}; do 
+                for edit in ${edits[@]}; do 
+                    # merge across all biological + technical replicates
+                    sample_group="${edit}.${celltype}.${genotype}"
+                    merge_matrices                      \
+                        "${cooler_dir}"                 \
+                        "${sample_group}.Merged.Merged" \
+                        "${read_filter}"                \
+                        ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
+                done
+            done
+        # Merge across edits per genotype & celltype
+        all_edits="$(paste -sd',' ${edits[@]})"
+        sample_group="All.${celltype}.${genotype}"
+        merge_matrices                      \
+            "${cooler_dir}"                 \
+            "${sample_group}.Merged.Merged" \
+            "${read_filter}"                \
+            ${cooler_dir}/{${all_edits}}.${celltype}.${genotype}.*.*/*.${read_filter}.1000.cool
+        done
     done
 }
 # Merging stats files
