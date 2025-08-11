@@ -6,7 +6,6 @@ library(ggpubr)
 library(ggh4x)
 library(scales)
 ###############
-# Formatting
 # Handling/formatting plots
 add_ggtheme <- function(){
     theme(
@@ -106,6 +105,7 @@ scale_y_axis <- function(
         # scale_y_continuous(...)
     }
 }
+
 add_faceting <- function(
     figure,
     facet_group=NULL,
@@ -194,7 +194,7 @@ post_process_plot <- function(
     figure
 }
 ###############
-# Make tabs per plot in RmD
+# Make tabs per plot in Rmd
 plot_figure_tabs <- function(
     plot.df,
     group_col,
@@ -203,6 +203,8 @@ plot_figure_tabs <- function(
     nl_delim,
     return_figure=FALSE,
     ...){
+    # message(paste(header_lvl, group_col, collapse=','))
+    # print(table(plot.df[[group_col]]))
     plot.df[[group_col]] %>% 
     as.factor() %>% 
     droplevels() %>% 
@@ -211,7 +213,8 @@ plot_figure_tabs <- function(
         function(group_value, plot.df, plot_fnc, header_lvl, group_col, nl_delim, return_figure){
             figure <- 
                 plot.df %>%
-                filter(get({{group_col}}) == group_value) %>%
+                # filter(get({{group_col}}) == group_value) %>%
+                filter(!!sym(group_col) == group_value) %>%
                 plot_fnc(...)
                 if (return_figure) {
                     figure
@@ -258,6 +261,7 @@ make_tabs_recursive <- function(
         )
     } else {
         group_col <- group_cols[1]
+        # message(paste(current_header_lvl, group_col, collapse=','))
         group_values <- 
             plot.df[[group_col]] %>% 
             as.factor() %>% 
@@ -375,7 +379,10 @@ plot_boxplot <- function(
     scales='fixed',
     scale_mode='',
     y_accuracy=1,
+    legend.position='top',
+    axis.text.x=element_text(angle=55, hjust=1),
     ...){
+    # Set fill group if specified
     figure <- 
         if (is.null(fill_var)) {
             ggplot(
@@ -395,15 +402,10 @@ plot_boxplot <- function(
                 )
             )
         }
+    # make it a boxplot 
     figure <- 
         figure + 
-        geom_boxplot() +
-        theme(
-            legend.position='top',
-            axis.text.x=element_text(angle=55, hjust=1)
-        ) +
-        add_ggtheme()
-    # add faceting
+        geom_boxplot()
     # Handle faceting + scaling + theme options
     figure <- 
         figure %>% 
