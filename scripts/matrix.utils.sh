@@ -210,15 +210,12 @@ merge_stats() {
     output_dir="${1}"
     merged_name="${2}"
     stats_files="${3}"
+    # ignore any existing merged files
+    stats_files=$(ls ${stats_files} | grep -vi 'merged')
+    echo ${stats_files}
+    # process args
     output_dir="${output_dir}/${merged_name}"
     mkdir -p "${output_dir}"
-    ls ${stats_files}
-    # Merge contacts
-    # output_pairs_file="${output_dir}/${merged_name}.hg38.nodups.pairs.gz"
-    # pairtools merge \
-    #     --nproc ${THREADS} \
-    #     --output ${output_pairs_file} \
-    #     ${pairs_files[@]}
     output_stats_file="${output_dir}/${merged_name}.hg38.dedup.stats"
     pairtools stats \
         --merge \
@@ -227,66 +224,45 @@ merge_stats() {
         
 }
 merge_16p_stats() {
-    pairs_dir="$(readlink -e "${1}")"
     activate_conda 'cooler'
+    pairs_dir="$(readlink -e "${1}")"
+    pair_file_suffix="hg38.dedup.stats"
     # Merge pairs with and without MAPQ filtering
     for celltype in ${CELLTYPES[@]}; do 
-        # WTs
-        merge_stats \
-            "${pairs_dir}" \
-            16p.WT.Merged.${celltype}.HiC \
-            "${pairs_dir}/**/16p.WT.*.${celltype}.HiC.hg38.dedup.stats"
-            # $(find ${pairs_dir} -type f -name "16p.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # DELs
-        merge_stats \
-            "${pairs_dir}" \
-            "16p.DEL.Merged.${celltype}.HiC" \
-            "${pairs_dir}/**/16p.DEL.*.${celltype}.HiC.hg38.dedup.stats"
-            # $(find ${pairs_dir} -type f -name "16p.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # DUPs
-        merge_stats \
-            "${pairs_dir}" \
-            "16p.DUP.Merged.${celltype}.HiC" \
-            "${pairs_dir}/**/16p.DUP.*.${celltype}.HiC.hg38.dedup.stats"
-            # $(find ${pairs_dir} -type f -name "16p.DUP.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
+        for genotype in ${genotypes[@]}; do 
+            # merge across all biological + technical replicates
+            sample_group="16p.${celltype}.${genotype}"
+            merge_stats \
+                "${pairs_dir}" \
+                "${sample_group}.Merged.Merged" \
+                "${pairs_dir}/**/${sample_group}.*.*.${pair_file_suffix}"
+        done
     done
 }
 merge_NIPBLWAPL_stats() {
-    activate_conda 'cooler'
     pairs_dir="$(readlink -e "${1}")"
+    activate_conda 'cooler'
+    pair_file_suffix="hg38.dedup.stats"
     # Merge pairs with and without MAPQ filtering
     for celltype in ${CELLTYPES[@]}; do 
-        # NIBPL WTs 
-        merge_pairs \
-            "${pairs_dir}" \
-            NIBPL.WT.Merged.${celltype}.HiC \
-            $(find ${pairs_dir} -type f -name "NIPBL.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # NIBPL DELs 
-        merge_pairs \
-            "${pairs_dir}" \
-            NIBPL.DEL.Merged.${celltype}.HiC \
-            $(find ${pairs_dir} -type f -name "NIPBL.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # WAPL WTs
-        merge_pairs \
-            "${pairs_dir}" \
-            WAPL.WT.Merged.${celltype}.HiC \
-            $(find ${pairs_dir} -type f -name "WAPL.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # WAPL DELs
-        merge_pairs             \
-            "${pairs_dir}"        \
-            WAPL.DEL.Merged.${celltype}.HiC \
-            $(find ${pairs_dir} -type f -name "WAPL.DEL.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # All WTs 
-        merge_pairs \
-            "${pairs_dir}" \
-            All.WT.Merged.${celltype}.HiC \
-            $(find ${pairs_dir} -type f -name "*.WT.*.${celltype}.HiC.hg38.dedup.stats" | grep -v ".Merged.")
-        # # All DELs 
-        # merge_pairs             \
-        #     "${pairs_dir}"        \
-        #     \
-        #     ${filter_name}         \
-        #     ${pairs_dir}//*.${filter_name}.1000.cool
+        for genotype in ${genotypes[@]}; do 
+            for edit in ${edits[@]}; do
+                # merge across all biological + technical replicates
+                sample_group="${edit}.${celltype}.${genotype}"
+                merge_stats \
+                    "${pairs_dir}" \
+                    "${sample_group}.Merged.Merged" \
+                    "${pairs_dir}/**/${sample_group}.*.*.${pair_file_suffix}"
+            done
+            # Merge across edits per genotype & celltype
+            all_edits="$(paste -sd',' ${edits[@]})"
+            sample_group="All.${celltype}.${genotype}"
+            merge_matrices                      \
+                "${cooler_dir}"                 \
+                "${sample_group}.Merged.Merged" \
+                "${read_filter}"                \
+                "${pairs_dir}/**/{${all_edits}}.${celltype}.${genotype}.*.*.${pair_file_suffix}"
+        done
     done
 }
 # QC Stats
@@ -407,8 +383,8 @@ make_multiqc_report() {
     echo ${tmp_file}
     echo find ${input_dir} -maxdepth 99 -type f -name "*${file_ext}"
     find ${input_dir} -maxdepth 99 -type f -name "*${file_ext}" >| ${tmp_file}
+        # --no-ai                     \
     multiqc                         \
-        --no-ai                     \
         --no-data-dir               \
         --clean-up                  \
         --force                     \
