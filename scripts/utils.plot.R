@@ -7,7 +7,7 @@ library(ggh4x)
 library(scales)
 ###############
 # Handling/formatting plots
-add_ggtheme <- function(){
+make_ggtheme <- function(...){
     theme(
         panel.grid.major=element_blank(), 
         panel.grid.minor=element_blank(), 
@@ -36,7 +36,8 @@ add_ggtheme <- function(){
                 face="bold",
                 color="black",
                 size=8
-            )
+            ),
+        ...
     )
 }
 
@@ -91,7 +92,13 @@ scale_y_axis <- function(
         )
     } else if (mode == '') {
         if (is.null(limits)) {
-            figure
+            figure + 
+            scale_y_continuous(
+                labels=
+                    function(x) {
+                        format(x, digits=axis_label_accuracy)
+                    }
+            )
         } else {
             figure + 
             coord_cartesian(ylim=limits) +
@@ -148,7 +155,8 @@ add_faceting <- function(
 
 post_process_plot <- function(
     figure,
-    add_theme=TRUE,
+    theme_obj=NULL,
+    # add_theme=TRUE,
     facet_row=NULL,
     facet_col=NULL,
     facet_group=NULL,
@@ -159,8 +167,9 @@ post_process_plot <- function(
     n_breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
-    legend.position='right',
-    axis.text.x=element_text(angle=35, hjust=1),
+    # legend.position='right',
+    # legend.ncols=1,
+    # axis.text.x=element_text(angle=35, hjust=1),
     ...){
     figure <- 
         add_faceting(
@@ -181,15 +190,11 @@ post_process_plot <- function(
             limits=limits,
             expand=expand
         )
-    if (add_theme) {
-        figure <- 
-            figure + 
-            add_ggtheme() +
-            theme(
-                legend.position=legend.position,
-                axis.text.x=axis.text.x,
-                ...
-            )
+    # Add theme elements, as either an object or individual args
+    if (!is.null(theme_obj)) {
+        figure <- figure + theme_obj
+    } else {
+        figure <- figure + make_ggtheme(...)
     } 
     figure
 }
@@ -379,8 +384,8 @@ plot_boxplot <- function(
     scales='fixed',
     scale_mode='',
     y_accuracy=1,
-    legend.position='top',
-    axis.text.x=element_text(angle=55, hjust=1),
+    # legend.position='top',
+    # axis.text.x=element_text(angle=55, hjust=1),
     ...){
     # Set fill group if specified
     figure <- 
@@ -416,8 +421,8 @@ plot_boxplot <- function(
             scales=scales,
             mode=scale_mode,
             axis_label_accuracy=y_accuracy,
-            legend.position=legend.position,
-            axis.text.x=axis.text.x,
+            # legend.position=legend.position,
+            # axis.text.x=axis.text.x,
             ...
         )
     figure
@@ -433,8 +438,8 @@ plot_heatmap <- function(
     facet_group=NULL,
     scale_mode='',
     scales='fixed',
-    legend.position='right',
-    axis.text.x=element_text(angle=55, hjust=1),
+    # legend.position='right',
+    # axis.text.x=element_text(angle=55, hjust=1),
     ...){
     figure <- 
         ggplot(
@@ -456,8 +461,8 @@ plot_heatmap <- function(
             scales=scales,
             mode=scale_mode,
             axis_label_accuracy=y_accuracy,
-            legend.position=legend.position,
-            axis.text.x=axis.text.x,
+            # legend.position=legend.position,
+            # axis.text.x=axis.text.x,
             ...
         )
     figure
@@ -708,7 +713,7 @@ heatmap_wrapper <- function(
             x=xlab,
             y=ylab
         ) +
-        add_ggtheme() +
+        make_ggtheme() +
         theme(
             legend.position='right',
             strip.text=element_text(face='bold', size=10),
@@ -823,7 +828,7 @@ logfc_heatmap_wrapper <- function(
             x=xlab,
             y=ylab
         ) +
-        add_ggtheme() +
+        make_ggtheme() +
         theme(
             legend.position='right',
             strip.text=element_text(face='bold', size=10),
@@ -928,7 +933,7 @@ DEP_plot_coverage_lineplot <- function(
                     hjust=1
                 )
         ) +
-        add_ggtheme()
+        make_ggtheme()
     # return plot object
     g
 }
