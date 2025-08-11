@@ -120,91 +120,6 @@ load_pairtools_stats <- function(
     )
 }
 
-make_summary_stats_table <- function(
-    coverage.summary,
-    pair.stats.list,
-    pair.plot.df,
-    ...){
-# Start with coverage data
-    coverage.summary %>%
-    filter(
-        weight == 'raw',
-        metric == 'cis',
-        chr == 'genome.wide',
-        ReadFilter == 'mapq_30',
-        # bins.pct.covered >= 0.80
-    ) %>% 
-    # Pick the smallest resolution that is valid for each sample
-    mutate(resolution.is.valid=bins.pct.covered >= 0.80) %>% 
-    group_by(Sample.ID) %>% 
-    slice_min(
-        tibble(desc(resolution.is.valid), resolution),
-        n=1,
-        with_ties=FALSE
-    ) %>% 
-    ungroup() %>% 
-    select(
-        -c(
-            resolution.is.valid,
-            weight,
-            metric,
-            chr
-        )
-    ) %>%
-    mutate(ReadFilter=as.integer(str_remove(ReadFilter, 'mapq_'))) %>% 
-    pivot_longer(
-        c(starts_with('bins'), resolution, ReadFilter),
-        names_to='metric',
-        values_to='n'
-    ) %>%
-    mutate(
-        metric=
-            case_when(
-                metric == 'ReadFilter'       ~ 'Minimum MAPQ',
-                metric == 'resolution'       ~ 'Minimum Usable Resolution',
-                metric == 'bins.n.total'     ~ '# of Bins',
-                metric == 'bins.n.nz'        ~ '# of Bins > 0 Contacts',
-                metric == 'bins.pct.nz'      ~ '% Bins > 0 Contacts',
-                metric == 'bins.n.covered'   ~ 'Bins >= 1K Contacts',
-                metric == 'bins.pct.covered' ~ '% Bins >= 1K Contacts',
-                TRUE ~ NA
-            )
-    ) %>% 
-    filter(!is.na(metric)) %>% 
-    # add pair categories
-    bind_rows(
-        pair.plot.df %>%
-        select(
-            Sample.ID,
-            Category,
-            value
-        ) %>%
-        rename(
-            'metric'=Category,
-            'n'=value
-        ) %>%
-        mutate(metric=paste0('pairs.', metric))
-    ) %>% 
-    # Add stats per matrix
-    bind_rows(
-        pair.stats.list$general.stats %>%
-        select(
-            Sample.ID,
-            stat,
-            value
-        ) %>%
-        rename(
-            'metric'=stat,
-            'n'=value
-        )
-    ) %>% 
-    pivot_wider(
-        names_from=metric,
-        values_from=n
-    ) %>%
-    arrange(Sample.ID)
-}
-
 make_pair_qc_df <- function(
     pair.stats.list,
     cols_to_keep=c(),
@@ -254,6 +169,73 @@ make_pair_qc_df <- function(
     ) %>% 
     ungroup() %>% 
     mutate(frac=(value / total.unique.contacts))
+}
+
+make_summary_stats_table <- function(
+    min.resolutions,
+    pair.stats.list,
+    pairs.plot.df,
+    ...){
+    # Start with coverage data
+    min.resolutions %>% 
+    select(
+        SampleID,
+        ReadFilter,
+        # metric,
+        # chr,
+        `Min. Viable Resolution`,
+        `# Total Bins`,
+        `# Bins > 0`,
+        `% Bins > 0`,
+        `# Bins >= 1K`,
+        `% Bins >= 1K`
+    ) %>% 
+    rename('Min. MAPQ Threshold'=ReadFilter) %>% 
+    mutate(across(where(is.numeric), as.character)) %>% 
+    pivot_longer(
+        -c(SampleID),
+        names_to='metric',
+        values_to='value'
+    ) %>%
+    # add pair categories
+    bind_rows(
+        pairs.plot.df %>%
+        select(
+            SampleID,
+            Category,
+            value
+        ) %>%
+        rename(
+            'metric'=Category,
+            'value'=value
+        ) %>%
+        mutate(
+            metric=paste0('pairs.', metric),
+            value=as.character(value)
+        )
+    ) %>% 
+        # distinct(SampleID) %>% print(n=Inf)
+        # {.} %>% head(2) %>% t()
+    # Add stats per matrix
+    bind_rows(
+        pair.stats.list$general.stats %>%
+        select(
+            SampleID,
+            stat,
+            value
+        ) %>%
+        mutate(value=as.character(value)) %>% 
+        rename('metric'=stat)
+    ) %>% 
+    pivot_wider(
+        names_from=metric,
+        values_from=value
+    ) %>%
+    arrange(SampleID) %>%
+        pivot_longer(-c(SampleID)) %>%
+        group_by(SampleID) %>% 
+        summarize(n.missing=sum(is.na(value))) %>% 
+        arrange(desc(n.missing))
 }
 
 get_matrix_minimum_resolutions <- function(
