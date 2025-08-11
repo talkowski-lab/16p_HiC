@@ -254,19 +254,3 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 
 ### Differential Contact Analysis
 
-## Misc
-
-### Restriction Fragment Analysis
-
-We use `pairtools restrict` [docs](https://pairtools.readthedocs.io/en/latest/examples/pairtools_restrict_walkthrough.html) to annotate restriction fragments for each HiC read and use this for quality control.
-
-The fist step is to generate the digested reference bed file for our data. This script Assumes genome fasta + bwa index are in the directory `${REF_DIR}`, specified as a variable in `./scripts/matrix.utils.sh`. 
-
-```bash
-# Generate multi-digested reference since we use ARIMA kit for HiC 
-$ ./scripts/matrix.utils.sh digest_genome
-# Annotate restriction fragments to reads with pairtools
-$ ./scripts/matrix.utils.sh restrict                 # run pairtools restrict
-        ./results/sample.QC/restriction.analysis/    # output dir
-        ./results/pairs_library/**/*.nodups.pairs.gz # pairsfiles for each sample
-```

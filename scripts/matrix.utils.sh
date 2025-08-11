@@ -1,37 +1,22 @@
 #!/bin/bash
 set -euo pipefail
+# Matrix/Sample information
+RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
+# MAPQ_FITERS=("mapq_30" "no_filter")
+MAPQ_FITERS=("mapq_30")
+# 16p Information
+GENOTYPES_16P=(WT DEL DUP)
+CELLTYPES_16P=("iN" "NSC")
+# Edit information
+EDITS=(NIPBL WAPL)
+GENOTYPES_EDITS=(WT DEL)
+CELLTYPES_EDITS=("iN")
 # Technical Args
 SEED=9  # Random seed for qc3C
 # Genomic reference files
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
 GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
 GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
-# Reference files for pairtools restrict using ARIMA HiC kit
-REF_NAME=$(basename $GENOME_REFERENCE)
-REF_NAME="${REF_NAME%%.fasta}"
-DPNII_DIGESTION="${REF_DIR}/${REF_NAME}.DpnII.digested.bed"
-HINFI_DIGESTION="${REF_DIR}/${REF_NAME}.HinfI.digested.bed"
-ARIMA_DIGESTION="${REF_DIR}/${REF_NAME}.ARIMA.digested.bed"
-DDEI_DIGESTION="${REF_DIR}/${REF_NAME}.DdeI.digested.bed"
-HIC3_DIGESTION="${REF_DIR}/${REF_NAME}.HIC3.digested.bed"
-# MAPQ_FITERS=("mapq_30" "no_filter")
-# CELLTYPES=("iN" "NSC")
-CELLTYPES=("NSC")
-MAPQ_FITERS=("mapq_30")
-RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
-# 1000     #   1Kb
-# 2000     #   2Kb
-# 5000     #   5Kb
-# 10000    #  10Kb
-# 25000    #  25Kb
-# 50000    #  50Kb
-# 100000   # 100Kb
-# 250000   # 250Kb
-# 500000   # 500Kb
-# 1000000  #   1Mb
-# 2500000  # 2.5Mb
-# 5000000  #   5Mb
-# 10000000 #  10Mb
 # Utils
 help() {
     if [[ $# -eq 0 ]]; then
@@ -144,50 +129,6 @@ plot_fanc() {
             ${sample_file}@${resolution}
         # fancplot chr16:0mb-96mb --output ./WT_VS_DEL.Merged.100K.heatmap.pdf -p split --title 'Merged WT vs Merged DEL Contacts chr16' ../coolers_library/16pWTNSCHIC_S5S6.hg38.mapq_30.1000.mcool::resolutions/100000 ../coolers_library/16pDELNSCHIC_S1S2.hg38.mapq_30.1000.mcool::resolutions/100000
 done
-}
-# Restrict Fragment analysis
-digest_genome_arima() {
-    # The cooler^1 docs shows that to analyze a multi-enzyme digestion you can "partition" the two individual digestion, as bedops^2 does.
-    ## 1: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
-    ## 2: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
-    activate_conda 'cooler'
-    echo "Creating DpnII Ref at: ${DPNII_DIGESTION}"
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
-    echo "Creating HinfI Ref at: ${HINFI_DIGESTION}"
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${HINFI_DIGESTION}"
-    # "merge" the two digestions i.e. list all genome fragments has with a breakpoint at cut sites for 1 of any enzyme supplied
-    echo "\"Merging\" digestions at: ${ARIMA_DIGESTION}"
-    bedops --partition "${DPNII_DIGESTION}" "${HINFI_DIGESTION}" >| "${ARIMA_DIGESTION}"
-}
-digest_genome_hic3() {
-    # The cooler^1 docs shows that to analyze a multi-enzyme digestion you can "partition" the two individual digestion, as bedops^2 does.
-    ## 1: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
-    ## 2: https://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#partition-p-partition
-    activate_conda 'cooler'
-    echo "Creating DpnII Ref at: ${DPNII_DIGESTION}"
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE DpnII >| "${DPNII_DIGESTION}"
-    echo "Creating DdeI Ref at: ${DDEI_DIGESTION}"
-    cooler digest $GENOME_CHR_SIZES $GENOME_REFERENCE HinfI >| "${DDEI_DIGESTION}"
-    # "merge" the two digestions i.e. list all genome fragments has with a breakpoint at cut sites for 1 of any enzyme supplied
-    echo "\"Merging\" digestions at: ${HIC3_DIGESTION}"
-    bedops --partition "${DPNII_DIGESTION}" "${DDEI_DIGESTION}" >| "${HIC3_DIGESTION}"
-}
-pairtools_restrict() {
-    mkdir -p "${1}"
-    output_dir="$(readlink -e "${1}")"
-    pairs_files=${@:2}
-    activate_conda 'pairtools'
-    for sample_file in ${pairs_files[@]}; do
-        [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
-        output_file="${output_dir}/${sample_ID}.ARIMA.restricted.pairs"
-        pairtools restrict               \
-            --frags "${ARIMA_DIGESTION}" \
-            --output ${output_file}      \
-            ${sample_file}
-    done
 }
 # Merging matrices 
 merge_matrices() {
