@@ -318,88 +318,49 @@ get_all_matrix_minimum_resolutions <- function(
 }
 ###############
 # Plot Matrix QC stuff
-plot_qc_barplot <- function(
+plot_barplot_with_threshold_lines <- function(
     plot.df,
-    y_val,
-    fill_col='Sample.ID',
-    facet_col='Edit',
-    facet_row='isMerged',
-    scales='fixed',
-    scale_y_method='',
-    log_base=10,
-    axis_label_accuracy=1,
-    expand=c(0.00, 0.00, 0.00, 0.00),
-    n_breaks=5,
-    limits=NULL,
-    ...){
-    figure <- 
-        plot.df %>%
-        ggplot(
-            aes(
-                x=Category,
-                y=.data[[y_val]],
-                fill=.data[[fill_col]]
-            )
-        ) +
-        geom_col(position = "dodge") +
-        guides(fill=guide_legend(ncol=1)) +
-        facet_grid(
-            rows=vars(!!sym(facet_row)),
-            cols=vars(!!sym(facet_col)),
-            scales=scales
-        ) +
-        # labs(y=y_val) +
-        theme(
-            ...,
-            axis.title.x=element_blank(),
-            axis.text.x=
-                element_text(
-                    hjust=1,
-                    angle=35
-                )
-        ) + 
-        add_ggtheme()
-    # scale axis
-    figure %>% 
-    scale_y_axis(
-        mode=scale_y_method,
-        axis_label_accuracy=axis_label_accuracy,
-        log_base=log_base,
-        expand=expand,
-        n_breaks=n_breaks,
-        limits=limits
-    )
-}
-
-add_lines_qc_barplot <- function(
-    plot.df,
+    lines.df,
+    y_lower=0.15,
+    y_upper=0.40,
+    line_bleed=0.65,
     linewidth=0.4,
     linetype='dashed',
     ...){
-    plot.df %>% 
+    # lines.df <- 
+    #     tribble(
+    #         ~Category, ~y_lower, ~y_upper,
+    #         'long range', 0.15, 0.40
+    #     )
+    lines.variable <- 
+        lines.df %>% select(-c(y_lower, y_upper)) %>% colnames() %>% unlist() 
+    # Define where to draw horizontal threshold lines and how long across bars
+    lines.df %>% 
     mutate(
-        x_line=
-            ifelse(
-                grepl('long range', Category, ignore.case=TRUE), 
-                as.numeric(Category) - 0.55,
-                NA
-            ),
-        xend_line=
-            ifelse(
-                grepl('long range', Category, ignore.case=TRUE),
-                as.numeric(Category) + 0.55,
-                NA
-            )
+        !!lines.variable := 
+                factor(
+                    !!sym(lines.variable),
+                    levels=levels(plot.df[[lines.variable]])
+                ),
+        x_line=as.numeric(!!sym(lines.variable)) - line_bleed,
+        xend_line=as.numeric(!!sym(lines.variable)) + line_bleed
     ) %>% 
-    plot_qc_barplot(...) +
-    # Draw extra line on qc plot
+    # add this to ploting data
+    right_join(
+        plot.df,
+        by=lines.variable
+    ) %>% 
+        # {.}
+    # Draw regular barplot 
+    plot_barplot(...) +
+    # Draw threshold lines on top of the barplot with parameters set above
     geom_segment(
         aes(
             x=x_line,
             xend=xend_line
         ),
-        y=0.15, 
-        yend=0.15,
+        y=y_lower,
+        yend=y_lower,
         color='red',
         linewidth=linewidth,
         linetype=linetype
@@ -409,8 +370,8 @@ add_lines_qc_barplot <- function(
             x=x_line,
             xend=xend_line
         ),
-        y=0.40,
-        yend=0.40,
+        y=y_upper,
+        yend=y_upper,
         color='green',
         linewidth=linewidth,
         linetype=linetype
@@ -419,7 +380,8 @@ add_lines_qc_barplot <- function(
 
 plot_pair.orientation_lineplot <- function(
     plot.df,
-    facet_col,
+    facet_row,
+    legend.position.inside=c(0.95, 0.25), # c(0,0) bottom left, c(1,1) top-right.
     ...){
     plot.df %>% 
     ggplot(
@@ -428,56 +390,72 @@ plot_pair.orientation_lineplot <- function(
             y=value,
         )
     ) + 
-    # geom_line(aes(linetype=orientation, color=Sample.ID)) +
+    # geom_line(aes(linetype=orientation, color=SampleID)) +
     geom_line(aes(color=orientation)) +
-    # geom_text(aes(label=Sample.ID), x=1.5, y=1.8) +
-    scale_x_log10(labels=label_log()) +
-    scale_y_log10(labels=label_log()) +
-    # facet_wrap( ~ Sample.ID, ncol=3) +
+    # geom_text(aes(label=SampleID), x=1.5, y=1.8) +
+    scale_x_log10(
+        guide='axis_logticks',
+        labels=
+            label_log(
+                base=10,
+                signed=FALSE
+            )
+    ) +
+    # scale_x_continuous(
+    #     labels=
+    #         label_bytes(
+    #             units="auto_si",
+    #             accuracy=0.1
+    #         )
+    # ) +
+    scale_y_log10(
+        guide='axis_logticks',
+        labels=
+            label_log(
+                base=10,
+                signed=FALSE
+            )
+    ) +
+    # facet_wrap( ~ SampleID, ncol=3) +
     facet_grid(
-        cols=vars(!!sym(facet_col)),
+        rows=vars(!!sym(facet_row)),
         scales='fixed'
     ) +
     labs(
         x='Pair Distance',
         y='Raw Contacts'
     ) +
-    theme(
+    make_ggtheme(
         legend.position='inside',
-        legend.position.inside=c(0.95, 0.25), # c(0,0) bottom left, c(1,1) top-right.
+        legend.position.inside=legend.position.inside,
         ...
-    ) +
-    add_ggtheme()
+    )
 }
 
 plot_cistrans_chromosome_heatmap <- function(
     plot.df,
     fill_var,
-    facet_col,
+    facet_group,
+    scales='fixed',
+    legend.position='top',
+    axis.text.x=element_text(angle=45, hjust=1),
     ...){
     plot.df %>%
-    ggplot(
-        aes(
-            x=chr1,
-            y=chr2
-        )
-    ) +
-    geom_tile(
-        aes(
-            fill=.data[[fill_var]]
-        )
+    plot_heatmap(
+        x_var='chr1',
+        y_var='chr2',
+        fill_var=fill_var, 
+        facet_row=NULL,
+        facet_col=NULL,
+        facet_group=facet_group,
+        legend.position=legend.position,
+        axis.text.x=axis.text.x,
+        scales=scales,
+        ...
     ) +
     scale_fill_gradient(
         low='grey90',
         high='red'
     ) +
-    facet_grid(
-        cols=vars(!!sym(facet_col)),
-        scales='fixed'
-    ) +
-    theme(
-        legend.position='top',
-        axis.text.x=element_text(angle=45, hjust=1)
-    ) +
-    add_ggtheme()
+    theme(axis.title=element_blank())
 }
