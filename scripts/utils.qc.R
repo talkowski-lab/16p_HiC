@@ -4,7 +4,8 @@ library(purrr)
 ###############
 # Load various QC data files/sets of files
 load_pairtools_stats <- function(
-    stats_file_suffix='.HiC.hg38.dedup.stats',
+    stats_file_suffix='.hg38.dedup.stats',
+    samples.to.include=NULL,
     ...){
     # Load all stats
     all.stats.df <- 
@@ -16,7 +17,14 @@ load_pairtools_stats <- function(
         ) %>%
         tibble(fileinfo=.) %>% 
         mutate(filepath=file.path(PAIRS_DIR, fileinfo)) %>% 
-        mutate(Sample.ID=str_remove(basename(fileinfo), stats_file_suffix)) %>% 
+        mutate(SampleID=str_remove(basename(fileinfo), stats_file_suffix)) %>% 
+        {
+            if (!is.null(samples.to.include)) {
+                filter(., SampleID %in% samples.to.include)
+            } else {
+                .
+            }
+        } %>% 
         select(-c(fileinfo)) %>% 
         mutate(
             stats=
@@ -28,6 +36,7 @@ load_pairtools_stats <- function(
                             show_col_types=FALSE,
                             col_names=c('stat', 'value')
                         ) %>%
+                        # ignore stat that is not included in all outputs 
                         filter(stat != 'summary/dist_freq_convergence/strands_w_max_convergence_dist') %>%
                         mutate(value=as.numeric(value))
                     }
@@ -35,27 +44,21 @@ load_pairtools_stats <- function(
         ) %>%
         select(-c(filepath)) %>%
         unnest(stats)
+    # Compute stats for merged matrices and add as new rows
     all.stats.df <- 
         all.stats.df %>% 
-        separate_wider_delim(
-            Sample.ID,
-            delim=fixed('.'),
-            names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
-            cols_remove=FALSE
-        ) %>% 
-        group_by(Edit, Genotype, Celltype, stat) %>%
+        get_info_from_SampleIDs(keep_id=FALSE) %>% 
+        group_by(Edit, Celltype, Genotype, stat) %>% 
         summarize(value=sum(value)) %>%
         ungroup() %>% 
-        mutate(Sample.ID=glue('{Edit}.{Genotype}.Merged.{Celltype}')) %>%
-        select(-c(Edit, Genotype, Celltype)) %>% 
+        add_column(
+            CloneID='Merged',
+            TechRepID='Merged'
+        ) %>% 
+        mutate(SampleID=glue('{Edit}.{Celltype}.{Genotype}.{CloneID}.{TechRepID}')) %>% 
+        select(-c(Edit, Celltype, Genotype, CloneID, TechRepID)) %>% 
         bind_rows(all.stats.df)
-    # Get total number of contacts per sample
-    total.contacts.df <- 
-        all.stats.df %>% 
-        filter(!grepl('/', stat)) %>%
-        filter(stat == 'total_nodups') %>% 
-        select(Sample.ID, value) %>%
-        dplyr::rename('total.unique.contacts'=value)
+    # all.stats.df %>% distinct(SampleID)
     # Matrix-wide stats
     general.stats.df <- 
         all.stats.df %>% 
@@ -66,11 +69,7 @@ load_pairtools_stats <- function(
                     grepl('total', stat) ~ 'Reads', 
                     TRUE ~ 'Contacts'
                 )
-        ) %>% 
-        left_join(
-            total.contacts.df,
-            by='Sample.ID'
-        )
+        ) 
     # stats about contact distances
     dist.stats.df <- 
         all.stats.df %>% 
@@ -93,8 +92,7 @@ load_pairtools_stats <- function(
             too_few='align_start'
         ) %>%
         mutate(across(starts_with('range'), ~ as.integer(.x))) %>% 
-        mutate(interaction='cis') %>%
-        left_join(total.contacts.df, by='Sample.ID')
+        mutate(interaction='cis')
     # Contact Frequency Stats per Chromosome
     chr.stats.df <- 
         all.stats.df %>% 
@@ -109,13 +107,35 @@ load_pairtools_stats <- function(
                     'chr2'
                 )
         ) %>% 
-        left_join(total.contacts.df, by='Sample.ID')
-    # Return named list of all stuff
+        mutate(across(starts_with('chr'), ~ factor(.x, levels=CHROMOSOMES)))
+    # Get total number of contacts per sample
+    total.contacts.df <- 
+        all.stats.df %>% 
+        filter(!grepl('/', stat)) %>%
+        filter(stat == 'total_nodups') %>% 
+        select(SampleID, value) %>%
+        dplyr::rename('total.unique.contacts'=value)
+    # Return named list of all stuff + add total contacts in each sample for computing %
     return(
         list(
-            'general.stats'=general.stats.df,
-            'distance.stats'=dist.stats.df,
-            'chr.stats'=chr.stats.df
+            'general.stats'=
+                general.stats.df %>% 
+                left_join(
+                    total.contacts.df,
+                    by='SampleID'
+                ),
+            'distance.stats'=
+                dist.stats.df %>% 
+                left_join(
+                    total.contacts.df,
+                    by='SampleID'
+                ),
+            'chr.stats'=
+                chr.stats.df %>% 
+                left_join(
+                    total.contacts.df,
+                    by='SampleID'
+                )
         )
     )
 }
@@ -159,11 +179,11 @@ make_pair_qc_df <- function(
                     )
             )
     ) %>% 
-    group_by(Sample.ID, Category) %>% 
+    group_by(SampleID, Category) %>% 
     summarize(
         value=sum(value),
         across(
-            c('total.unique.contacts', cols_to_keep),
+            all_of(c('total.unique.contacts', cols_to_keep)),
             ~ unique(.x)
         )
     ) %>% 
@@ -239,15 +259,11 @@ make_summary_stats_table <- function(
 }
 
 get_matrix_minimum_resolutions <- function(
-    input_data,
+    filepath,
     ...){
-    {
-        if (is_tibble(input_data)) {
-            input_data
-        } else {
-            load_genome_coverage(input_data)
-        }
-    } %>% 
+    # Based on the definition from the Rao et al. 2014
+    filepath %>% 
+    load_genome_coverage() %>% 
     group_by(across(-c(start, end, coverage))) %>% 
     summarize(
         bins.n.nz=sum(coverage > 0),
@@ -283,16 +299,23 @@ get_matrix_minimum_resolutions <- function(
 }
 
 get_all_matrix_minimum_resolutions <- function(
+    file.suffix='-coverage.tsv',
     resolutions=NULL,
     ...){
     # List input files (generated by cooltools coverage)
     parse_results_filelist(
         input_dir=COVERAGE_DIR,
-        suffix='-coverage.tsv',
-        filename.column.name='matrix.name',
+        suffix=file.suffix,
+        filename.column.name='MatrixID',
         param_delim='_',
     ) %>%
-    process_matrix_name() %>% 
+    mutate(MatrixID=str_remove(MatrixID, file.suffix)) %>% 
+    get_info_from_MatrixIDs(
+        ID_col='MatrixID',
+        keep_id=FALSE,
+        nest_col=NA,
+        add_sample_id=TRUE,
+    ) %>% 
     # Only need raw coverage
     filter(weight == 'raw') %>% 
     # Ignore results not matching param values
@@ -303,8 +326,7 @@ get_all_matrix_minimum_resolutions <- function(
             filter(., resolution %in% resolutions) 
         } 
     } %>%
-    mutate(resolution=as.integer(resolution)) %>%
-    mutate(input_data=filepath) %>% 
+    # load each coverage file and count % of bins > 0 and > 1000 contacts
     mutate(
         min.resolution.results=
             pmap(
@@ -314,7 +336,7 @@ get_all_matrix_minimum_resolutions <- function(
             )
     ) %>%
     unnest(min.resolution.results) %>%
-    select(-c(input_data))
+    select(-c(filepath))
 }
 ###############
 # Plot Matrix QC stuff

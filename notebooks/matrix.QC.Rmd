@@ -113,53 +113,72 @@ min.resolutions
 
 # Plot pairs by distance {.tabset}
 
-```{r pair_plot_df, include=FALSE}
-pairs.df <- make_pair_qc_df(pair.stats.list)
+Load output of `pairtools stats` 
+```{r load_stats, rows.print=5, message=FALSE, results=FALSE}
+pair.stats.list <- 
+    load_pairtools_stats(samples.to.include=samples.to.include)
 pairs.plot.df <- 
-    pairs.df %>% 
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
-        cols_remove=FALSE
-    ) %>% 
-    mutate(isMerged=ifelse(grepl('Merged', SampleNumber), 'Merged', 'Individual'))
+    pair.stats.list %>%
+    make_pair_qc_df() %>% 
+    get_info_from_SampleIDs()
+barplot.ggtheme <- 
+    make_ggtheme(
+        legend.position='bottom',
+        legend.text=element_text(size=7),
+        legend.key.size=unit(10, "pt"),
+        axis.text.x=element_text(angle=35, hjust=1),
+        axis.title.x=element_blank()
+    )
 ```
 
 ## Number of pairs 
 
-```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=5}
+```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=7}
 pairs.plot.df %>% 
     rename('Unique Pairs'=value) %>% 
-    plot_qc_barplot(
-        y_val='Unique Pairs',
-        fill_col='Sample.ID',
+    plot_barplot(
+        x_var='Category',
+        y_var='Unique Pairs',
+        fill_var='SampleID',
         facet_col='Celltype',
         facet_row='isMerged',
         scales='free_y',
-        scale_y_method='log10'
+        scale_mode='log10',
+        limits=c(1e6, NA),
+        legend_cols=4,
+        theme_obj=barplot.ggtheme
     )
 ```
 
 ## % of pairs 
 
-```{r plot_pct_pairs, echo=FALSE, fig.align='center', fig.height=5}
+```{r plot_pct_pairs, echo=FALSE, fig.align='center', fig.height=7}
 pairs.plot.df %>% 
     rename('Unique Pairs'=frac) %>% 
-    add_lines_qc_barplot(
-        y_val='Unique Pairs',
-        fill_col='Sample.ID',
+    plot_barplot_with_threshold_lines(
+        # normal barplot arguments
+        x_var='Category',
+        y_var='Unique Pairs',
+        fill_var='SampleID',
         facet_col='Celltype',
         facet_row='isMerged',
-        scale_y_method='pct',
-        scales='fixed',
+        scales='free_y',
+        scale_mode='pct',
+        theme_obj=barplot.ggtheme,
+        legend_cols=4,
+        # where to draw lines
+        lines.df=
+            tribble(
+                ~Category, ~y_lower, ~y_upper,
+                'Long Range  >  20Kb', 0.15, 0.40
+            )
     )
 ```
 
 # Plot read orientation frequency over distance
 
 Recreating Figure 1 from the [ENCODE HiC Guidelines](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/).
-
+First format all the orientation data
 ```{r pair_orientation_df, message=FALSE, warning=FALSE}
 pair.orientation.df <- 
     pair.stats.list$distance.stats %>% 
@@ -177,29 +196,25 @@ pair.orientation.df <-
             str_replace_all(fixed('+'), '>') %>% 
             str_replace_all(fixed('-'), '<')
     ) %>% 
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
-        cols_remove=FALSE
-    )
+    get_info_from_SampleIDs()
 ```
-
-
-```{r plot_pair_orientation, results='asis', message=FALSE, warning=FALSE}
+Now plot distance vs # of pairs for each pair orientation
+```{r plot_pair_orientation, results='asis', fig.height=11, fig.width=6}
 pair.orientation.df %>% 
     filter(interaction == 'cis') %>% select(-c(interaction)) %>%
     filter(value > 0) %>% 
     make_nested_plot_tabs(
         group_cols=c('Celltype', 'Genotype'),
         plot_fnc=plot_pair.orientation_lineplot,
-        facet_col='Sample.ID'
+        facet_row='SampleID',
+        legend.position.inside=c(0.85, 0.80), # c(0,0) bottom left, c(1,1) top-right.
     )
 ```
 
 # Plot heatmap of cis/trans interactions
 
 ```{r noncon_chr_mapping, include=FALSE}
+# Count how many pairs of map to non-canonical chromosomes in the assembly
 message('Print reads mapping to unused chromosomes')
 pair.stats.list$chr.stats %>% 
     mutate(
@@ -210,27 +225,28 @@ pair.stats.list$chr.stats %>%
                 chr1 != chr2 ~ 'trans'
             )
     ) %>%
-    group_by(Sample.ID, pair.types) %>% 
+    group_by(SampleID, pair.types) %>% 
     dplyr::summarize(sum=sum(value))
 ```
-
+Get number of contacts between all pairs of chromosomes (intra & inter)
 ```{r cis_trans_plot_df, include=FALSE}
 plot.df  <- 
     pair.stats.list$chr.stats %>% 
     rename('contacts'=value) %>% 
-    filter( 
-        if_all(
-            starts_with('chr'),
-            ~ !grepl('(_|EBV)', .x)
-        )
-    ) %>% 
+    # filter non-canonical chromosomes
+    # filter( 
+    #     if_all(
+    #         starts_with('chr'),
+    #         ~ !grepl('(_|EBV)', .x)
+    #     )
+    # ) %>% 
     mutate(
         across(
             starts_with('chr'),
             ~ factor(.x, levels=CHROMOSOMES)
         )
     ) %>% 
-    group_by(Sample.ID) %>% 
+    group_by(SampleID) %>% 
     mutate(
         `% Total Contacts`=100 * (contacts / total.unique.contacts),
         `log10(Contacts)`=log10(contacts)
@@ -242,20 +258,20 @@ plot.df  <-
         values_to='value'
     )
 ```
-
-```{r plot_cis_trans, results='asis'}
+Plot all contacts between all chromosomes as heatmaps
+```{r plot_cis_trans, results='asis', fig.height=6, fig.width=8}
 plot.df %>% 
-    separate_wider_delim(
-        Sample.ID,
-        delim=fixed('.'),
-        names=c('Edit', 'Genotype', 'SampleNumber', 'Celltype'),
-        cols_remove=FALSE
+    get_info_from_SampleIDs(
+        sample_ID_col='SampleID',
+        keep_id=TRUE,
+        nest_col=NA,
     ) %>% 
     make_nested_plot_tabs(
         group_cols=c('Celltype', 'Genotype', 'metric'),
+        max_header_lvl=3,
         plot_fnc=plot_cistrans_chromosome_heatmap,
         fill_var='value',
-        facet_col='Sample.ID'
+        facet_group='SampleID'
     )
 ```
 
