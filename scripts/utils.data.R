@@ -66,8 +66,10 @@ parse_results_filelist <- function(
     param_delim='_',
     ...){
     # !!NOTICE!!
-    # This will break if any parameter_dir name has a param_delim character in the name or value
+    # This will break if any parameter_dir name has a param_delim character in the name or value, not as the delimiter
     # This shouldnt  break if the filename has a single param_delim character in it 
+    # i.e. min_resolution-0.45 is fine when param_delim='-'
+    #      min_resolution_0.45 is will break with any value for param_delim
     # input_dir=HICREP_DIR; suffix='-hicrep.txt'; filename.column.name='file.pair'; param_delim='_'
     suffix_pattern <- glue('*{suffix}$')
     # List all results files that exist
@@ -114,7 +116,6 @@ parse_results_filelist <- function(
     readr::type_convert()
 }
 
-process_matrix_name <- function(
 glue_sample_ID <- function(
     Edit,
     Celltype,
