@@ -205,9 +205,40 @@ After this there is a `.Rmd` notebook that coallates these files into a single n
 
 ### TAD Analysis
 
+We produce TAD annotations from the individual and merged matrices. 
+We use the individual matrix annotations to assess (
+
 #### TAD Annotation
 
+We generate the TAD annotations we use 2 different programs:
+
+1. [HiTAD](https://xiaotaowang.github.io/TADLib/domaincaller.html)
+2. [cooltools insulation](https://cooltools.readthedocs.io/en/latest/cli.html#cooltools-insulation)
+
+For `HiTAD` we only generate single-level TADs (not hierarchical) using default parameters. This produces a set of bin-pairs, each pair marking the start and end of the predicted TAD.
+
+For `cooltools insulation` it only annotates whether a bin is a TAD boundary or not, it does not group a pair of boundaries to explicitly define the start/end of a specific TAD.
+This changes the downstream analysis, but it is easy to adjust for the sake of making comparisons between 2 different TAD annotations.
+For cooltools we also compute TAD annotations for multiple sets of hyper-parameters, just to asses how much these parameters affect the annotations.
+
+Both of these tools also output the Diamond Insulation (DI) score calcualted per genomic bin.
+This can be used to score regions to compare the relative insulation of regions. 
+This likely only makes sense to calculate between boundaries or maybe just compare the distribution of all insulation scores across all bins within 2 regions.
+No specific plans to do this analysis yet
+The DI annotation data can also be compared directly to ATAC-Seq data to look for regions of high correlation between ATAC-Seq tracks and DI tracks.
+We can also check if is ATAC peaks and and insulation boundaries are close/overlap (midpoint distance?)
+
 #### TAD Comparison
+
+For 2 different TAD annotation sets (start/end pairs) of the same region (e.g. chr16) we can calculate the similarity of the 2 sets by computing the Measure of Concordance as defined in [this paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-018-1596-9#Sec21). 
+
+For 2 different TAD boundary annotation sets (just is/is not a boundary) of the same region we can calculate similarity as follows:
+1. Calculate the distance between all pairs of boundaries between the sets
+2. For each boundary in set 1 pick the boundary in set 2 with the samllest distance
+3. If there are any boundaries are set 2 that are the nearest to 2 different set 1 bounadaries, assign it to the closest set 1 boundary and assign the 2nd closest boundary in set 2 to the remaining set 1 boundary
+4. Using all the boundary-pair distance, summarize in at least 1 of the following ways
+   1. Test if the distribution is > 0 (KS-test vs Gaussian + observed variance) -> need to correct p-values since there are many tests (1 per pair of TAD annotation set)
+   2. Calculate mean distance and just compare that between pairs
 
 ### Loop Analysis
 
@@ -215,6 +246,11 @@ After this there is a `.Rmd` notebook that coallates these files into a single n
 
 #### Loop Comparison
 
+### Compartment Analysis
+
+#### Compartment Annotation
+
+#### Compartment Comparison
 
 ### Differential Contact Analysis
 
