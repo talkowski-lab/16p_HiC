@@ -4,94 +4,91 @@ library(glue)
 library(tictoc)
 ###############
 # Load resutls
-load_all_hicrep_results <- function(){
+load_all_hicrep_results <- function(sample_metadata=NULL){
     # Load all files generated from ./scripts/run.hicrep.sh
+    # sample_metadata=sample.metadata %>% select( SampleID, Batch)
     parse_results_filelist(
         input_dir=HICREP_DIR,
         suffix='-hicrep.txt',
         filename.column.name='file.pair',
         param_delim='_'
     ) %>%
+    # Separate IDs of 2 matrices being compared for each results file
     separate_wider_delim(
         file.pair,
         delim='-',
         names=
             c(
-                'A',
-                'B',
+                'MatrixID.P1',
+                'MatrixID.P2',
                 NA
             )
     ) %>% 
-    # Get sample info for each pair
-    separate_wider_delim(
-        c(A, B),
-        delim=fixed('.'),
-        names_sep='.',
-        names=
-            c(
-                "Edit", 
-                "Genotype",
-                "SampleNumber",
-                "Celltype",
-                NA,
-                NA,
-                "ReadFilter",
-                NA
-            ),
-        cols_remove=FALSE
+    # Extract sample metadata from IDs
+    get_info_from_MatrixIDs(
+        matrix_ID_col='MatrixID.P1',
+        keep_id=FALSE,
+        sample_ID_col='SampleInfo.P1.SampleID',
+        col_prefix='SampleInfo.P1.',
+        nest_col=NA
+    ) %>% 
+    # Add extra sample metadata as paired columns 
+    # NOTE: using right_join to filter samples only present in the metadata table
+    inner_join(
+        .,
+        sample_metadata %>% 
+        rename_with(
+            .fn=~ str_replace(.x, '^', 'SampleInfo.P1.'),
+            .cols=-c(SampleID)
+        ),
+        by=join_by(SampleInfo.P1.SampleID == SampleID)
+    ) %>% 
+    # Repeat for the other sample in each pair
+    get_info_from_MatrixIDs(
+        matrix_ID_col='MatrixID.P2',
+        keep_id=FALSE,
+        sample_ID_col='SampleInfo.P2.SampleID',
+        col_prefix='SampleInfo.P2.',
+        nest_col=NA
+    ) %>% 
+    # NOTE: using right_join to filter samples only present in the metadata table
+    inner_join(
+        .,
+        sample_metadata %>% 
+        rename_with(
+            .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
+            .cols=-c(SampleID)
+        ),
+        by=join_by(SampleInfo.P2.SampleID == SampleID)
+    ) %>% 
+    # Now format sample metadata per pair for easy grouping+plotting
+    nest(
+        SampleInfo.P1=starts_with('SampleInfo.P1.'),
+        SampleInfo.P2=starts_with('SampleInfo.P2.')
     ) %>%
-    rename(
-        'A.SampleID'=A.A,
-        'B.SampleID'=B.B
-    ) %>% 
-    mutate(
-        across(
-            ends_with('SampleID'),
-             ~ .x %>%
-               str_extract('(([^\\.]+\\.){3}[^\\.]+)\\.(.*$)', group=1) %>%
-               str_replace_all(fixed('.'), '~') # temp change delim so ID stays intact
-        )
-    ) %>% 
-    mutate(
-        A.isMerged=ifelse(grepl('Merged', A.SampleNumber), 'Merged', 'Individual'),
-        B.isMerged=ifelse(grepl('Merged', B.SampleNumber), 'Merged', 'Individual')
-    ) %>% 
-    # Group HiCRep comparisons by mis/matching sample attributes
-    pivot_longer(
-        c(starts_with('A.'), starts_with('B.')),
-        names_to='Sample.Attribute',
-        values_to='Value'
-    ) %>% 
-    separate_wider_delim(
-        Sample.Attribute,
-        delim=fixed('.'),
-        names=c('Sample.Index', 'Sample.Attribute')
-    ) %>%
-    pivot_wider(
-        names_from=Sample.Index,
-        values_from=Value
-    ) %>% 
-    # Now group pairs by difference in specific sample metadata (genotype, celltype)
     rowwise() %>% 
     mutate(
-        SamplePairType=
-            case_when(
-                A == B ~ glue('{A} vs {A}'),
-                A != B ~ 
-                    c(A, B) %>% 
-                    sort() %>%  
-                    paste(collapse=" vs ")
-            )
+        SamplePairInfo=
+            merge_sample_info(
+                SampleInfo.P1,
+                SampleInfo.P2,
+                prefix.P1='SampleInfo.P1.',
+                prefix.P2='SampleInfo.P2.'
+            ) %>%
+            list()
     ) %>% 
-    select(-c(A, B)) %>%
-    pivot_wider(
-        names_from=Sample.Attribute,
-        values_from=SamplePairType
-    ) %>% 
-    # Fix Sample.ID delim
-    mutate(SampleID=str_replace_all(SampleID, fixed('~'), fixed('.'))) %>% 
-    rename('Sample.ID'=SampleID) %>% 
-    # Load hicrep scores for each comparison
+    ungroup() %>% 
+    select(-c(starts_with('SampleInfo'))) %>% 
+    unnest(SamplePairInfo) %>% 
+    # Annotate which resolution is the minimum viable for each SampleID
+    # get_min_resolution_per_matrix(filter_res=FALSE) %>% 
+    # # look if resolution is "ideal" according to original HiCRep authors
+    # left_join(
+    #     RESOLUTION_IDEAL_H,
+    #     relationship='many-to-many',
+    #     by=join_by(resolution)
+    # ) %>% 
+   # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
             purrr::pmap(
@@ -104,13 +101,13 @@ load_all_hicrep_results <- function(){
                         show_col_types=FALSE,
                         col_names=c('hicrep.score')
                     ) %>% 
+                    # every line is a score per chromosome in order
                     add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
                 },
                 .progress=TRUE
             )
     ) %>%
-    unnest(hicrep.results) %>% 
-    select(-c(filepath))
+    unnest(hicrep.results)
 }
 
 make_heatmap_plotdf <- function(

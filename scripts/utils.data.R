@@ -387,6 +387,58 @@ get_all_row_combinations <- function(
     rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
     rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
 }
+
+merge_sample_info <- function(
+    SampleInfo.P1,
+    SampleInfo.P2,
+    prefix.P1='',
+    prefix.P2='',
+    ...){
+    # SampleInfo.P1=df$SampleInfo.P1[[1]]; prefix.P1='SampleInfo.P1.'; SampleInfo.P2=df$SampleInfo.P2[[1]]; prefix.P2='SampleInfo.P2.'
+    # Combine pair info
+    if (is.null(SampleInfo.P1)) {
+        return(NULL)
+    } else if (is.null(SampleInfo.P2)) {
+        return(NULL)
+    }
+    bind_rows(
+        SampleInfo.P1 %>% rename_with(~ str_remove(.x, prefix.P1)),
+        SampleInfo.P2 %>% rename_with(~ str_remove(.x, prefix.P2)),
+    ) %>% 
+    add_column(PairIndex=c('P1', 'P2')) %>% 
+    mutate(across(everything(), as.character)) %>% 
+    pivot_longer(
+        -PairIndex,
+        names_to='SampleAttribute',
+        values_to='SampleValue'
+    ) %>% 
+    pivot_wider(
+        names_from=PairIndex,
+        values_from=SampleValue
+    ) %>% 
+    rowwise() %>% 
+    # Now store both pair values for a single metadata field in 1 column
+    # and keep order consistent for grouping downstream
+    # NOTE this means that the metadata columns are not always P1 vs P2
+    # sometimes it will be P2 vs P1 based on alphabetical order of the values
+    # but thats fine since you can just looks at the SampleIDs themselves if 
+    # you care about that info
+    mutate(
+        PairValue=
+            case_when(
+                P1 == P2 ~ glue('{P1} vs {P2}'),
+                P1 != P2 ~ 
+                    c(P1, P2) %>% 
+                    sort() %>%  
+                    paste(collapse=" vs ")
+            )
+    ) %>%
+    select(SampleAttribute, PairValue) %>%
+    pivot_wider(
+        names_from=SampleAttribute,
+        values_from=PairValue
+    )
+}
 ###############
 # Annotate contacts with specified regions
 annotate_contact_region_pairs <- function(
