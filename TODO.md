@@ -1,5 +1,62 @@
 # TODO
 
+## Plots to Make
+
+### Sample QC
+
+- [x] barplot Pair Category bar plot per Sample
+- [x] lineplot Pair Orientation and Frequency by Distance per Sample
+- [x] heatmap Contacts between all chromosomes per Sample
+
+### HiCRep
+
+- [x] 
+
+### TADs
+
+- [ ] hiTAD 
+  - [x] boxplot number of TADs per Genotype per Chromosome
+  - [x] boxplot TAD lengths per Genotype per Chromosome
+  - [x] boxplot of MoCs between Genotypes
+  - [x] heatmap mean MoC across pairs per Genotype per Chromosome
+
+- [ ] cooltools 
+  - [ ] boxplot number of boundaries per Genotype per Chromosome
+  - [ ] boxplot number of boundaries per Parameter Set
+  - [ ] boxplot boundary strengths per Genotype per Chromosome
+  - [ ] boxplot boundary strengths per Parameter Set
+  - [ ] boxplot inter-boundary lengths per Genotype per Chromosome
+  - [ ] boxplot boundary strengths per Parameter Set
+  - [ ] boxplot pairwise boundary concordance??? per Genotype per Chromosome
+  - [ ] boxplot pairwise boundary strengths per Parameter Set
+
+### multiHiCCompare 
+
+- [ ] volcanco plots
+  - [ ] 16p11.2 Samples
+  - [ ] NIPBL+WAPL
+
+- [ ] manhattan plots
+  - [ ] 16p11.2 Samples
+    - [ ] chr16p11.2
+    - [ ] chr16p
+    - [ ] chr16
+  - [ ] NIPBL+WAPL
+    - [ ] chr10q23.1 (WAPL)
+    - [ ] chr10q (WAPL)
+    - [ ] chr10 (WAPL)
+    - [ ] chr5p13.2 (NIPBL)
+    - [ ] chr5p (NIPBL)
+    - [ ] chr5 (NIPBL)
+
+### Loops
+
+- [ ] mustache loop results
+  - [ ] number of loops per Param Set
+  - [ ] number of loops per Genotype per Chromosome
+  - [ ] APA plots of loops
+  - [ ] distribution of loops/significance across each chr
+
 ## Read Papers
 
 - [x] Original Rao et al 2014 paper [link](https://www.sciencedirect.com/science/article/pii/S0092867414014974?via%3Dihub#app1)
@@ -13,76 +70,50 @@
 
 ## Lab Meeting 
 
-- [ ] make pipeline diagram
-- [ ] animate pairtools parsing slide
+- [j] make pipeline diagram
+- [x] animate pairtools parsing slide
 - [ ] review how pairtools parsing works
-- [ ] make fastq+fastp stats table
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
-- [ ] distance decay plots
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
-- [ ] Pair statistics tables (pairtools multiqc)
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
+- [x] QC Figures
+  - [x] qc3C for 16p iN samples
+  - [x] multiqc reports for 16p iN samples
+  - [x] Pair statistics tables (fromt multiqcs)
+    - [ ] 16p samples
+    - [ ] NIPBL+WAPL Samples
+  - [ ] distance decay plots
+    - [x] 16p samples
+    - [x] NIPBL+WAPL Samples
+  - [x] remake bar plot figures
+    - [x] 16p samples
+    - [x] NIPBL+WAPL Samples
+- [x] Calculate minimum viable resolution table (Raot et al. 2014)
+  - [x] 16p samples
+  - [x] NIPBL+WAPL Samples
 - [ ] line plots of normalized vs 
   - [ ] 16p samples
   - [ ] NIPBL+WAPL Samples
-- [ ] Plot contact heatmaps of specific regions at min resolution
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
-- [ ] QC Figures
-  - [ ] remake bar plot figures for 16p
-  - [ ] remake bar plot figures for NIPBL+WAPL
-- [ ] Calculate minimum viable resolution table (Raot et al. 2014)
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
+- [x] Plot contact heatmaps of specific regions at min resolution
+  - [x] 16p samples
+  - [x] NIPBL+WAPL Samples
 - [ ] HiCRep
   - [ ] re-read method details
-  - [ ] generate results with 5e6 windowsize
-  - [ ] plot hyper-parameter differences
+  - [x] generate results with 5e6 windowsize
+  - [x] plot hyper-parameter differences
   - [ ] NIPBL+WAPL
-    - [ ] compare genotypes
-    - [ ] compare individual vs merged
-    - [ ] compare Edits
-    - [ ] 1 example of per-chromosome scores
-  - [ ] 16p
-    - [ ] compare genotypes
-    - [ ] compare individual vs merged
-    - [ ] compare 6 original vs 3 new samples
-    - [ ] 1 example of per-chromosome scores
+    - [x] compare genotypes
+    - [x] compare individual vs merged
+    - [x] compare Edits
+    - [x] 1 example of per-chromosome scores
+  - [x] 16p
+    - [x] compare genotypes
+    - [x] compare individual vs merged
+    - [x] compare 6 original vs 3 new samples
+    - [x] 1 example of per-chromosome scores
 - [ ] TADs
 - [ ] multiHiCCompare
-  - [ ] generate results for minimum resolutions
+  - [x] use balanced or raw? raw!
+  - [x] generate results for minimum resolutions
   - [ ] plot in regions of interest
   - [ ] calcualte genome-wide summary stats
-
-## R01 Materials
-
-- [ ] Write methods
-  - [x] distiller pipeline
-  - [ ] add statistics
-    - [ ] fastq reads
-  - [ ] how QC barplot stats are calculated
-  - [ ] HiCRep method
-  - [ ] TAD calling strategies
-    - [ ] cooltools
-    - [ ] hiTAD single-level
-    - [ ] compare TAD similarity
-- [x] QC barplot
-  - [x] add cutoff lines based on ENCODE thresholds (15%, 35%)
-- [x] HiCRep Heatmap
-  - all samples vs all samples
-  - get gw-hicrep by taking avg of all chr scores
-  - unmerged matrices only
-- [ ] contact heatmaps
-  - [ ] raw contacts
-  - [ ] balanced contacts (ICE)
-  - [ ] log2 ratio between matrices
-- [ ] TAD figures
-  - [ ] number of TADs
-  - [ ] TAD length
-  - [ ] compare TAD similarity
 
 ## Code
 
@@ -96,10 +127,10 @@
 - [x] Plot HiCRep per chromosome (fix spacing)
 - [ ] plot comparing raw vs balanced matrices
 - [ ] create coverage line plot function
-- [ ] create contact heatmap function
+- [x] create contact heatmap function
 - [x] Finish TAD annotation results parser
-- [ ] implement TAD similarity metrics
-- [ ] finish re-write of multHiCCompare results generator
+- [x] implement TAD similarity metrics
+- [x] finish re-write of multHiCCompare results generator
 
 ## 16p
 
@@ -305,3 +336,30 @@
 ### Loop Calling
 
 - ENCODE says >= 2B unique paired-end reads to be "loop resolution"
+
+## R01 Materials
+
+- [ ] Write methods
+  - [x] distiller pipeline
+  - [ ] add statistics
+    - [ ] fastq reads
+  - [ ] how QC barplot stats are calculated
+  - [ ] HiCRep method
+  - [ ] TAD calling strategies
+    - [ ] cooltools
+    - [ ] hiTAD single-level
+    - [ ] compare TAD similarity
+- [x] QC barplot
+  - [x] add cutoff lines based on ENCODE thresholds (15%, 35%)
+- [x] HiCRep Heatmap
+  - all samples vs all samples
+  - get gw-hicrep by taking avg of all chr scores
+  - unmerged matrices only
+- [ ] contact heatmaps
+  - [ ] raw contacts
+  - [ ] balanced contacts (ICE)
+  - [ ] log2 ratio between matrices
+- [ ] TAD figures
+  - [ ] number of TADs
+  - [ ] TAD length
+  - [ ] compare TAD similarity
