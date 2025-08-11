@@ -146,6 +146,53 @@ add_faceting <- function(
     figure
 }
 
+post_process_plot <- function(
+    figure,
+    add_theme=TRUE,
+    facet_row=NULL,
+    facet_col=NULL,
+    facet_group=NULL,
+    scales='fixed',
+    scale_mode='',
+    log_base=10,
+    axis_label_accuracy=2,
+    n_breaks=NULL,
+    limits=NULL,
+    expand=c(0.00, 0.00, 0.00, 0.00),
+    legend.position='right',
+    axis.text.x=element_text(angle=35, hjust=1),
+    ...){
+    figure <- 
+        add_faceting(
+            figure,
+            facet_row=facet_row,
+            facet_col=facet_col,
+            facet_group=facet_group,
+            scales=scales
+        )
+    # Set y-axis scaling (log, Mb, percent etc.)
+    figure <- 
+        figure %>% 
+        scale_y_axis(
+            mode=scale_mode,
+            log_base=log_base,
+            axis_label_accuracy=axis_label_accuracy,
+            n_breaks=n_breaks,
+            limits=limits,
+            expand=expand
+        )
+    if (add_theme) {
+        figure <- 
+            figure + 
+            add_ggtheme() +
+            theme(
+                legend.position=legend.position,
+                axis.text.x=axis.text.x,
+                ...
+            )
+    } 
+    figure
+}
 ###############
 # Make tabs per plot in RmD
 plot_figure_tabs <- function(
@@ -260,10 +307,60 @@ make_nested_plot_tabs <- function(
 }
 ###############
 # Basic Plots
+plot_barplot <- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    fill_var='', 
+    position='dodge',
+    legend_cols=1,
+    # facet_group=NULL,
+    # facet_col=NULL,
+    # facet_row=NULL,
+    # scales='fixed',
+    # scale_mode='',
+    # legend.position='right',
+    # axis.text.x=element_text(angle=35, hjust=1),
     ...){
+    # Set fill group if specified
+    figure <- 
+        if (is.null(fill_var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]]
+                )
             )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
+                    fill=.data[[fill_var]]
+                )
             )
-    }
+        }
+    # make it a boxplot 
+    figure <- 
+        figure + 
+        geom_col(position=position) +
+        guides(fill=guide_legend(ncol=legend_cols))
+    # Handle faceting + scaling + theme options
+    figure <- 
+        figure %>% 
+        post_process_plot(
+            # facet_row=facet_row,
+            # facet_col=facet_col,
+            # facet_group=facet_group,
+            # scales=scales,
+            # scale_mode=scale_mode,
+            # axis_label_accuracy=axis_label_accuracy,
+            # legend.position=legend.position,
+            # axis.text.x=axis.text.x,
+            ...
+        )
     figure
 }
 
@@ -307,19 +404,19 @@ plot_boxplot <- function(
         ) +
         add_ggtheme()
     # add faceting
+    # Handle faceting + scaling + theme options
     figure <- 
-        add_faceting(
-            figure,
+        figure %>% 
+        post_process_plot(
             facet_row=facet_row,
             facet_col=facet_col,
             facet_group=facet_group,
-            scales=scales
-        )
-    figure <- 
-        figure %>% 
-        scale_y_axis(
+            scales=scales,
             mode=scale_mode,
-            axis_label_accuracy=y_accuracy
+            axis_label_accuracy=y_accuracy,
+            legend.position=legend.position,
+            axis.text.x=axis.text.x,
+            ...
         )
     figure
 }
@@ -332,8 +429,10 @@ plot_heatmap <- function(
     facet_row=NULL,
     facet_col=NULL,
     facet_group=NULL,
+    scale_mode='',
     scales='fixed',
     legend.position='right',
+    axis.text.x=element_text(angle=55, hjust=1),
     ...){
     figure <- 
         ggplot(
@@ -344,20 +443,20 @@ plot_heatmap <- function(
                 fill=.data[[fill_var]]
             )
         ) +
-        geom_tile() +
-        theme(
-            legend.position=legend.position,
-            axis.text.x=element_text(angle=55, hjust=1)
-        ) +
-        add_ggtheme()
-    # add faceting
+        geom_tile()
+    # Handle faceting + scaling + theme options
     figure <- 
-        add_faceting(
-            figure,
+        figure %>% 
+        post_process_plot(
             facet_row=facet_row,
             facet_col=facet_col,
             facet_group=facet_group,
-            scales=scales
+            scales=scales,
+            mode=scale_mode,
+            axis_label_accuracy=y_accuracy,
+            legend.position=legend.position,
+            axis.text.x=axis.text.x,
+            ...
         )
     figure
 }
