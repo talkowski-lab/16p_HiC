@@ -9,7 +9,7 @@ if (grepl('/home/', BASE_DIR)) {
 GENOME_REF_DIR                 <- '/data/talkowski/tools/ref/Hi_c_noalt'
 CHROMOSOME_SIZES_FILE          <- file.path(GENOME_REF_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes')
 FASTQ_DIR                      <- file.path(BASE_DIR, 'fastq')
-SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, '16p.sample.metadata.tsv')
+SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
 # distiller produced ou           puts
 RESULTS_DIR                    <- file.path(BASE_DIR, 'results')
 BAM_DIR                        <- file.path(RESULTS_DIR, 'mapped_parsed_sorted_chunks')
