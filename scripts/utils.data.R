@@ -115,33 +115,146 @@ parse_results_filelist <- function(
 }
 
 process_matrix_name <- function(
+glue_sample_ID <- function(
+    Edit,
+    Celltype,
+    Genotype,
+    CloneID,
+    TechRepID,
+    prefix='',
+    ...) {
+    glue('{prefix}{Edit}.{prefix}{Celltype}.{prefix}{Genotype}.{prefix}{CloneID}.{prefix}{TechRepID}')
+}
+
+get_info_from_SampleIDs <- function(
     df,
-    filename.column.name='matrix.name',
-    keep_metadata_columns=FALSE,
+    sample_ID_col='SampleID',
+    col_prefix='',
+    keep_id=TRUE,
+    nest_col=NA,
     ...){
-    df %>% 
+    df %>%
+    mutate(
+        !!as.character(glue('{col_prefix}isMerged')) :=
+            ifelse(
+                grepl('Merged', !!sym(sample_ID_col)),
+                'Merged',
+                'Individual'
+            ) %>% 
+            factor()
+    ) %>% 
     separate_wider_delim(
-        all_of(filename.column.name),
-        delim='.',
-        too_many='merge',
-        names=c(
+        all_of(sample_ID_col),
+        delim=fixed('.'),
+        names=
+            c(
+                'Edit',
+                'Celltype',
+                'Genotype',
+                'CloneID',
+                'TechRepID'
+            ) %>%
+            paste0(col_prefix, .),
+        cols_remove=!keep_id
+    ) %>% 
+    {
+        if (!is.na(nest_col)) {
+            if (col_prefix  != '') {
+                nest(., !!nest_col := starts_with(col_prefix))
+            } else {
+                nest(
+                    ., 
+                    !!nest_col :=
+                        c(
+                            Edit,
+                            Celltype,
+                            Genotype,
+                            CloneID,
+                            TechRepID,
+                            isMerged
+                        )
+                )
+            }
+        } else {
+            .
+        }
+    }
+}
+
+get_info_from_MatrixIDs <- function(
+    df,
+    matrix_ID_col='MatrixID',
+    sample_ID_col='SampleID',
+    col_prefix='',
+    keep_id=TRUE,
+    nest_col=NA,
+    ...){
+    # matrix_ID_col='MatrixID.P1'; sample_ID_col='SampleID.P1'; col_prefix='SampleInfo.P1.'; keep_id=FALSE; nest_col=NA
+    # Set up some column names/variables
+    separate_names <- 
+        c(
             'Edit',
-            'Genotype',
-            'SampleNumber',
             'Celltype',
-            NA,
+            'Genotype',
+            'CloneID',
+            'TechRepID',
             NA,
             'ReadFilter',
             NA
         )
+    col_names <- c(separate_names[!is.na(separate_names)], 'isMerged')
+    # extract + format metadata
+    df %>%
+    mutate(
+        isMerged=
+            ifelse(
+                grepl('Merged', !!sym(matrix_ID_col)),
+                'Merged',
+                'Individual'
+            ) %>% 
+            factor()
     ) %>% 
-    # Matches Sample.ID in SAMPLE_METADATA_FILE
-    mutate(Sample.ID=glue('{Edit}.{Genotype}.{SampleNumber}.{Celltype}')) %>% 
+    separate_wider_delim(
+        all_of(matrix_ID_col),
+        delim=fixed('.'),
+        names=separate_names,
+        cols_remove=!keep_id
+    ) %>% 
+    # create SampleID
     {
-        if (keep_metadata_columns) {
-            .
+        if (!is.null(sample_ID_col)) {
+            mutate( ., !!sample_ID_col := pmap(.l=., .f=glue_sample_ID)) %>%
+            unnest(!!sym(sample_ID_col))
         } else {
-            select(., -c(Edit, Genotype, SampleNumber, Celltype))
+            .
+        }
+    } %>% 
+    # rename columns with a common prefix
+    {
+        if (col_prefix != '') {
+            rename_with(
+                ., 
+                .fn=~ paste0(col_prefix, .x), 
+                .cols=all_of(col_names)
+            )
+        } else {
+            .
+        }
+    } %>% 
+    # nest and rename columns as specified
+    {
+        if (!is.na(nest_col) && col_prefix != '') {
+            nest(
+                .,
+                !!nest_col := all_of(paste0(col_prefix, col_names))
+            )
+        } else if (!is.na(nest_col) && col_prefix == '') {
+            nest(
+                .,
+                !!nest_col := all_of(col_names)
+            )
+        } else {
+            .
         }
     }
 }
