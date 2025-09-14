@@ -409,56 +409,24 @@ plot_barplot_with_threshold_lines <- function(
 
 plot_pair.orientation_lineplot <- function(
     plot.df,
-    facet_row,
-    legend.position.inside=c(0.95, 0.25), # c(0,0) bottom left, c(1,1) top-right.
     ...){
-    plot.df %>% 
-    ggplot(
-        aes(
-            x=range.start,
-            y=value,
+    figure <- 
+        plot.df %>% 
+        ggplot(
+            aes(
+                x=range.start,
+                y=value,
+                color=orientation
+            )
+        ) + 
+        geom_line() +
+        scale_x_log10() +
+        labs(
+            x='Pair Distance',
+            y='Raw Contacts'
         )
-    ) + 
-    # geom_line(aes(linetype=orientation, color=SampleID)) +
-    geom_line(aes(color=orientation)) +
-    # geom_text(aes(label=SampleID), x=1.5, y=1.8) +
-    scale_x_log10(
-        guide='axis_logticks',
-        labels=
-            label_log(
-                base=10,
-                signed=FALSE
-            )
-    ) +
-    # scale_x_continuous(
-    #     labels=
-    #         label_bytes(
-    #             units="auto_si",
-    #             accuracy=0.1
-    #         )
-    # ) +
-    scale_y_log10(
-        guide='axis_logticks',
-        labels=
-            label_log(
-                base=10,
-                signed=FALSE
-            )
-    ) +
-    # facet_wrap( ~ SampleID, ncol=3) +
-    facet_grid(
-        rows=vars(!!sym(facet_row)),
-        scales='fixed'
-    ) +
-    labs(
-        x='Pair Distance',
-        y='Raw Contacts'
-    ) +
-    make_ggtheme(
-        legend.position='inside',
-        legend.position.inside=legend.position.inside,
-        ...
-    )
+    figure %>% 
+    post_process_plot(...)
 }
 
 plot_cistrans_chromosome_heatmap <- function(
