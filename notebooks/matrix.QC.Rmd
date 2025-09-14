@@ -46,7 +46,7 @@ library(ggplot2)
 library(ggh4x)
 library(purrr)
 library(downloadthis)
-sample.metadata <- load_sample_metadata(filter=TRUE)
+sample.metadata <- load_sample_metadata(filter=FALSE)
 samples.to.include <- sample.metadata %>% filter(Included) %>% pull(SampleID)
 ```
 
@@ -62,7 +62,8 @@ Requires that coverage data (i.e. bin-wise sum of all contacts) that is generate
 coverage.summary <- 
     check_cached_results(
         results_file=RESOLTION_COVERAGE_SUMAMRY_FILE,
-        force_redo=TRUE,
+        # force_redo=TRUE,
+        force_redo=FALSE,
         return_data=TRUE,
         show_col_types=FALSE,
         results_fnc=get_all_matrix_minimum_resolutions,
@@ -116,14 +117,15 @@ min.resolutions %>%
 Load output of `pairtools stats` 
 ```{r load_stats, rows.print=5, message=FALSE, results=FALSE}
 pair.stats.list <- 
-    load_pairtools_stats(samples.to.include=samples.to.include)
+    load_pairtools_stats()
+    # load_pairtools_stats(samples.to.include=samples.to.include)
 pairs.plot.df <- 
     pair.stats.list %>%
     make_pair_qc_df() %>% 
     get_info_from_SampleIDs()
 barplot.ggtheme <- 
     make_ggtheme(
-        legend.position='bottom',
+        legend.position='right',
         legend.text=element_text(size=7),
         legend.key.size=unit(10, "pt"),
         axis.text.x=element_text(angle=35, hjust=1),
@@ -133,9 +135,10 @@ barplot.ggtheme <-
 
 ## Number of pairs 
 
-```{r plot_n_pairs, echo=FALSE, fig.align='center', fig.height=7}
+```{r plot_n_pairs, echo=FALSE, fig.align='center'}
 pairs.plot.df %>% 
     rename('Unique Pairs'=value) %>% 
+    filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
     plot_barplot(
         x_var='Category',
         y_var='Unique Pairs',
@@ -145,16 +148,17 @@ pairs.plot.df %>%
         scales='free_y',
         scale_mode='log10',
         limits=c(1e6, NA),
-        legend_cols=4,
+        legend_cols=1,
         theme_obj=barplot.ggtheme
     )
 ```
 
 ## % of pairs 
 
-```{r plot_pct_pairs, echo=FALSE, fig.align='center', fig.height=7}
+```{r plot_pct_pairs, echo=FALSE, fig.align='center'}
 pairs.plot.df %>% 
     rename('Unique Pairs'=frac) %>% 
+    filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
     plot_barplot_with_threshold_lines(
         # normal barplot arguments
         x_var='Category',
@@ -165,7 +169,16 @@ pairs.plot.df %>%
         scales='free_y',
         scale_mode='pct',
         theme_obj=barplot.ggtheme,
-        legend_cols=4,
+        legend_cols=1,
+        # where to draw lines
+        lines.df=
+            tribble(
+                ~Category, ~y_lower, ~y_upper,
+                'Long Range  >  20Kb', 0.15, 0.40
+            )
+    )
+```
+
 ## Compare batches
 
 ```{r compare_batches, echo=FALSE, fig.align='center'}
@@ -216,15 +229,20 @@ pair.orientation.df <-
     get_info_from_SampleIDs()
 ```
 Now plot distance vs # of pairs for each pair orientation
-```{r plot_pair_orientation, results='asis', fig.height=11, fig.width=6}
+```{r plot_pair_orientation, results='asis', fig.height=6, fig.width=12}
 pair.orientation.df %>% 
     filter(interaction == 'cis') %>% select(-c(interaction)) %>%
     filter(value > 0) %>% 
+    filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
     make_nested_plot_tabs(
         group_cols=c('Celltype', 'Genotype'),
         plot_fnc=plot_pair.orientation_lineplot,
-        facet_row='SampleID',
-        legend.position.inside=c(0.85, 0.80), # c(0,0) bottom left, c(1,1) top-right.
+        facet_group='SampleID',
+        legend.position='inside',
+        legend.position.inside=c(0.85, 0.70), # c(0,0) bottom left, c(1,1) top-right.
+        scales='fixed',
+        scale_mode='log10',
+        facet_ncol=3
     )
 ```
 
@@ -283,6 +301,7 @@ plot.df %>%
         keep_id=TRUE,
         nest_col=NA,
     ) %>% 
+    filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
     make_nested_plot_tabs(
         group_cols=c('Celltype', 'Genotype', 'metric'),
         max_header_lvl=3,
@@ -302,6 +321,7 @@ make_summary_stats_table(
     pairs.plot.df %>%
         select(-c(Edit, Celltype, Genotype, CloneID, TechRepID)),
 ) %>% 
+filter(SampleID %in% samples.to.include | str_detect(SampleID, 'Merged')) %>% 
 download_this(
     output_name="16p_HiC_Matrix_QCStats",
     button_type="default",
