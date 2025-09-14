@@ -1,5 +1,5 @@
 # #!/bin/bash
-set -euo pipefail
+# set -euo pipefail
 # Arrowhead params
 JUICER_JAR="/data/talkowski/Samples/WAPL_NIPBL/HiC/distiller-nf/juicer_tools_1.22.01.jar"
 JAVA_CMD="java -jar -Xmx48000m -Djava.awt.headless=true -jar ${JUICER_JAR}"
@@ -30,6 +30,7 @@ help() {
 "
     exit 0
 }
+
 activate_conda() {
     # activate conda env with specific tools for each task
     case "$1" in
@@ -40,12 +41,14 @@ activate_conda() {
     esac
     echo "source ${CONDA_DIR}/etc/profile.d/conda.sh; conda activate ${env_name}"
 }
+
 get_sample_ID() {
     sample_ID="$(basename ${sample_file})"
     sample_ID="${sample_ID%%.mcool}"
     sample_ID="${sample_ID%%.hic}"
     echo "${sample_ID}"
 }
+
 run_slurm_cmd() {
     cmd="$1"
     job_name="$2"
@@ -59,6 +62,7 @@ run_slurm_cmd() {
         --error    "${LOG_DIR}/${job_name}.err" \
         --wrap="${cmd}"
 }
+
 run_cmd() {
     cmd="${1}"
     job_name="${2}"
@@ -68,6 +72,7 @@ run_cmd() {
         time eval ${cmd} 
     fi
 }
+
 run_arrowhead() {
     hic_file="$1"
     output_file="$2"
@@ -83,6 +88,7 @@ run_arrowhead() {
            ${hic_file}
            ${output_file}"
 }
+
 run_hitad() {
     # input args
     method='hiTAD'
@@ -95,6 +101,7 @@ run_hitad() {
     # get sample ID
     mcool_file="$(readlink -e ${mcool_file})"
     sample_ID="$(get_sample_ID "${mcool_file}")"
+    echo ${sample_ID}
     # For all tool-specific param combos call TADs
     for weight_name in ${!HITAD_WEIGHTS[@]}; do
         jobs_num=$(( jobs_num+1 ))
@@ -105,6 +112,7 @@ run_hitad() {
         # Dont submit job if results already exist
         if [[ -a ${output_TAD_file} ]]; then
             jobs_skipped=$(( jobs_skipped+1 )) 
+            echo "Cached results found, not recalculating job ${jobs_num}"
             continue 
         fi
         # compose command + args to annotate TADs
@@ -121,8 +129,9 @@ run_hitad() {
         run_cmd "${cmd}" "${job_name}"
         [[ -a ${output_TAD_file} ]] && jobs_done=$(( jobs_done+1 ))
     done
-    echo -e "${sample_ID}\t${jobs_num}\t${jobs_done}\t${jobs_skipped}"
+    # echo -e "${sample_ID}\t${jobs_num}\t${jobs_done}\t${jobs_skipped}"
 }
+
 run_cooltools_insulation() {
     # input args
     method='cooltools'
@@ -178,29 +187,31 @@ run_cooltools_insulation() {
     done
     echo -e "${sample_ID}\t${jobs_num}\t${jobs_done}\t${jobs_skipped}"
 }
+
 main() {
     # Activate conda env now if running locally (not submitting jobs)
+    echo ${CONDA_ENV_CMD}
     [[ ${USE_SLURM} -eq 0 ]] && eval "${CONDA_ENV_CMD}"
     # Loop over all samples at all resolutions and call tads
-    echo -e "SampleID\tJobs Submitted\tJobs Skipped"
+    # echo -e "SampleID\tJobs Submitted\tJobs Skipped"
     for sample_file in ${HIC_SAMPLES[@]}; do
-    for resolution in ${RESOLUTIONS[@]}; do
-        sample_ID="$(get_sample_ID "${sample_file}")"
-        case ${METHOD} in
-            arrowhead)
-                run_arrowhead ${sample_file} ${resolution}
-                ;;
-            hiTAD)
-                run_hitad ${sample_file} ${resolution}
-                ;;
-            cooltools)
-                run_cooltools_insulation ${sample_file} ${resolution}
-                ;;
-            *)
-                echo "Invalid method: ${METHOD}" && exit 1
-                ;;
-        esac
-    done
+        for resolution in ${RESOLUTIONS[@]}; do
+            sample_ID="$(get_sample_ID "${sample_file}")"
+            case ${METHOD} in
+                arrowhead)
+                    run_arrowhead ${sample_file} ${resolution}
+                    ;;
+                hiTAD)
+                    run_hitad ${sample_file} ${resolution}
+                    ;;
+                cooltools)
+                    run_cooltools_insulation ${sample_file} ${resolution}
+                    ;;
+                *)
+                    echo "Invalid method: ${METHOD}" && exit 1
+                    ;;
+            esac
+        done
     done
     # echo "All jobs submitted on queue ${PARTITION} with ${MEM_GB}Gb, ${NTASKS_PER_NODE} threads per job"
 }
@@ -211,16 +222,18 @@ LOG_DIR="${BASE_DIR}/slurm.logs"
 RESOLUTIONS=(100000 50000 25000 10000)
 # Default SLURM params
 USE_SLURM=0
-PARTITION="short"
+PARTITION="normal"
 MEM_GB=30
-NTASKS_PER_NODE=2
+NTASKS_PER_NODE=1
 CPUS=2
-THREADS=$(( ${NTASKS_PER_NODE}*${CPUS} ))
+THREADS=2
+CONDA_DIR="$(conda info --base)"
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ho:l:r:t:c:p:m:a:t: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir,threads -- "$@")
+VALID_ARGS=$(getopt -o ho:l:r:n:c:p:m:a:t: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir,threads -- "$@")
 eval set -- "${VALID_ARGS}"
 while [ : ]; do
+    echo "${1} ||| ${2}"
     case "$1" in
         -a|--anaconda-dir)
             CONDA_DIR="${2}"
@@ -246,7 +259,7 @@ while [ : ]; do
             MEM_GB="${2}" 
             shift 2
             ;;
-        -t|--ntasks-per-node)
+        -n|--ntasks-per-node)
             NTASKS_PER_NODE="${2}" 
             shift 2
             ;;
