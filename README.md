@@ -121,7 +121,7 @@ This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
 
 ```bash
-$ ./scripts/matrix.utils.sh qc3c                     # run qc3C with specified params
+$ ./scripts/matrix.utils.sh qc3C                     # run qc3C with specified params
         ./results/sample.QC/qc3C/                    # output dir
         DpnII HinfI                                  # enzymes used
         results/mapped_parsed_sorted_chunks/**/*.bam # bam files produced by distiller for each sample
@@ -167,22 +167,21 @@ Merging her means summing all the total number of contacts over all samples for 
 We separately create merged matrices for MAPQ filtered and unfiltered contacts for each 
 
 ```bash
-# Wrapper command to merge specific matrices for each genotype
-$ ./scripts/matrix.utils.sh merge_16p_matrices ./results/pairsn
+# Wrapper command to merge all biological + technical replicates for each celltype+genotype
 $ ./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
 ```
 which produces the following files
 ```
 results 
 └── coolers_library
-    ├── 16p.NSC.WT.Merged.TR1/
-    │   ├── 16p.NSC.WT.Merged.TR1.hg38.mapq_30.1000.cool
-    │   ├── 16p.NSC.WT.Merged.TR1.hg38.mapq_30.1000.mcool
-    │   ├── 16p.NSC.WT.Merged.TR1.hg38.no_filter.1000.cool
-    │   └── 16p.NSC.WT.Merged.TR1.hg38.no_filter.1000.mcool
-    ├── 16p.NSC.DEL.Merged.TR1/
+    ├── 16p.NSC.WT.Merged.Merged/
+    │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.cool
+    │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.mcool
+    │   ├── 16p.NSC.WT.Merged.Merged.hg38.no_filter.1000.cool
+    │   └── 16p.NSC.WT.Merged.Merged.hg38.no_filter.1000.mcool
+    ├── 16p.NSC.DEL.Merged.Merged/
     │   └── ...
-    └── 16p.NSC.DUP.Merged.TR1/
+    └── 16p.NSC.DUP.Merged.Merged/
         └── ...
 ```
 
@@ -268,3 +267,19 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 #### Compartment Comparison
 
 ### Differential Contact Analysis
+
+## Command list
+
+One-liners to generate results
+
+```bash
+./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam
+./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
+./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
+./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
+./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+
+./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
+./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+./scripts/annotate.TADs.sh --output-dir ./results/TADs/ --resolution  "100000,50000,25000,10000" cooltools ./results/coolers_library/**/*.mapq_30.1000.mcool
+```
