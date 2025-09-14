@@ -55,22 +55,25 @@ set_up_sample_comparisons <- function(...){
             c(
                 Sample.Group,
                 filepath,
-                Sample.ID,
+                SampleID,
                 resolution,
                 Edit,
                 Genotype,
-                SampleNumber,
+                CloneID,
+                TechRepID,
                 Celltype
             )
     ) %>% 
     ungroup() %>% 
     rename('Sample.Group'=Sample.Group.copy) %>% 
+    # Now get all possible pairs of sample groups (project + genotype + CellID
     get_all_row_combinations(
         .,
         {.},
         cols_to_pair=c('isMerged'),
         keep_self=FALSE
     ) %>% 
+    # Now each row represents a single compairson of 2 sample groups with all samples 
     mutate(
         samples.df=
             pmap(
@@ -79,7 +82,7 @@ set_up_sample_comparisons <- function(...){
             )
     ) %>%
     select(-c(starts_with('samples.df.'))) %>% 
-    # Now each row represents a single compairson of 2 sample groups with all samples 
+    # Only compute results with the max resolution of all usable resolutions for individual samples
     rowwise() %>% 
     mutate(
         resolution.max=max(samples.df$resolution),
@@ -119,34 +122,107 @@ sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
     )
 }
 
+handle_covariates <- function(
+    samples.df,
+    covariates.df,
+    effect.col='Sample.Group',
+    sampleID.col='SampleID'){
+    # Immediate check 
+    if (is.null(covariates.df)) {
+        covariates <- NULL
+        design.matrix <- NULL
+        message('No covaraites to use')
+    } else {
+        # List all covariates for this set of samples
+        covariates <- 
+            samples.df %>% 
+            select(all_of(c(sampleID.col, effect.col))) %>% 
+            left_join(
+                covariates.df,
+                by=sampleID.col
+            ) %>%
+            select(-all_of(sampleID.col))
+        # Check that batch variables are not uniform 
+        covariate_level_sizes <- 
+            covariates %>% 
+            select(-c(all_of(effect.col))) %>% 
+            pivot_longer(everything(), names_to='covariate', values_to='value') %>%
+            distinct() %>% 
+            count(covariate) %>% 
+            deframe()
+        # If all covariates are uniform, return null, no design matrix
+        if (all(covariate_level_sizes == 1)) {
+            covariates <- NULL
+            design.matrix <- NULL
+            message('Covariates are uniform, ignoring')
+        } else {
+            # List all uniform covariates (uninformative)
+            non.uniform.covariates <- 
+                covariate_level_sizes[covariate_level_sizes != 1] %>% names()
+            # Make formula for GLM
+            covariate.names <- 
+                covariates %>% 
+                select(-c(all_of(effect.col))) %>% 
+                colnames() %>%
+                {.[. %in% non.uniform.covariates]}
+            contrast <- 
+                c(effect.col, covariate.names) %>%
+                paste(collapse=" + ") %>% 
+                sprintf('~ %s', .) %>% 
+                formula()
+            design.matrix <- model.matrix(contrast, covariates)
+        }
+    }
+    # return final design matrix
+    return(
+        list(
+            covariates=covariates,
+            design.matrix=design.matrix
+        )
+    )
+}
+
 run_multiHiCCompare <- function(
     samples.df,
     sample_group_priority_fnc,
     covariates.df=NULL,
+    zero.p,
+    A.min,
     resolution,
     range1,
     range2,
     remove.regions,
     md_plot_file,
-    p.method,
+    frac.cutoff=0.8,
+    effect.col='Sample.Group',
+    p.method='fdr',
     ...){
-    # samples.df=tmp$samples.df[[1]]; resolution=tmp$resolution[[1]]; range1=tmp$range1[[1]]; range2=tmp$range2[[1]]; md_plot_file=tmp$md_plot_file[[1]]; remove.regions=hg38_cyto; p.method='fdr'
+    # row_index=357; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]
+    # tmp[row_index,]
+    # Handle covariates if specified
+    design.info <- 
+        handle_covariates(
+            samples.df,
+            covariates.df,
+            effect.col
+        )
+    # print(design.info)
     # Get sample groups, ensure consistent num/denom for fc estimates
     # function with more priority (smaller number) will be numerator
     # should be no ties, but ties are broken alphabetically
     samples.df <- 
         samples.df %>%
         mutate(
-            group.priority=sample_group_priority_fnc(Sample.Group),
-            Sample.Group=
+            group.priority=sample_group_priority_fnc(!!sym(effect.col)),
+            !!effect.col :=
                 fct_reorder(
-                    Sample.Group,
+                    !!sym(effect.col),
                     group.priority,
                     .desc=TRUE
                 )
         ) %>%
-        arrange(Sample.Group)
-    # Get contacts for all samples + region
+        arrange(!!effect.col)
+    # Load all contacts for samples + regions
     samples.contacts <- 
         samples.df %>%
         select(-c(resolution)) %>% 
@@ -159,39 +235,42 @@ run_multiHiCCompare <- function(
             normalization="NONE",
             .progress=FALSE
         )
-    # Handle covariates if specified
-    if (is_tibble(covariates.df)) {
-        covariates.df <- 
-            samples.df %>% 
-            select(Sample.ID, Sample.Group) %>% 
-            left_join(
-                covariates.df,
-                by='Sample.ID'
-            )
-        covariates <- 
-            covariates.df %>% 
-            select(-c(Sample.ID)) %>% 
-            colnames()
-        contrast <- 
-            sprintf(
-                '~ Sample.Group + %s',
-                paste(covariates, collapse=' + ')
-            ) %>% 
-            formula()
-    } else {
-        NULL
-    }
-    # Make experiment object with relevant params/data
+    # Get all bin pairs that are detected in > frac.cutoff fraction of samples e.g. 
+    # frac.cutoff=0.8 -> only test contacts detected in > 80% of all samples
+    common.bin.pairs <- 
+        samples.contacts %>%
+        bind_rows(.id='index') %>%
+        select(chr, range1, range2) %>% 
+        count(chr, range1, range2) %>% 
+        filter(n >= max(n) * frac.cutoff) %>%
+        select(chr, range1, range2)
+    message(glue('Testing {nrow(common.bin.pairs)} bin-pairs for DAC'))
+    # Now only subset to commonly found contacts 
+    samples.contacts <- 
+        samples.contacts %>%
+        lapply(
+            function(df) {
+                inner_join(
+                    df,
+                    common.bin.pairs,
+                    by=join_by(chr, range1, range2)
+                )
+            }
+        )
+        # samples.contacts %>% lapply(nrow) %>% unlist()
+    # Make experiment object with relevant data+parameters
     make_hicexp(
         data_list=samples.contacts,
         groups=samples.df %>% pull(Sample.Group),
-        covariates=covariates.df,
+        covariates=design.info$covariates,
+        zero.p=zero.p,
+        A.min=A.min,
+        remove.regions=remove.regions,
         remove_zeroes=FALSE,
-        # ...
-        filter=TRUE,  
+        filter=TRUE
     ) %>% 
     # Normalize hic data, use cyclic loess with automatically calculated span
-     cyclic_loess(
+    cyclic_loess(
         verbose=TRUE,
         parallel=TRUE,
         span=NA
@@ -215,29 +294,26 @@ run_multiHiCCompare <- function(
         dev.off()
     } %>%
     # Preform differential testing on  contacts 
+    # Handle covariate information
     {
-        if (is_tibble(covariates.df)) {
-            hic_glm(
-                .,
-                design=
-                    model.matrix(
-                        contrast,
-                        covariates.df
-                    ),
-                coef=2,  # Sample.Group (only correct if 2 levels), 1 would be intercept
-                method="QLFTest",
-                p.method=p.method,
-                parallel=TRUE
-            )
-        } else {
+        if (is.null(design.info$design.matrix)) {
             hic_exactTest(
                 .,
                 p.method=p.method,
                 parallel=TRUE
             )
-            # Get differential results
+        } else {
+            hic_glm(
+                .,
+                design=design.info$design.matrix,
+                coef=2,  # Sample.Group (only correct if 2 levels), 1 would be intercept
+                method="QLFTest",
+                p.method=p.method,
+                parallel=TRUE
+            )
         }
     } %>% 
+    # Get differential results
     results() %>% 
     as_tibble() %>%
     arrange(p.adj)
@@ -304,24 +380,23 @@ run_all_multiHiCCompare <- function(
                 glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-multiHiCCompare.tsv')
             )
     ) %>% 
-    # {.} -> tmp
-    pmap(
+        # {.} -> tmp
+    # pmap(
+    future_pmap(
         .l=.,
-        .f=
-            # Need this wrapper to pass ... arguments to run_multiHiCCompare
+        .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
             function(results_file, ...){ 
                 check_cached_results(
                     results_file=results_file,
                     force_redo=force_redo,
                     return_data=FALSE,
-                    show_col_types=FALSE,
                     results_fnc=run_multiHiCCompare,
                     sample_group_priority_fnc=sample_group_priority_fnc,
                     covariates.df=covariates.df,
-                    ...
+                    ... # arguments taken from columns of .
                 )
             },
-        ...,  # passed from this function call
+        ...,  # passed from the call to this function
         .progress=TRUE
     )
 }
@@ -347,25 +422,20 @@ load_all_multiHiCCompare_results <- function(
     fdr.threshold=1,
     nom.threshold=1,
     ...){
+    # Load all results
     parse_results_filelist(
         input_dir=file.path(MULTIHICCOMPARE_DIR, 'results'),
         suffix=file_suffix,
         filename.column.name='pair.name',
         param_delim='_',
     ) %>%
+    # Split title into pair of groups ordered by numerator/denominator
     mutate(pair.name=str_remove(pair.name, file_suffix)) %>% 
     separate_wider_delim(
         pair.name,
         delim='_vs_',
         names=c('Sample.Group.A', 'Sample.Group.B')
     ) %>% 
-    # filter(grepl('16p', Sample.Group.A), grepl('16p', Sample.Group.B)) %>% 
-    # filter(
-    #     resolution == 25000,
-    #     zero.p == 0.8,
-    #     !grepl('.iN', Sample.Group.A), 
-    #     !grepl('.iN', Sample.Group.B)
-    # ) %>% 
     mutate(
         across(
             starts_with('Sample.Group'),
