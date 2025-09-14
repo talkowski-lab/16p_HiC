@@ -90,7 +90,19 @@ hicrep.results <-
 plot.df <- hicrep.results
 ```
 Print example data
-```{r example_results, rows.print=5}
+```{r summary_stats, eval=FALSE}
+hicrep.results %>% colnames()
+hicrep.results %>% 
+    distinct(SampleID) %>% 
+    separate_wider_delim(SampleID, names=c('Sample1', 'Sample2'), delim=' vs ') %>%
+    pivot_longer(c(Sample1, Sample2), names_to='tmp', values_to='sample') %>% 
+    distinct(sample) %>% arrange(sample)
+hicrep.results %>% 
+    distinct(SampleID, resolution, window.size, is.downsampled) %>% 
+    count(resolution, window.size, is.downsampled)
+# plot.df <- hicrep.results
+```
+```{r example_results, rows.print=5, eval=FALSE}
 # hicrep.results %>% filter(chr == 'chr1') %>% count(isMerged,Edit, Celltype, Genotype)
 hicrep.results %>% 
     arrange(
@@ -108,33 +120,39 @@ hicrep.results %>%
 
 # Compare results with different parameter combinations
 
-How many different parameter combinations we tried
-```{r param_combos, rows.print=5}
+How many different pairs of sample matrices were compared per batch
+```{r n_samples, rows.print=5}
+    # resolution,
+    # h,
+    # is.downsampled,
+    # window.size,
+    # # Edit,
+    # Celltype,
+    # Genotype,
+    # # CloneID,
+    # # TechRepID,
+    # isMerged,
+    # # SampleID,
+    # Batch,
+    # # hicrep.score,
+    # # chr
 hicrep.results %>%
-    count(
-        resolution,
-        h,
+        # count(resolution, window.size, is.downsampled, chr)
+    filter(
+        resolution == '10Kb',
+        window.size == '5Mb',
         is.downsampled,
-        window.size,
-        chr
+        chr == 'chr1'
+    ) %>% 
+    count(
+        isMerged,
+        Celltype,
+        Batch,
+        Genotype,
+        name='n.sample.pairs'
     )
 ```
-How many different pairs of sample matrices were compared
-```{r n_samples, rows.print=5}
-hicrep.results %>%
-    group_by(
-        across(
-            -c(
-                chr,
-                resolution,
-                h,
-                is.downsampled,
-                window.size
-            )
-        )
-    ) %>% 
-    count()
-```
+
 Compare values by hyper-param to showcase the variability
 ```{r hyperparam_boxplox, results='asis', echo=FALSE, out.width='100%', fig.height=7}
 # plot.df %>% count(window.size, resolution, is.downsampled, Batch)
