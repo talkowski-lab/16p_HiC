@@ -29,7 +29,7 @@ knitr::opts_chunk$set(
 )
 ```
 Set up file locations + load dependenies
-```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
+```{r dependencies, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
 here::i_am('notebooks/hicrep.Rmd')
 BASE_DIR <- here()
@@ -60,8 +60,7 @@ Load hicrep data
 hicrep.results <- 
     check_cached_results( 
         HICREP_RESULTS_FILE,
-        force_redo=TRUE,
-        # force_redo=FALSE,
+        # force_redo=TRUE,
         return_data=TRUE,
         results_fnc=load_all_hicrep_results,
         sample_metadata=
@@ -85,9 +84,9 @@ hicrep.results <-
             scale_numbers
         )
     ) %>% 
+    mutate(chr=factor(chr, levels=CHROMOSOMES)) %>% 
     # filter(!grepl('iN', Celltype)) %>% 
     select(-c(ReadFilter, filepath))
-plot.df <- hicrep.results
 ```
 Print example data
 ```{r summary_stats, eval=FALSE}
@@ -118,7 +117,7 @@ hicrep.results %>%
     )
 ```
 
-# Compare results with different parameter combinations
+# Compare results with different parameter combinations {.tabset}
 
 How many different pairs of sample matrices were compared per batch
 ```{r n_samples, rows.print=5}
@@ -153,13 +152,20 @@ hicrep.results %>%
     )
 ```
 
+## Use all pairs of individual sample matrices
+
 Compare values by hyper-param to showcase the variability
 ```{r hyperparam_boxplox, results='asis', echo=FALSE, out.width='100%', fig.height=7}
-# plot.df %>% count(window.size, resolution, is.downsampled, Batch)
-# plot.df %>% filter(
-plot.df %>% 
+hicrep.results %>% 
+    mutate(
+        withinGenotype=
+            case_when(
+                Genotype %in% c('DEL vs DEL', 'DUP vs DUP', 'WT vs WT') ~ 'Same Genotype',
+                TRUE ~ 'Different Genotype'
+            )
+    ) %>% 
     make_nested_plot_tabs(
-        group_cols=c('isMerged'),
+        group_cols=c('isMerged', 'Celltype', 'withinGenotype'),
         max_header_lvl=3,
         plot_fnc=plot_hicrep_boxplot,
         sample_group='window.size',
@@ -168,10 +174,13 @@ plot.df %>%
         facet_row='Batch'
     )
 ```
-Pick specific parameter set for downstream analyses
+
+## Pick specific parameter set for downstream analyses
+
+Pick a specific set of parameters to plto results for later
 ```{r pick_param_set}
 plot.df <- 
-    plot.df %>% 
+    hicrep.results %>% 
     filter(
         is.downsampled,
         window.size == '5Mb'
@@ -183,12 +192,29 @@ plot.df %>% distinct(h, window.size, resolution, is.downsampled)
 
 # Plotting HiCRep scores {.tabset}
 
+## Compare Scores across genotype comparisons
+
+Plot score distributions between Genotypes
+```{r compare_scores, results='asis'}
+plot.df %>% 
+    # filter(Genotype %in% c('DEL vs DEL', 'DUP vs DUP', 'WT vs WT')) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged'),
+        max_header_lvl=3,
+        plot_fnc=plot_hicrep_boxplot,
+        sample_group='Genotype',
+        fill_var='is.downsampled', 
+        facet_col='resolution',
+        facet_row='Celltype'
+    )
+```
+
 ## HiCRep scores per chromosome 
 
 ```{r per_chr, results='asis', fig.height=6}
 plot.df %>% 
     make_nested_plot_tabs(
-        group_cols=c('isMerged', 'resolution'),
+        group_cols=c('isMerged', 'resolution', 'Celltype'),
         max_header_lvl=3,
         plot_fnc=plot_hicrep_boxplot,
         fill_var=NA,
