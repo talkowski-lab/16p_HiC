@@ -94,6 +94,8 @@ scale_y_axis <- function(
                 ),
             ...
         )
+    } else if (mode == 'discrete') {
+        figure
     } else if (mode == '') {
         if (is.null(limits)) {
             figure + 
@@ -122,6 +124,8 @@ add_faceting <- function(
     facet_group=NULL,
     facet_col=NULL,
     facet_row=NULL,
+    facet_nrow=NULL,
+    facet_ncol=NULL,
     ...){
     # Facet as specified
     if (!is.null(facet_col) & !is.null(facet_row)) {
@@ -151,6 +155,8 @@ add_faceting <- function(
             figure +
             facet_wrap2(
                 vars(!!sym(facet_group)),
+                nrow=facet_nrow,
+                ncol=facet_ncol,
                 ...
             )
     }
@@ -171,21 +177,20 @@ post_process_plot <- function(
     n_breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
-    # legend.position='right',
-    # legend.ncols=1,
-    # axis.text.x=element_text(angle=35, hjust=1),
+    facet_nrow=NULL,
+    facet_ncol=NULL,
     ...){
     figure <- 
+        figure %>% 
         add_faceting(
-            figure,
             facet_row=facet_row,
             facet_col=facet_col,
             facet_group=facet_group,
-            scales=scales
-        )
-    # Set y-axis scaling (log, Mb, percent etc.)
-    figure <- 
-        figure %>% 
+            scales=scales,
+            facet_nrow=facet_nrow,
+            facet_ncol=facet_ncol
+        ) %>% 
+        # Set y-axis scaling (log, Mb, percent etc.)
         scale_y_axis(
             mode=scale_mode,
             log_base=log_base,
@@ -193,13 +198,15 @@ post_process_plot <- function(
             n_breaks=n_breaks,
             limits=limits,
             expand=expand
-        )
-    # Add theme elements, as either an object or individual args
-    if (!is.null(theme_obj)) {
-        figure <- figure + theme_obj
-    } else {
-        figure <- figure + make_ggtheme(...)
-    } 
+        ) %>% 
+        # Add theme elements, as either an object or individual args
+        {
+            if (!is.null(theme_obj)) {
+                . + theme_obj
+            } else {
+                . + make_ggtheme(...)
+            } 
+        }
     figure
 }
 
@@ -446,6 +453,9 @@ plot_heatmap <- function(
     facet_group=NULL,
     scale_mode='',
     scales='fixed',
+    labels=NULL,
+    label.size=4,
+    label.color='white',
     # legend.position='right',
     # axis.text.x=element_text(angle=55, hjust=1),
     ...){
@@ -467,12 +477,21 @@ plot_heatmap <- function(
             facet_col=facet_col,
             facet_group=facet_group,
             scales=scales,
-            mode=scale_mode,
+            scale_mode='discrete',
             axis_label_accuracy=y_accuracy,
             # legend.position=legend.position,
             # axis.text.x=axis.text.x,
             ...
         )
+    if (!(is.null(labels))) {
+        figure <- 
+            figure + 
+            geom_text(
+                aes(label=.data[[fill_var]]), 
+                color=label.color,
+                size=label.size,
+            )
+    }
     figure
 }
 
