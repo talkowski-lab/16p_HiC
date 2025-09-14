@@ -10,6 +10,157 @@ library(ggpubr)
 ###################################################
 # Annotate contacts with specified regions
 ###################################################
+annotate_contact_region_pairs <- function(
+    contacts.df,
+    regions.of.interest,
+    most_specific_only=TRUE,
+    ...){
+    # regions of interest is a tibble where each row is a specific contiguous genomic range
+    # see GENOMIC_REGIONS variable for example
+    # For each bin (1, left and 2, right) in each pair of bins annotate the region is belongs to
+    region.pairs.of.interest <- 
+        regions.of.interest %>%
+        # all possible pairs of regions to annotate
+        # each bin-pair will be assigned 1 region pair, even if regions overlap/contain eachother
+        join_all_rows(
+            .,
+            {.},
+            suffix=c('1','2'),
+            relationship='many-to-many',
+        ) %>% 
+        filter(region.chr1 == region.chr2) %>% 
+        # factor order so most specific region interactions have the lowest factor level
+        mutate(
+            region=
+                pmap_chr(
+                    list(region1, region2),
+                    ~ paste(sort(c(...)), collapse=' vs ')
+                ),
+            region.dist=region.dist1 + region.dist2,
+            region=fct_reorder(region, region.dist) 
+        )
+    # contacts.df should be a tibble where each row is a pair of genomic bins i.e. output of
+    # the load_mcool_file(s) functions
+    contacts.df %>% 
+    # Now annotate all region-pairs that each bin-pair belongs to 
+    # (bin1 in region1 and bin2 in region2)
+    full_join(
+        region.pairs.of.interest,
+        relationship='many-to-many',
+        by=
+            join_by(
+                chr == region.chr1,
+                between(
+                    range1,
+                    region.start1,
+                    region.end1
+                ),
+                between(
+                    range2,
+                    region.start2,
+                    region.end2
+                )
+            )
+    ) %>% 
+    # Pick most specific (smallest) annotated region for each bin if specified
+    {
+        if (most_specific_only) {
+            group_by(
+                .,
+                SampleID,
+                chr,
+                range1,
+                range2
+            ) %>% 
+            slice_min(
+                region.dist,
+                n=1,
+                with_ties=FALSE
+            ) %>% 
+            ungroup()
+        } else {
+            .
+        }
+    } %>% 
+    # Clean up 
+    select(-c(starts_with('region.')))
+}
+
+format_annotated_contacts <- function(contacts.df) {
+    contacts.df %>% 
+    # Filter for relevant contacts
+    mutate(contact.dist=range2 - range1) %>% 
+    filter(
+        contact.dist > dist.min,
+        contact.dist < dist.max
+    ) %>% 
+    # Number samples for faceting plots
+    nest(
+        data=
+            -c(
+                Edit,
+                Celltype,
+                Genotype,
+                is.Merged, 
+                Sample.ID
+            )
+    ) %>% 
+    arrange(
+        is.Merged,
+        Genotype
+    ) %>% 
+    # group_by(
+    #     Edit,
+    #     Celltype,
+    #     Genotype
+    # ) %>% 
+    # mutate(ReplicateNum=as.character(row_number())) %>%
+    # ungroup() %>% 
+    mutate(
+        ReplicateNum=
+            ifelse(
+                grepl('Merged', Sample.ID),
+                'Merged',
+                glue('Bio Replicate {ReplicateNum}')
+            )
+    ) %>% 
+    unnest(data) %>% 
+    # Plot visual details
+    left_join(
+        colors.and.titles,
+        by='region'
+    ) %>% 
+    mutate(
+        region.color=
+            ifelse(
+                is.na(region.color),
+                '#808080', 
+                region.color
+            ),
+        Genotype=
+            factor(
+                Genotype,
+                levels=
+                    c(
+                        'WT',
+                        'DEL',
+                        'DUP'
+                    )
+            )
+    ) %>% 
+    # Now produce results with different minimum IF thresholds
+    lapply(
+        0:5,
+        function(threshold, df) {
+            df %>% 
+            filter(IF > threshold) %>% 
+            add_column(IF.Threshold=glue('IF > {threshold}'))
+        },
+        df=. 
+    ) %>%
+    bind_rows()
+}
+
 ###################################################
 # Plotting 
 ###################################################
