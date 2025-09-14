@@ -67,7 +67,8 @@ check_cached_results <- function(
 parse_results_filelist <- function(
     input_dir,
     suffix,
-    filename.column.name,
+    filename.column.name='MatrixID',
+    pattern=NA,
     param_delim='_',
     ...){
     # !!NOTICE!!
@@ -86,6 +87,13 @@ parse_results_filelist <- function(
     ) %>% 
     tibble(fileinfo=.) %>%
     mutate(filepath=file.path(input_dir, fileinfo)) %>% 
+    {
+        if (is.na(pattern)) {
+            .
+        } else {
+            filter(., grepl(pattern, filepath))
+        }
+    } %>% 
     # Extract param info from directory names into structured columns
     separate_longer_delim(
         fileinfo,
@@ -194,6 +202,7 @@ get_info_from_MatrixIDs <- function(
     col_prefix='',
     keep_id=TRUE,
     nest_col=NA,
+    delim=fixed('.'),
     ...){
     # matrix_ID_col='MatrixID.P1'; sample_ID_col='SampleID.P1'; col_prefix='SampleInfo.P1.'; keep_id=FALSE; nest_col=NA
     # Set up some column names/variables
@@ -211,19 +220,12 @@ get_info_from_MatrixIDs <- function(
     col_names <- c(separate_names[!is.na(separate_names)], 'isMerged')
     # extract + format metadata
     df %>%
-    mutate(
-        isMerged=
-            ifelse(
-                grepl('Merged', !!sym(matrix_ID_col)),
-                'Merged',
-                'Individual'
-            ) %>% 
-            factor()
-    ) %>% 
+    mutate(isMerged=grepl('Merged', !!sym(matrix_ID_col))) %>% 
     separate_wider_delim(
         all_of(matrix_ID_col),
-        delim=fixed('.'),
+        delim=delim,
         names=separate_names,
+        too_many='merge',
         cols_remove=!keep_id
     ) %>% 
     # create SampleID
@@ -465,7 +467,10 @@ load_sample_metadata <- function(filter=TRUE){
 
 load_chr_sizes <- function(){
     CHROMOSOME_SIZES_FILE %>% 
-    read_tsv(col_names=c('Chr', 'chr.total.bp'))
+    read_tsv(
+        show_col_types=FALSE,
+        col_names=c('Chr', 'chr.total.bp')
+    )
 }
 
 get_min_resolution_per_matrix <- function(
@@ -474,9 +479,8 @@ get_min_resolution_per_matrix <- function(
     filter_res=TRUE){
     # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
     MIN_SAMPLE_RESOLUTION_FILE %>%
-    read_tsv() %>%
-    rename('resolution'=`Min. Viable Resolution`) %>% # as character e.g. 50Kb
-    select(Sample.ID, resolution) %>% 
+    read_tsv(show_col_types=FALSE) %>%
+    select(SampleID, resolution) %>% 
     {
         if (as_int && !is.numeric(.$resolution)) {
             mutate(., resolution=scale_numbers(resolution))
@@ -491,7 +495,7 @@ get_min_resolution_per_matrix <- function(
     add_column(is.smallest.resolution=TRUE) %>% 
     right_join(
         df,
-        by=join_by(Sample.ID)
+        by=join_by(SampleID)
     ) %>%
     { 
         if (filter_res) {
@@ -537,13 +541,13 @@ fetch_regions <- function(
 }
 
 format_plot_params <- function(
-    region.df,
+    regions.df,
     title.prefix='RGD Region',
     ...){
     load_mcool_files(
         return_metadata_only=TRUE,
         pattern='*.mapq_30.1000.mcool',
-        region.df=region.df,
+        regions.df=regions.df,
         range1s=NULL,
         range2s=NULL,
         progress=TRUE
@@ -567,12 +571,6 @@ format_plot_params <- function(
                 glue('context_{scale_numbers(window.size)}')
             )
     )
-    # group_by(Sample.ID, region) %>% 
-    # add_tally(wt=IF, name='region.total.contacts') %>% 
-    # ungroup() %>%
-    # group_by(Sample.ID, region) %>% 
-    # add_count(name='region.nbins') %>% 
-    # ungroup() %>%
 }
 
 ###################################################
@@ -725,3 +723,4 @@ load_mcool_files <- function(
         }
     }
 }
+
