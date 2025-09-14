@@ -8,8 +8,9 @@ library(viridis)
 library(ggh4x)
 # library(ggtext)
 library(cowplot)
-###############
+###################################################
 # Misc
+###################################################
 load_cooltools_file <- function(
     filepath,
     ...){
@@ -54,8 +55,10 @@ load_cooltools_file <- function(
         window.size=as.integer(window.size)
     )
 }
-###############
+
+###################################################
 # Load Insulation data
+###################################################
 load_cooltools_DIs <- function(
     filepath,
     ...){
@@ -130,8 +133,10 @@ load_all_DI_data <- function(){
     select(-c(filepath)) %>% 
     unnest(DIs)
 }
-###############
+
+###################################################
 # Load TAD annotation data
+###################################################
 load_arrowhead_TAD_annotation <- function(
     filepath,
     ...){
@@ -239,8 +244,10 @@ load_all_TAD_annotations <- function(){
     unnest(TADs) %>% 
     select(-c(filepath))
 }
-###############
+
+###################################################
 # Compute stuff
+###################################################
 calculate_pair_MoC <- function(
     TADs.P,
     TADs.Q,
@@ -373,5 +380,7 @@ calculate_all_pairs_MoCs <- function(
     unnest(mocs) %>%
     select(-c(TADs.Q, TADs.P))
 }
-###############
+
+###################################################
 # Plot stuff
+###################################################

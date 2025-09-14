@@ -1,11 +1,16 @@
+###################################################
+# Dependencies
+###################################################
 library(tidyverse)
 library(magrittr)
 library(tictoc)
 library(glue)
 library(HiCExperiment)
 library(hictkR)
-###############
+
+###################################################
 # Pairsing and Caching
+###################################################
 check_cached_results <- function(
     results_file,
     force_redo=FALSE,
@@ -259,8 +264,10 @@ get_info_from_MatrixIDs <- function(
         }
     }
 }
-###############
+
+###################################################
 # Utilities
+###################################################
 scale_numbers <- function(
     numbers,
     accuracy=2){
@@ -545,8 +552,9 @@ load_annotated_contacts_pairs <- function(
         most_specific_only=TRUE
     )
 }
-###############
+###################################################
 # Load Specific Data
+###################################################
 load_sample_metadata <- function(filter=TRUE){
     SAMPLE_METADATA_FILE %>%
     read_tsv(show_col_types=FALSE) %>%
@@ -670,8 +678,10 @@ format_plot_params <- function(
     # add_count(name='region.nbins') %>% 
     # ungroup() %>%
 }
-###############
+
+###################################################
 # Load Filetypes
+###################################################
 load_genome_coverage <- function(
     filepath,
     ...){

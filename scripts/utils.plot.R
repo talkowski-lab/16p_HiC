@@ -1,12 +1,16 @@
+###################################################
 # Dependencies
+###################################################
 library(tidyverse)
 library(magrittr)
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
 library(scales)
-###############
+
+###################################################
 # Handling/formatting plots
+###################################################
 make_ggtheme <- function(...){
     theme(
         panel.grid.major=element_blank(), 
@@ -198,8 +202,10 @@ post_process_plot <- function(
     } 
     figure
 }
-###############
+
+###################################################
 # Make tabs per plot in Rmd
+###################################################
 plot_figure_tabs <- function(
     plot.df,
     group_col,
@@ -314,8 +320,10 @@ make_nested_plot_tabs <- function(
     )
     cat(nl_delim)
 }
-###############
+
+###################################################
 # Basic Plots
+###################################################
 plot_barplot <- function(
     plot.df,
     x_var='',
@@ -467,8 +475,10 @@ plot_heatmap <- function(
         )
     figure
 }
-###############
+
+###################################################
 # Contact Heatmaps
+###################################################
 format_plot_params <- function(
     region.df,
     plot_dir,
@@ -728,8 +738,10 @@ heatmap_wrapper <- function(
         create.dir=TRUE
     )
 }
-###############
+
+###################################################
 # log2FC Heatmaps
+###################################################
 make_sample_pairs <- function(
     annotated.contacts.df,
     ...){

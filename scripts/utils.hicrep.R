@@ -1,9 +1,14 @@
+###################################################
+# Dependencies
+###################################################
 library(tidyverse)
 library(magrittr)
 library(glue)
 library(tictoc)
-###############
+
+###################################################
 # Load resutls
+###################################################
 load_all_hicrep_results <- function(sample_metadata=NULL){
     # Load all files generated from ./scripts/run.hicrep.sh
     # sample_metadata=sample.metadata %>% select( SampleID, Batch)
@@ -139,8 +144,10 @@ make_heatmap_plotdf <- function(
         .cols=matches('^(A|B).Sample.ID.')
     )
 }
-###############
+
+###################################################
 # Plot resutls
+###################################################
 plot_hicrep_boxplot <- function(
     plot.df,
     sample_group='Celltype',

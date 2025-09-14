@@ -1,6 +1,6 @@
-##################
-## Dependencies
-##################
+###################################################
+# Dependencies
+###################################################
 library(here)
 here::i_am('scripts/plot.RGD.contacts.R')
 BASE_DIR <- here()
@@ -17,9 +17,9 @@ library(HiContacts)
 library(furrr)
 # PLOT_DIR <- file.path(RESULTS_DIR, 'plots/RGDs')
 PLOT_DIR <- file.path(RESULTS_DIR, 'plots/lab.meeting')
-##################
+###################################################
 # Load all fileinfo + regions, but not contact data itself
-##################
+###################################################
 # plot shapes
 plot.params <- 
     tribble(
@@ -68,9 +68,9 @@ annotated.contacts.df <-
             )
     ) %>% 
     format_plot_params(plot_dir=PLOT_DIR)
-##################
+###################################################
 # Plot contact heatmaps
-##################
+###################################################
 annotated.contacts.df %>% 
     # filter(region == '17q21.31') %>% 
     join_all_rows(plot.params) %>% 
@@ -105,9 +105,9 @@ annotated.contacts.df %>%
         width=10,
         .progress=TRUE
     )
-##################
+###################################################
 # Plot contact heatmaps and log2(A/B) heatmaps for regions of interest
-##################
+###################################################
 annotated.contacts.df %>%
     mutate(isMerged=grepl('Merged', Sample.ID)) %>% 
     make_sample_pairs() %>% 
@@ -165,7 +165,7 @@ annotated.contacts.df %>%
         height=8,
         .progress=TRUE
     )
-##################
+###################################################
 # plot entire chromosomes
     pmap(
         .l=.,
@@ -179,9 +179,9 @@ annotated.contacts.df %>%
         width=10,
         .progress=TRUE
     )
-##################
+###################################################
 # TESTING STUFF
-##################
+###################################################
 # annotated.contacts.df  %>% distinct(window.size, resolution, range1, region)
 # annotated.contacts.df$output_dir[1:5]
 # annotated.contacts.df %>% colnames()

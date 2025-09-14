@@ -1,8 +1,13 @@
+###################################################
+# Dependencies
+###################################################
 library(tidyverse)
 library(glue)
 library(purrr)
-###############
+
+###################################################
 # Load various QC data files/sets of files
+###################################################
 load_pairtools_stats <- function(
     stats_file_suffix='.hg38.dedup.stats',
     samples.to.include=NULL,
@@ -338,8 +343,10 @@ get_all_matrix_minimum_resolutions <- function(
     unnest(min.resolution.results) %>%
     select(-c(filepath))
 }
-###############
+
+###################################################
 # Plot Matrix QC stuff
+###################################################
 plot_barplot_with_threshold_lines <- function(
     plot.df,
     lines.df,
@@ -481,3 +488,4 @@ plot_cistrans_chromosome_heatmap <- function(
     ) +
     theme(axis.title=element_blank())
 }
+

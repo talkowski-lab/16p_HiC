@@ -1,10 +1,18 @@
+###################################################
+# Dependencies
+###################################################
 library(glue)
 library(tidyverse)
 library(furrr)
 library(ggplot2)
 library(ggpubr)
-##############
+
+###################################################
+# Annotate contacts with specified regions
+###################################################
+###################################################
 # Plotting 
+###################################################
 plot_contacts_regions_boxplot <- function(
     plot.df,
     bin_col='region',
@@ -119,3 +127,4 @@ plot_contacts_regions_boxplot <- function(
     ) +
     add_ggtheme()
 }
+

@@ -1,4 +1,6 @@
+###################################################
 # Depdendencies
+###################################################
 library(tidyverse)
 library(magrittr)
 library(glue)
@@ -10,32 +12,36 @@ library(viridis)
 library(cowplot)
 library(gtable)
 library(furrr)
-###############
+
+###################################################
 # Generate resutls
+###################################################
 set_up_sample_comparisons <- function(...){
     # get info + filepaths for all contact matrices
     load_mcool_files(
         return_metadata_only=TRUE,
-        pattern='*.mapq_30.1000.mcool',
-        range1s=NULL,
-        range2s=NULL,
-        keep_metadata_columns=TRUE,
-        progress=TRUE
+        keep_metadata_columns=FALSE
     ) %>%
-    # Only keep relevant matrices
-    filter(ReadFilter == 'mapq_30') %>% select(-c(ReadFilter)) %>% 
-    mutate(isMerged=grepl('Merged', Sample.ID)) %>% 
-    # filter(!grepl('Merged', Sample.ID)) %>% 
     # Define minimum viable resolution for each matrix
     get_min_resolution_per_matrix(as_int=TRUE, filter_res=TRUE) %>% 
-    # Now group samples by condition, 
-    # these are the groups being comapred to find differential cotacts
-    # Also include groups with all DEL and all WTs from both edits
+    # Create groups of samples with all the same celltype+genotype, even across edits
     bind_rows(
         filter(., !isMerged) %>% 
-        mutate(Edit='All') %>%
-        group_split(Genotype, .keep=TRUE),
+        group_split(Genotype, Celltype, .keep=TRUE) %>%
+        sapply(
+            function(df) {
+                ifelse(
+                    length(unique(df$Edit)) > 1,
+                    df,
+                    tibble()
+                )
+            },
+            simplify=TRUE,
+            USE.NAMES=FALSE
+        ) 
     ) %>% 
+    # Now group samples by condition, 
+    # these are the groups being comapred to find differential cotacts
     mutate(
         Sample.Group=glue('{Edit}.{Genotype}.{Celltype}'),
         Sample.Group.copy=Sample.Group
@@ -319,8 +325,10 @@ run_all_multiHiCCompare <- function(
         .progress=TRUE
     )
 }
-###############
+
+###################################################
 # Load resutls
+###################################################
 load_multiHiCCompare_results <- function(
     filepath,
     nom.threshold,
@@ -392,8 +400,10 @@ load_all_multiHiCCompare_results <- function(
     select(-c(filepath)) %>% 
     unnest(results)
 }
-###############
+
+###################################################
 # Plot Results
+###################################################
 multiHiCCompare_genome_volcano_plot <- function(
     plot.df,
     color='distance.discrete',
@@ -613,3 +623,4 @@ multiHiCCompare_genome_scatter_plot <- function(
     ) +
     add_ggtheme()
 }
+
