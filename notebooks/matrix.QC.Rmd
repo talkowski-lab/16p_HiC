@@ -166,6 +166,23 @@ pairs.plot.df %>%
         scale_mode='pct',
         theme_obj=barplot.ggtheme,
         legend_cols=4,
+## Compare batches
+
+```{r compare_batches, echo=FALSE, fig.align='center'}
+pairs.plot.df %>% 
+    rename('Unique Pairs'=frac) %>% 
+    filter(!grepl('Merged', SampleID)) %>% 
+    plot_barplot_with_threshold_lines(
+        # normal barplot arguments
+        x_var='Category',
+        y_var='Unique Pairs',
+        fill_var='SampleID',
+        facet_col='TechRepID',
+        facet_row='Celltype',
+        scales='free_y',
+        scale_mode='pct',
+        theme_obj=barplot.ggtheme,
+        legend_cols=1,
         # where to draw lines
         lines.df=
             tribble(
