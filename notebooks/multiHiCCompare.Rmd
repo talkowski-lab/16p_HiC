@@ -44,58 +44,6 @@ library(ggh4x)
 library(purrr)
 ```
 
-# Generate all differential contact results
-
-Set up all combinations of parameters and sample groups to test
-```{r set_up_sample_comparisons}
-# All combinations of analysis hyper-params 
-hyper.params.df <- 
-    expand_grid(
-        # zero.p=c(0.6, 0.8),
-        zero.p=c(0.8),
-        A.min=c(5)
-    )
-# no covariates to control for
-sample.metadata.df <- load_sample_metadata()
-covariates.df <- 
-    sample.metadata.df %>% 
-    select(
-        Sample.ID,
-        Flowcell.ID
-    ) %>%
-    rename('Batch'=Flowcell.ID) %>% 
-    mutate(Batch=as.factor(Batch))
-# All pairs of sample groups to compare for differential contacts
-comparisons.df <- 
-    set_up_sample_comparisons() %>% 
-    # ignore old iN samples
-    filter(
-        !grepl('.iN$', Sample.Group.A),
-        !grepl('.iN$', Sample.Group.B)
-    )
-comparisons.df
-```
-For every group of samples + parameter combination run multiHiCCompare and cache the results.
-```{r run_multihiccompare, eval=FALSE}
-# GRanges object with Centro/Telomere regions to filter
-data('hg38_cyto') 
-# parallelizing params
-library(BiocParallel)
-numCores <- length(availableWorkers())
-print(numCores)
-register(MulticoreParam(workers=numCores), default=TRUE)
-# Run multiHiCComapre on all comparisons
-run_all_multiHiCCompare(    
-    comparisons.df %>% arrange(isMerged),
-    hyper.params.df,
-    covariates.df,
-    sample_group_priority_fnc=sample_group_priority_fnc_16p,
-    force_redo=FALSE,
-    remove.regions=hg38_cyto,
-    p.method='fdr'
-)
-```
-
 # Load all differential contact results
 
 ```{r load_results}
