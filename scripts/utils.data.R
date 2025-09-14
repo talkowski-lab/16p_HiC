@@ -603,8 +603,8 @@ load_genome_coverage <- function(
 
 load_mcool_file <- function(
     filepath,
-    resolution,
-    normalization,
+    resolution=100000,
+    normalization="NONE",
     range1="",
     range2="",
     cis=TRUE,
@@ -620,13 +620,6 @@ load_mcool_file <- function(
         type='df'
     ) %>% 
     as_tibble() %>%
-    # {
-    #     if (normalization == 'weight') {
-    #         add_column(., weight='ICE')
-    #     } else {
-    #         add_column(., weight=normalization)
-    #     }
-    # } %>% 
     # format column names
     {
         if (cis) {
@@ -657,14 +650,44 @@ load_mcool_file <- function(
 }
 
 load_mcool_files <- function(
-    pattern,
-    region.df=NULL,
+    pattern='.hg38.mapq_30.1000.mcool',
+    resolutions=NULL,
+    normalizations=NULL,
+    regions.df=NULL,
     range1s=NULL,
     range2s=NULL,
     progress=TRUE,
     return_metadata_only=FALSE,
     keep_metadata_columns=FALSE,
     ...){
+    # Define all genomic regions to load contacts 
+    regions.df <- 
+        if (is.null(regions.df)) {
+            # Get the whole genome
+            if ((is.null(range1s)) & (is.null(range2s))) {
+                tibble()
+                # tibble(
+                #     range1=CHROMOSOMES,
+                #     range2=CHROMOSOMES
+                # )
+            # get all contacts within all regions in range1s
+            } else if (is.null(range2s)) {
+                tibble(
+                    range1=range1s,
+                    range2=range1s
+                )
+            # get all contacts between all pairs of regions only (not intra-region contacts)
+            } else {
+                expand_grid(
+                    range1=range1s,
+                    range2=range2s
+                )
+            }
+        # Just load the specified regions (1 region per row: chr, start, end)
+        } else {
+            regions.df
+        }
+    # List all cooler files 
     COOLERS_DIR %>% 
     list.files(
         pattern=pattern,
@@ -672,36 +695,18 @@ load_mcool_files <- function(
         full.names=TRUE
     ) %>% 
     tibble(filepath=.) %>% 
-    mutate(matrix.name=basename(filepath)) %>% 
-    {
-        if (!is.null(region.df)) {
-            join_all_rows(
-                .,
-                region.df
-            )
-        } else {
-            if ((is.null(range1s)) & (is.null(range2s))) {
-                .
-            } else if (is.null(range2s)) {
-                join_all_rows(
-                    .,
-                    tibble(
-                        range1=range1s,
-                        range2=range1s
-                    )
-                )
-            } else {
-                join_all_rows(
-                    .,
-                    expand_grid(
-                        range1=range1s,
-                        range2=range2s
-                    )
-                )
-            }
-        }
-    } %>% 
-    process_matrix_name(keep_metadata_columns=keep_metadata_columns) %>% 
+    # parse sample metadata
+    mutate(MatrixID=basename(filepath)) %>% 
+    get_info_from_MatrixIDs(
+        matrix_ID_col='MatrixID',
+        sample_ID_col='SampleID',
+        col_prefix='',
+        keep_id=FALSE,
+        nest_col=NA,
+    ) %>% 
+    # List all regions for all samples
+    join_all_rows(regions.df) %>% 
+    # Load contacts if specified or just return sample metadata + filepaths + regions
     {
         if (return_metadata_only) {
             .
