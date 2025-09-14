@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# module unload java; module load wget singularity/3.7.0 FastQC/0.11.8-Java-1.8 samtools/1.11 bwa/0.7.17; conda activate dist2
 # Locations
 DISTILLER_DIR="/data/talkowski/Samples/16p_HiC/distiller-nf"
 DISTILLER_FILE="${DISTILLER_DIR}/distiller.nf"
@@ -9,6 +8,7 @@ LOG_DIR="${BASE_DIR}/slurm.logs"
 mkdir -p "${LOG_DIR}"
 CONDA_ENV="dist2"
 CONDA_DIR="$(conda info --base)"
+
 # Functions
 help() {
     echo TODO
@@ -18,8 +18,7 @@ main() {
         sample_ID="$(basename "${yml_file}")"
         sample_ID="${sample_ID%%.distiller.yml}"
         echo $sample_ID
-        log_file="${LOG_DIR}/${sample_ID}"-distiller
-        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; ${CONDA_DIR}/bin/conda activate ${CONDA_ENV}; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
+        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; source "${CONDA_DIR}/etc/profile.d/conda.sh"; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
         echo $cmd
         # continue 
         sbatch \
@@ -90,7 +89,8 @@ case $PARTITION in
     short)  TIME="2:59:59"     ;;
     normal) TIME="4-23:59:59"  ;;
     long)   TIME="15-23:59:00" ;;
-    bigmem) TIME="7-23:59:59"  ;;
+    # bigmem) TIME="7-23:59:59"  ;;
+    bigmem) TIME="4-1:00:00"  ;;
     *) echo "Invalid partiton $PARTITION" && exit 1 ;;
 esac
 # Print args
@@ -102,4 +102,6 @@ NTASKS_PER_NODE: ${NTASKS_PER_NODE}
 CPUS:            ${CPUS} 
 WORK_DIR:        ${WORK_DIR}"
 # All args are assumed to be distiller compatible yml files
+# module unload java; module load wget singularity/3.7.0 source "${CONDA_DIR}/etc/profile.d/conda.sh"; conda activate dist2
 main ${@}
+# $(conda info --base)/envs/dist2/bin/nextflow run /data/talkowski/Samples/16p_HiC/distiller-nf -w work -params-file
