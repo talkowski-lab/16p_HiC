@@ -5,11 +5,11 @@ RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,1
 # MAPQ_FITERS=("mapq_30" "no_filter")
 MAPQ_FITERS=("mapq_30")
 # 16p Information
-GENOTYPES_16P=(WT DEL DUP)
+GENOTYPES_16P=("WT" "DEL" "DUP")
 CELLTYPES_16P=("iN" "NSC")
 # Edit information
-EDITS=(NIPBL WAPL)
-GENOTYPES_EDITS=(WT DEL)
+EDITS=("NIPBL" "WAPL")
+GENOTYPES_EDITS=("WT" "DEL")
 CELLTYPES_EDITS=("iN")
 # Technical Args
 SEED=9  # Random seed for qc3C
@@ -138,7 +138,8 @@ merge_matrices() {
     read_filter="${3}"
     hic_matrices=${@:4}
     # ignore any existing merged files
-    hic_matrices=$(ls ${hic_matrices} | grep -vi 'merged')
+    hic_matrices=$(ls ${hic_matrices} | grep -vi 'merge')
+    echo "Samples being merged:"
     echo ${hic_matrices[@]}
     # process args
     merged_name="${sample_group}.Merged.Merged"
@@ -146,31 +147,44 @@ merge_matrices() {
     mkdir -p "${output_dir}"
     # Merge contacts
     merged_cool_file="${output_dir}/${merged_name}.hg38.${read_filter}.1000.cool"
-    cooler merge              \
-        "${merged_cool_file}" \
-        ${hic_matrices[@]}
+    if [[ -e ${merged_cool_file} ]]; then
+        echo 'Skipping merge, merged file exists'
+    else 
+        echo "Merging ${sample_group}.* samples..."
+        cooler merge              \
+            "${merged_cool_file}" \
+            ${hic_matrices[@]}
+    fi
     # Bin + balance merged matrix at all specified resolutions
-    merged_mcool_file="${cool_file%%.cool}.mcool"
-    cooler zoomify                     \
-        --nproc ${THREADS}             \
-        --resolutions "${RESOLUTIONS}" \
-        --balance                      \
-        --out "${merged_mcool_file}"   \
-        "${merged_cool_file}"
+    merged_mcool_file="${merged_cool_file%%.cool}.mcool"
+    if [[ -e ${merged_mcool_file} ]]; then
+        echo 'Skipping balancing, galanced merged file exists'
+    else 
+        echo "Balancing ${merged_name} matrix..."
+        cooler zoomify                     \
+            --nproc ${THREADS}             \
+            --resolutions "${RESOLUTIONS}" \
+            --balance                      \
+            --out "${merged_mcool_file}"   \
+            "${merged_cool_file}"
+    fi
 }
 merge_16p_matrices() {
     cooler_dir="$(readlink -e "${1}")"
     activate_conda 'cooler'
+    echo ${cooler_dir}
     # Merge matrices with and without MAPQ filtering
     for read_filter in ${MAPQ_FITERS[@]}; do 
-        for celltype in ${CELLTYPES[@]}; do 
-            for genotype in ${genotypes[@]}; do 
+        for celltype in ${CELLTYPES_16P[@]}; do 
+            for genotype in ${GENOTYPES_16P[@]}; do 
                 # merge across all biological + technical replicates
                 sample_group="16p.${celltype}.${genotype}"
-                merge_matrices                      \
-                    "${cooler_dir}"                 \
-                    "${sample_group}.Merged.Merged" \
-                    "${read_filter}"                \
+                echo '---------------'
+                # ls ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
+                merge_matrices         \
+                    "${cooler_dir}"    \
+                    "${sample_group}"  \
+                    "${read_filter}"   \
                     ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
             done
         done
@@ -281,9 +295,10 @@ matrix_coverage() {
             raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
             mkdir -p ${raw_output_dir}
             raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
-            echo ${uri}
-            if ! [[ -e ${raw_output_file} ]]; then
-                echo ${raw_output_file}
+            if [[ -e ${raw_output_file} ]]; then
+                echo "Raw coveragae already computed"
+            else
+                echo "Computing raw coverage for ${sample_ID}..."
                 cooltools coverage \
                     --nproc ${THREADS} \
                     --output ${raw_output_file} \
@@ -292,8 +307,10 @@ matrix_coverage() {
             balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
             mkdir -p ${balanced_output_dir}
             balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
-            if ! [[ -e ${balanced_output_file} ]]; then
-                echo ${balanced_output_file}
+            if [[ -e ${balanced_output_file} ]]; then
+                echo "Balanced coveragae already computed"
+            else
+                echo "Computing balanced coverage for ${sample_ID}..."
                 cooltools coverage \
                     --nproc ${THREADS} \
                     --clr_weight_name 'weight' \
@@ -453,9 +470,6 @@ main() {
         qc3C) 
             run_qc3c ${@:2} 
             ;;
-        # stats)
-        #     pairtools_stats ${@:2} 
-        #     ;;
         multiqcs)
             make_multiqc_reports ${@:2} 
             ;;
@@ -465,8 +479,8 @@ main() {
     esac
 }
 # Default script arguments
-CONDA_DIR="$HOME/miniforge3"
-THREADS="32" 
+CONDA_DIR="$(conda info --base)"
+THREADS="8" 
 # Handle CLI args
 [[ $? -ne 0 ]] && echo "No Args" && exit 1
 VALID_ARGS=$(getopt -o ha:t: --long help,anaconda-dir,threads -- "$@")
