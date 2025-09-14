@@ -224,14 +224,13 @@ load_TAD_annotation <- function(
     }
 }
 
-load_all_TAD_annotations <- function(){
+load_all_TAD_annotations <- function(...){
     parse_results_filelist(
         input_dir=TAD_DIR,
         suffix='-TAD.tsv',
-        filename.column.name='matrix.name',
-        param_delim='_',
+        ...
     ) %>%
-    process_matrix_name() %>% 
+    get_info_from_MatrixIDs() %>% 
     mutate(
         TADs=
             # pmap(
@@ -327,48 +326,76 @@ calculate_all_pairs_MoCs <- function(
     # Only compare pairs of annotations with the following matching params
     get_all_row_combinations(
         cols_to_pair=pair_grouping_cols,
-        suffixes=c('.P', '.Q'),
+        suffixes=c('.P1', '.P2'),
         keep_self=FALSE
     ) %>% 
-    # Now format sample metadata per pair for easy grouping+plotting
+    get_info_from_SampleIDs(
+        sample_ID_col='SampleID.P1',
+        col_prefix='SampleInfo.P1',
+        keep_id=TRUE,
+        nest_col='SampleInfo.P1'
+    ) %>% 
+    get_info_from_SampleIDs(
+        sample_ID_col='SampleID.P2',
+        col_prefix='SampleInfo.P2',
+        keep_id=TRUE,
+        nest_col='SampleInfo.P2'
+    ) %>% 
     rowwise() %>% 
     mutate(
         SamplePairInfo=
-            bind_rows(
-                SampleInfo.P,
-                SampleInfo.Q
-            ) %>% 
-            mutate(PairIndex=c('P', 'Q')) %>% 
-            pivot_longer(
-                -PairIndex,
-                names_to='SampleAttribute',
-                values_to='SampleValue'
-            ) %>% 
-            pivot_wider(
-                names_from=PairIndex,
-                values_from=SampleValue
-            ) %>% 
-            rowwise() %>% 
-            # Now group pairs by difference in specific sample metadata (genotype, celltype)
-            mutate(
-                PairValue=
-                    case_when(
-                        P == Q ~ glue('{P} vs {Q}'),
-                        P != Q ~ 
-                            c(P, Q) %>% 
-                            sort() %>%  
-                            paste(collapse=" vs ")
-                    )
+            merge_sample_info(
+                SampleInfo.P1,
+                SampleInfo.P2
             ) %>%
-            select(SampleAttribute, PairValue) %>%
-            pivot_wider(
-                names_from=SampleAttribute,
-                values_from=PairValue
-            ) %>% 
             list()
     ) %>% 
+    ungroup() %>% 
     select(-c(starts_with('SampleInfo'))) %>% 
     unnest(SamplePairInfo) %>% 
+    # nicely annotate info 
+    # annotate_sample_pair_info(
+    #     sample_ID_cols=c('SampleID.P', 'SampleID.Q'),
+    # ) %>% 
+    # Now format sample metadata per pair for easy grouping+plotting
+    # rowwise() %>% 
+    # mutate(
+    #     SamplePairInfo=
+    #         bind_rows(
+    #             SampleInfo.P,
+    #             SampleInfo.Q
+    #         ) %>% 
+    #         mutate(PairIndex=c('P', 'Q')) %>% 
+    #         pivot_longer(
+    #             -PairIndex,
+    #             names_to='SampleAttribute',
+    #             values_to='SampleValue'
+    #         ) %>% 
+    #         pivot_wider(
+    #             names_from=PairIndex,
+    #             values_from=SampleValue
+    #         ) %>% 
+    #         rowwise() %>% 
+    #         # Now group pairs by difference in specific sample metadata (genotype, celltype)
+    #         mutate(
+    #             PairValue=
+    #                 case_when(
+    #                     P == Q ~ glue('{P} vs {Q}'),
+    #                     P != Q ~ 
+    #                         c(P, Q) %>% 
+    #                         sort() %>%  
+    #                         paste(collapse=" vs ")
+    #                 )
+    #         ) %>%
+    #         select(SampleAttribute, PairValue) %>%
+    #         pivot_wider(
+    #             names_from=SampleAttribute,
+    #             values_from=PairValue
+    #         ) %>% 
+    #         list()
+    # ) %>% 
+    # select(-c(starts_with('SampleInfo'))) %>% 
+    # unnest(SamplePairInfo) %>% 
     mutate(
         mocs=
             pmap(
