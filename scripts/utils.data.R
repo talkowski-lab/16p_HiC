@@ -351,22 +351,22 @@ get_all_row_combinations <- function(
     df1,
     df2=NULL,
     cols_to_pair=c(),
-    suffixes=c('.A', '.B'),
+    suffixes=c('.P1', '.P2'),
     keep_self=TRUE,
     ...){
     # Get all combinations of rows with matching attributes (cols_to_pair)
     {
         if (is_tibble(df2)) {
             join_all_rows(
-                df1 %>% ungroup() %>% mutate(index=row_number()),
-                df2 %>% ungroup() %>% mutate(index=row_number()),
+                df1 %>% mutate(index=row_number()),
+                df2 %>% mutate(index=row_number()),
                 join_keys=cols_to_pair,
                 suffix=c('.A', '.B')
             )
         } else {
             join_all_rows(
-                df1 %>% ungroup() %>% mutate(index=row_number()),
-                df1 %>% ungroup() %>% mutate(index=row_number()),
+                df1 %>% mutate(index=row_number()),
+                df1 %>% mutate(index=row_number()),
                 join_keys=cols_to_pair,
                 suffix=c('.A', '.B')
             )
@@ -401,8 +401,8 @@ get_all_row_combinations <- function(
 merge_sample_info <- function(
     SampleInfo.P1,
     SampleInfo.P2,
-    prefix.P1='',
-    prefix.P2='',
+    suffix.P1='.P1',
+    suffix.P2='.P2',
     ...){
     # SampleInfo.P1=df$SampleInfo.P1[[1]]; prefix.P1='SampleInfo.P1.'; SampleInfo.P2=df$SampleInfo.P2[[1]]; prefix.P2='SampleInfo.P2.'
     # Combine pair info
@@ -412,8 +412,8 @@ merge_sample_info <- function(
         return(NULL)
     }
     bind_rows(
-        SampleInfo.P1 %>% rename_with(~ str_remove(.x, prefix.P1)),
-        SampleInfo.P2 %>% rename_with(~ str_remove(.x, prefix.P2)),
+        SampleInfo.P1 %>% rename_with(~ str_remove(.x, suffix.P1)),
+        SampleInfo.P2 %>% rename_with(~ str_remove(.x, suffix.P2)),
     ) %>% 
     add_column(PairIndex=c('P1', 'P2')) %>% 
     mutate(across(everything(), as.character)) %>% 
@@ -704,6 +704,21 @@ load_mcool_files <- function(
     ) %>% 
     # List all regions for all samples
     join_all_rows(regions.df) %>% 
+    # List all paramter combinations
+    {
+        if (!is.null(normalizations)) {
+            cross_join(., tibble(normalization=normalizations))
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if (!is.null(resolutions)) {
+            cross_join(., tibble(resolution=resolutions))
+        } else {
+            .
+        }
+    } %>% 
     # Load contacts if specified or just return sample metadata + filepaths + regions
     {
         if (return_metadata_only) {
