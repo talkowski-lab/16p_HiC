@@ -47,15 +47,15 @@ make_ggtheme <- function(...){
 
 scale_y_axis <- function(
     figure,
-    mode='',
+    scale_mode='',
     log_base=10,
-    axis_label_accuracy=2,
+    axis_label_accuracy=0.1,
     n_breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
-    # Scale y axis based on mode argumetn
-    if (mode == 'pct') {
+    # Scale y axis based on scale_mode argumetn
+    if (scale_mode == 'pct') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
@@ -65,7 +65,7 @@ scale_y_axis <- function(
             labels=label_percent(),
             ...
         )
-    } else if (mode == 'mb') {
+    } else if (scale_mode == 'mb') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
@@ -79,7 +79,7 @@ scale_y_axis <- function(
                 ),
             ...
         )
-    } else if (mode == 'log10') {
+    } else if (scale_mode == 'log10') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_log10(
@@ -94,9 +94,9 @@ scale_y_axis <- function(
                 ),
             ...
         )
-    } else if (mode == 'discrete') {
+    } else if (scale_mode == 'discrete') {
         figure
-    } else if (mode == '') {
+    } else if (scale_mode == '') {
         if (is.null(limits)) {
             figure + 
             scale_y_continuous(
@@ -173,7 +173,7 @@ post_process_plot <- function(
     scales='fixed',
     scale_mode='',
     log_base=10,
-    axis_label_accuracy=2,
+    axis_label_accuracy=0.1,
     n_breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
@@ -192,7 +192,7 @@ post_process_plot <- function(
         ) %>% 
         # Set y-axis scaling (log, Mb, percent etc.)
         scale_y_axis(
-            mode=scale_mode,
+            scale_mode=scale_mode,
             log_base=log_base,
             axis_label_accuracy=axis_label_accuracy,
             n_breaks=n_breaks,
@@ -396,11 +396,6 @@ plot_boxplot <- function(
     facet_row=NULL,
     facet_col=NULL,
     facet_group=NULL,
-    scales='fixed',
-    scale_mode='',
-    y_accuracy=1,
-    # legend.position='top',
-    # axis.text.x=element_text(angle=55, hjust=1),
     ...){
     # Set fill group if specified
     figure <- 
@@ -427,20 +422,13 @@ plot_boxplot <- function(
         figure + 
         geom_boxplot()
     # Handle faceting + scaling + theme options
-    figure <- 
-        figure %>% 
-        post_process_plot(
-            facet_row=facet_row,
-            facet_col=facet_col,
-            facet_group=facet_group,
-            scales=scales,
-            mode=scale_mode,
-            axis_label_accuracy=y_accuracy,
-            # legend.position=legend.position,
-            # axis.text.x=axis.text.x,
-            ...
-        )
-    figure
+    figure %>% 
+    post_process_plot(
+        facet_row=facet_row,
+        facet_col=facet_col,
+        facet_group=facet_group,
+        ...
+    )
 }
 
 plot_heatmap <- function(
@@ -451,7 +439,6 @@ plot_heatmap <- function(
     facet_row=NULL,
     facet_col=NULL,
     facet_group=NULL,
-    scale_mode='',
     scales='fixed',
     labels=NULL,
     label.size=4,
@@ -478,9 +465,6 @@ plot_heatmap <- function(
             facet_group=facet_group,
             scales=scales,
             scale_mode='discrete',
-            axis_label_accuracy=y_accuracy,
-            # legend.position=legend.position,
-            # axis.text.x=axis.text.x,
             ...
         )
     if (!(is.null(labels))) {
