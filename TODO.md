@@ -1,5 +1,29 @@
 # TODO
 
+## Tasks
+
+- [ ] multiHiCCompare results with new samples
+  - [ ] 16p Samples
+  - [ ] NIPBL+WAPL Samples
+- [x] finish running HiC samples
+- [ ] write code to compare cooltools insulation TAD boundary annotations
+- [ ] write code to load cooltools and HiTAD annotations separtely
+- [ ] redo stuff with new 16p HiC samples
+  - [ ] create multiQC reports
+  - [ ] merge matrices
+  - [ ] compute coverage for minimum resolution
+  - [ ] redo QC notebook
+  - [ ] run HiCRep on new matrix pairs
+  - [ ] redo HiCRep notebook
+  - [ ] redo Weiner et al. 2022 notebook
+  - [ ] generate TAD annotations for new samples
+  - [ ] redo TAD analysis notebook
+- [ ] read loop callers review paper
+- [ ] pick and install loop calling tools
+  - [ ] mustache
+  - [ ] ???
+- [ ] write wrapper script to  call loops 
+
 ## Plots to Make
 
 ### Sample QC
@@ -7,18 +31,24 @@
 - [x] barplot Pair Category bar plot per Sample
 - [x] lineplot Pair Orientation and Frequency by Distance per Sample
 - [x] heatmap Contacts between all chromosomes per Sample
+- [ ] lineplot plot comparing bin-wise coverage of balanced vs raw IFs
 
 ### HiCRep
 
-- [x] 
+- [x] boxplot of hyper-parameter comparison 
+- [x] boxplot of all sample pairs scores per celltype per genotype
+- [x] boxplot of all sample pairs scores per chromosome
 
 ### TADs
 
 - [ ] hiTAD 
-  - [x] boxplot number of TADs per Genotype per Chromosome
-  - [x] boxplot TAD lengths per Genotype per Chromosome
-  - [x] boxplot of MoCs between Genotypes
-  - [x] heatmap mean MoC across pairs per Genotype per Chromosome
+  - [ ] boxplot number of TADs per Genotype per Chromosome
+  - [ ] boxplot TAD lengths per Genotype per Chromosome
+  - [ ] boxplot of MoCs between Genotypes
+  - [ ] heatmap mean MoC across pairs per Genotype per Chromosome
+- [ ] cooltools
+  - [ ] boxplot number of TAD Boundaries per Genotype per Chromosome
+  - [ ] relative position of Boundaries? 
 
 - [ ] cooltools 
   - [ ] boxplot number of boundaries per Genotype per Chromosome
@@ -67,167 +97,6 @@
 - [ ] Serkan's iN paper [link](https://epigeneticsandchromatin.biomedcentral.com/articles/10.1186/s13072-024-00538-6)
 - [ ] Find QC stats/thresholds for calling loops
 - [ ] Find QC stats/thresholds for calling compartments
-
-## Lab Meeting 
-
-- [j] make pipeline diagram
-- [x] animate pairtools parsing slide
-- [ ] review how pairtools parsing works
-- [x] QC Figures
-  - [x] qc3C for 16p iN samples
-  - [x] multiqc reports for 16p iN samples
-  - [x] Pair statistics tables (fromt multiqcs)
-    - [ ] 16p samples
-    - [ ] NIPBL+WAPL Samples
-  - [ ] distance decay plots
-    - [x] 16p samples
-    - [x] NIPBL+WAPL Samples
-  - [x] remake bar plot figures
-    - [x] 16p samples
-    - [x] NIPBL+WAPL Samples
-- [x] Calculate minimum viable resolution table (Raot et al. 2014)
-  - [x] 16p samples
-  - [x] NIPBL+WAPL Samples
-- [ ] line plots of normalized vs 
-  - [ ] 16p samples
-  - [ ] NIPBL+WAPL Samples
-- [x] Plot contact heatmaps of specific regions at min resolution
-  - [x] 16p samples
-  - [x] NIPBL+WAPL Samples
-- [ ] HiCRep
-  - [ ] re-read method details
-  - [x] generate results with 5e6 windowsize
-  - [x] plot hyper-parameter differences
-  - [ ] NIPBL+WAPL
-    - [x] compare genotypes
-    - [x] compare individual vs merged
-    - [x] compare Edits
-    - [x] 1 example of per-chromosome scores
-  - [x] 16p
-    - [x] compare genotypes
-    - [x] compare individual vs merged
-    - [x] compare 6 original vs 3 new samples
-    - [x] 1 example of per-chromosome scores
-- [ ] TADs
-- [ ] multiHiCCompare
-  - [x] use balanced or raw? raw!
-  - [x] generate results for minimum resolutions
-  - [ ] plot in regions of interest
-  - [ ] calcualte genome-wide summary stats
-
-## Code
-
-- [x] MiSeq QC analysis
-  - [x] 16p iNs
-  - [x] 16p NSCs
-- [x] calculate minimum viable resolution with Rao et al. 2014 definition 
-- [x] create table of genomic regions to plot
-- [x] plot read pair orientation for pairs
-- [x] plot pair-category statistics with raw number (not %)
-- [x] Plot HiCRep per chromosome (fix spacing)
-- [ ] plot comparing raw vs balanced matrices
-- [ ] create coverage line plot function
-- [x] create contact heatmap function
-- [x] Finish TAD annotation results parser
-- [x] implement TAD similarity metrics
-- [x] finish re-write of multHiCCompare results generator
-
-## 16p
-
-- [x] run distiller to generate matrices
-  - [9/9] NSCs
-  - [3/3] iNs
-- [ ] merge + balance matrices per Genotype+Celltype
-  - [3/3] NSCs
-  - [0/1] iNs
-- [ ] calculate coverage for all matrices
-  - [9/9] NSCs
-  - [0/3] iNs
-  - [3/4] merged samples
-- [ ] calcualte HiCRep results 
-  - [9/9] NSCs
-  - [2/3] iNs
-  - [3/4] merged samples
-- [x] Pair QC notebook
-- [x] HICRep notebook
-- [x] recreate elise results in notebook
-  - individual sample boxplots
-  - merged sample boxplots
-  - raw @ 100Kb
-  - include p-values + no correction
-- [ ] TAD analysis
-  - [ ] cooltools
-    - [9/9] NSCs
-    - [2/3] iNs
-    - [3/4] merged samples
-  - [ ] hiTAD
-    - [9/9] NSCs
-    - [2/3] iNs
-    - [3/4] merged samples
-  - [ ] Plot summary statistics
-    - [ ] TADs per chromosome
-    - [ ] TAD sizes
-    - [ ] TAD start position correlation/distribution ?
-- [ ] MultiHiCCompare results
-  - [ ] generate sparse matrix input
-    - [0/9] NSCs
-    - [0/3] iNs
-    - [0/4] merged samples
-  - [ ] generate results
-    - [0/9] NSCs
-    - [0/3] iNs
-    - [0/4] merged samples
-  - [ ] plot p-value distribution of contacts
-    - [ ] pvalue histogram
-    - [ ] Q-Q plot?
-  - [ ] Compare stat distributions per result
-    - [ ] log(10) p-value sum 
-    - [ ] log(10) p-value median + var
-    - [ ] number of significant contacts
-      - [ ] at different thresholds
-      - [ ] per chromosome
-
-## NIPBL+WAPL
-
-- [x] WAPL+NIPBL fix qc3C thing
-- [x] merge + balance matrices per Genotype+Celltype
-  - [5/5] iNs
-- [x] calculate coverage for all matrices
-  - [12/12] iNs
-  - [5/5] merged samples
-- [x] calcualte HiCRep results 
-  - [12/12] iNs
-  - [5/5] merged samples
-- [x] Pair QC notebook 
-- [x] HiCRep notebook
-- [ ] TAD analysis
-  - [x] generate TADs (10Kb, 25Kb, 50Kb, 100Kb)
-    - [x] cooltools
-      - [12/12] iNs
-      - [5/5] merged samples
-    - [x] hiTAD
-      - [12/12] iNs
-      - [5/5] merged samples
-  - [ ] Plot summary statistics
-    - [ ] TADs per chromosome
-    - [ ] TAD sizes
-    - [ ] TAD start position correlation/distribution ?
-- [ ] MultiHiCCompare results
-  - [ ] generate sparse matrix input
-    - [0/12] iNs
-    - [0/5] merged samples
-  - [ ] generate results
-    - [0/12] iNs
-    - [0/5] merged samples
-  - [ ] plot p-value distribution of contacts
-    - [ ] pvalue histogram
-    - [ ] Q-Q plot?
-  - [ ] Compare stat distributions per result
-    - [ ] log(10) p-value sum 
-    - [ ] log(10) p-value median + var
-    - [ ] number of significant contacts
-      - [ ] at different thresholds
-      - [ ] per chromosome
 
 ## Notes
 
@@ -336,30 +205,3 @@
 ### Loop Calling
 
 - ENCODE says >= 2B unique paired-end reads to be "loop resolution"
-
-## R01 Materials
-
-- [ ] Write methods
-  - [x] distiller pipeline
-  - [ ] add statistics
-    - [ ] fastq reads
-  - [ ] how QC barplot stats are calculated
-  - [ ] HiCRep method
-  - [ ] TAD calling strategies
-    - [ ] cooltools
-    - [ ] hiTAD single-level
-    - [ ] compare TAD similarity
-- [x] QC barplot
-  - [x] add cutoff lines based on ENCODE thresholds (15%, 35%)
-- [x] HiCRep Heatmap
-  - all samples vs all samples
-  - get gw-hicrep by taking avg of all chr scores
-  - unmerged matrices only
-- [ ] contact heatmaps
-  - [ ] raw contacts
-  - [ ] balanced contacts (ICE)
-  - [ ] log2 ratio between matrices
-- [ ] TAD figures
-  - [ ] number of TADs
-  - [ ] TAD length
-  - [ ] compare TAD similarity
