@@ -181,8 +181,7 @@ load_hiTAD_TAD_annotation <- function(
                 'TAD.start',
                 'TAD.end'
             )
-    ) %>%
-    add_column(is_boundary=TRUE)
+    )
 }
 
 load_cooltools_TAD_annotation <- function(
@@ -224,16 +223,28 @@ load_TAD_annotation <- function(
     }
 }
 
-load_all_TAD_annotations <- function(...){
+load_all_TAD_annotations <- function(
+    pattern=NULL,
+    ignore.case=TRUE,
+    invert=FALSE){
     parse_results_filelist(
         input_dir=TAD_DIR,
-        suffix='-TAD.tsv',
-        ...
+        suffix='-TAD.tsv'
     ) %>%
-    get_info_from_MatrixIDs() %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    {
+        if (!is.null(pattern)) {
+            if (invert) {
+                filter(., !grepl(pattern, filepath, ignore.case=ignore.case))
+            } else {
+                filter(.,  grepl(pattern, filepath, ignore.case=ignore.case))
+            }
+        } else {
+            .
+        }
+    } %>% 
     mutate(
         TADs=
-            # pmap(
             future_pmap(
                 .,
                 load_TAD_annotation,
@@ -245,17 +256,17 @@ load_all_TAD_annotations <- function(...){
 }
 
 ###################################################
-# Compute stuff
+# Compute Similarities
 ###################################################
 calculate_pair_MoC <- function(
-    TADs.P,
-    TADs.Q,
+    TADs.P1,
+    TADs.P2,
     ...){
-    # TADs.P, TADs.Q should be tibble with columns TAD.start, TAD.end, TAD.length
+    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length
     # 1 row per TAD
     # Number of TADs
-    nTADs.P <- nrow(TADs.P)
-    nTADs.Q <- nrow(TADs.Q)
+    nTADs.P <- nrow(TADs.P1)
+    nTADs.Q <- nrow(TADs.P2)
     # Skip trivial cases
     if (nTADs.P == nTADs.Q & nTADs.P == 1) {
         1
@@ -263,8 +274,8 @@ calculate_pair_MoC <- function(
         norm_const <- 1 / (sqrt(nTADs.P * nTADs.Q) - 1)
         # Get all pairs of TADs
         cross_join(
-            TADs.P,
-            TADs.Q,
+            TADs.P1,
+            TADs.P2,
             suffix=c('.P', '.Q')
         ) %>%
         # only keep pairs of TADs that overlap at all
@@ -295,15 +306,15 @@ calculate_pair_MoC <- function(
 }
 
 calculate_pair_boundary_conservation <- function(
-    TADs.P,
-    TADs.Q,
+    TADs.P1,
+    TADs.P2,
     tolerance=50000,
     ...){
-    # TADs.P, TADs.Q should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
+    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
     # 1 row per TAD
     cross_join(
-        TADs.P,
-        TADs.Q,
+        TADs.P1,
+        TADs.P2,
         suffix=c('.P', '.Q')
     ) %>%
     mutate(
@@ -317,29 +328,17 @@ calculate_all_pairs_MoCs <- function(
     tad.annotations,
     pair_grouping_cols,
     ...){
+    # pair_grouping_cols=c('isMerged', 'resolution', 'chr'); tad.annotations=hitad.annotations %>% nest(TADs=c(TAD.start, TAD.end, TAD.length)) %>% nest(SampleInfo=c(Edit, Genotype, Celltype, CloneID, TechRepID, weight, SampleID)); tad.annotations
     # tad.annotations Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # TADs: nested tibble with 3 columns; TAD.start, TAD.end, TAD.length
     # pair_grouping_cols: all columns listed here, only compare pairs of TAD sets that match
     # that match along these attributes e.g. resolution, chr
     tad.annotations %>% 
-    # Only compare pairs of annotations with the following matching params
+    # List all pairs of annotations (SampleID + chr) that also have matching parameter values listed
     get_all_row_combinations(
         cols_to_pair=pair_grouping_cols,
-        suffixes=c('.P1', '.P2'),
         keep_self=FALSE
-    ) %>% 
-    get_info_from_SampleIDs(
-        sample_ID_col='SampleID.P1',
-        col_prefix='SampleInfo.P1',
-        keep_id=TRUE,
-        nest_col='SampleInfo.P1'
-    ) %>% 
-    get_info_from_SampleIDs(
-        sample_ID_col='SampleID.P2',
-        col_prefix='SampleInfo.P2',
-        keep_id=TRUE,
-        nest_col='SampleInfo.P2'
     ) %>% 
     rowwise() %>% 
     mutate(
@@ -353,49 +352,7 @@ calculate_all_pairs_MoCs <- function(
     ungroup() %>% 
     select(-c(starts_with('SampleInfo'))) %>% 
     unnest(SamplePairInfo) %>% 
-    # nicely annotate info 
-    # annotate_sample_pair_info(
-    #     sample_ID_cols=c('SampleID.P', 'SampleID.Q'),
-    # ) %>% 
-    # Now format sample metadata per pair for easy grouping+plotting
-    # rowwise() %>% 
-    # mutate(
-    #     SamplePairInfo=
-    #         bind_rows(
-    #             SampleInfo.P,
-    #             SampleInfo.Q
-    #         ) %>% 
-    #         mutate(PairIndex=c('P', 'Q')) %>% 
-    #         pivot_longer(
-    #             -PairIndex,
-    #             names_to='SampleAttribute',
-    #             values_to='SampleValue'
-    #         ) %>% 
-    #         pivot_wider(
-    #             names_from=PairIndex,
-    #             values_from=SampleValue
-    #         ) %>% 
-    #         rowwise() %>% 
-    #         # Now group pairs by difference in specific sample metadata (genotype, celltype)
-    #         mutate(
-    #             PairValue=
-    #                 case_when(
-    #                     P == Q ~ glue('{P} vs {Q}'),
-    #                     P != Q ~ 
-    #                         c(P, Q) %>% 
-    #                         sort() %>%  
-    #                         paste(collapse=" vs ")
-    #                 )
-    #         ) %>%
-    #         select(SampleAttribute, PairValue) %>%
-    #         pivot_wider(
-    #             names_from=SampleAttribute,
-    #             values_from=PairValue
-    #         ) %>% 
-    #         list()
-    # ) %>% 
-    # select(-c(starts_with('SampleInfo'))) %>% 
-    # unnest(SamplePairInfo) %>% 
+    # Finally compute all MoCs for all listed pairs of annotations
     mutate(
         mocs=
             pmap(
@@ -405,7 +362,7 @@ calculate_all_pairs_MoCs <- function(
             )
     ) %>%
     unnest(mocs) %>%
-    select(-c(TADs.Q, TADs.P))
+    select(-c(TADs.P1, TADs.P2))
 }
 
 ###################################################

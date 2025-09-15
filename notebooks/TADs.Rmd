@@ -29,7 +29,7 @@ knitr::opts_chunk$set(
 )
 ```
 Set up file locations + load dependences
-```{r file_locs, results=FALSE, message=FALSE, warning=FALSE}
+```{r dependencies, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
 here::i_am('notebooks/TADs.Rmd')
 BASE_DIR <- here()
@@ -43,6 +43,7 @@ library(magrittr)
 library(ggplot2)
 library(ggh4x)
 library(purrr)
+PLOT_DIR <- file.path(here(), 'notebooks', 'TADs_files')
 ```
 
 # hiTAD TAD annotations {.tabset}
@@ -88,6 +89,124 @@ hitad.annotations <-
     filter(weight == 'ICE')
 ```
 
+## Number of TADs
+
+```{r PLOT_hitad_tad_number, results='asis', fig.width=8, fig.height=6}
+all.hitad.annotations %>% 
+    dplyr::count(
+        isMerged, weight, Celltype, 
+        resolution, Genotype,
+        SampleID, chr, name='nTADs'
+    ) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged', 'weight', 'resolution'),
+        # group_cols=c('isMerged', 'resolution', 'weight'),
+        max_header_lvl=3,
+        plot_fnc=plot_heatmap,
+        x_var='chr',
+        y_var='SampleID',
+        fill_var='nTADs',
+        # facet_col='Genotype',
+        facet_row='Celltype',
+        scales='free_y',
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+
+## TAD Lengths
+
+```{r PLOT_hitad_tad_length, results='asis', fig.width=8, fig.height=6}
+all.hitad.annotations %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged', 'weight', 'resolution'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='chr',
+        y_var='TAD.length',
+        fill_var='Genotype',
+        facet_row='Celltype',
+        scales='fixed',
+        scale_mode='mb',
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+
+## TAD Similarity
+
+Calculate MoC for all pairs of TAD annotation sets
+```{r hiTAD_calculate_mocs}
+hitad.mocs <- 
+    check_cached_results(
+        results_file=TAD_MOC_FILE,
+        # force_redo=TRUE,
+        results_fnc=calculate_all_pairs_MoCs,
+        tad.annotations=
+            hitad.annotations %>%
+            nest(
+                TADs=
+                    c(
+                        TAD.start,
+                        TAD.end,
+                        TAD.length
+                    )
+            ) %>% 
+            nest(
+                SampleInfo=
+                    c(
+                        weight,
+                        SampleID,
+                        Edit,
+                        Genotype,
+                        Celltype,
+                        CloneID,
+                        TechRepID
+                    )
+            ),
+        pair_grouping_cols=
+            c(
+                'isMerged',
+                'resolution',
+                'chr'
+            )
+    ) %>% 
+    # mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(chr=factor(chr, levels=CHROMOSOMES)) %>% 
+    rename('Measure.of.Concordance'=mocs)
+# hitad.mocs
+```
+Plot distribution of similarity between genotype pairs 
+```{r plot_MoCs_boxplot, results='asis'}
+hitad.mocs %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged', 'weight', 'resolution'),
+        max_header_lvl=3,
+        plot_fnc=plot_boxplot,
+        x_var='Genotype',
+        y_var='Measure.of.Concordance',
+        facet_col='Celltype',
+        # facet_row='resolution',
+        scales='fixed',
+        axis_label_accuracy=1,
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+Plot mean similarity between genotype pairs per chromosome
+```{r plot_MoCs_heatmap, results='asis'}
+hitad.mocs %>% 
+    group_by(weight, resolution, isMerged, chr, Genotype, Celltype) %>%
+    summarize(mean.MoC=mean(Measure.of.Concordance)) %>% 
+    make_nested_plot_tabs(
+        group_cols=c('isMerged', 'weight', 'resolution'),
+        max_header_lvl=3,
+        plot_fnc=plot_heatmap,
+        x_var='chr',
+        y_var='Genotype',
+        fill_var='mean.MoC',
+        facet_row='Celltype',
+        # facet_row='resolution',
+        scales='fixed',
+        legend.position='top',
+        axis.text.x=element_text(angle=45, hjust=1)
     )
 ```
 
@@ -181,221 +300,83 @@ cooltools.annotations %>%
     #     units='in'
     # )
 ```
-Plot tads for hitads
-```{r PLOT_hitad_tad_number, results='asis', fig.width=8, fig.height=6}
-hitad.annotations %>% 
+Number of boundaries per chr + sample across param combos
+```{r PLOT_boundaries_per_paramset, results='asis', fig.width=8, fig.height=6, eval=FALSE}
+all.cooltools.annotations %>% 
     mutate(resolution=scale_numbers(resolution)) %>% 
-    group_by(isMerged, resolution, Sample.ID, chr) %>% 
-    dplyr::count(name='nTADs') %>% 
-    make_nested_plot_tabs(
-        group_cols=c('isMerged'),
-        max_header_lvl=3,
-        plot_fnc=plot_heatmap,
-        x_var='chr',
-        y_var='Sample.ID',
-        fill_var='nTADs',
-        facet_row='resolution',
-        scales='fixed'
-    )
-    # group_by(isMerged) %>%
-    # group_map(
-    #     ~ plot_heatmap(
-    #         plot.df=.x,
-    #         x_var='chr',
-    #         y_var='Sample.ID',
-    #         fill_var='nTADs',
-    #         facet_row='resolution',
-    #         scales='fixed'
-    #     )
-    # ) %>% 
-    # cowplot::plot_grid(
-    #     plotlist=.,
-    #     align='v',
-    #     ncol=1
-    # ) %>% 
-    # ggsave(
-    #     file.path(PLOT_DIR, 'HiTAD.nTADs.pdf'),
-    #     .,
-    #     width=10,
-    #     height=10,
-    #     units='in'
-    # )
-```
-Plot TAD lengths
-```{r PLOT_hitad_tad_length, results='asis', fig.width=8, fig.height=6}
-# hitad.annotations %>% group_by(isMerged, Genotype, chr,  resolution) %>% slice_head(n=5) %>% select(TAD.length)
-hitad.annotations %>% 
-    mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
+    group_by(
+        across(
+            -c(
+               chr,
+               TAD.boundary,
+               n_valid_pixels,
+               boundary_strength
+            )
+        )
+    ) %>% 
+    dplyr::count(name='nBoundaries') %>%
+    ungroup() %>% 
     make_nested_plot_tabs(
         group_cols=c('isMerged'),
         max_header_lvl=3,
         plot_fnc=plot_boxplot,
-        x_var='chr',
-        y_var='TAD.length',
-        fill_var='Genotype',
+        x_var='params',
+        y_var='nBoundaries',
+        fill_var='isMerged',
+        facet_col='threshold',
         facet_row='resolution',
         scales='free_y',
-        scale_mode='mb',
-        y_accuracy=0.1
     )
-    # group_by(isMerged) %>%
-    # group_map(
-    #     ~ plot_boxplot(
-    #         plot.df=.x,
-    #         x_var='chr',
-    #         y_var='TAD.length',
-    #         fill_var='Genotype',
-    #         # fill_var='nTADs',
-    #         facet_row='resolution',
-    #         scales='free_y'
-    #     )
-    # ) %>% 
-    # lapply(
-    #     scale_y_axis,
-    #     mode='mb',
-    #     axis_label_accuracy=0.1
-    # ) %>% 
-    # cowplot::plot_grid(
-    #     plotlist=.,
-    #     align='v',
-    #     ncol=1
-    # ) %>% 
+    # plot_boxplot(
+    #     x_var='params',
+    #     y_var='nBoundaries',
+    #     fill_var='isMerged',
+    #     facet_col='threshold',
+    #     facet_row='resolution',
+    #     scales='free_y'
+    # ) %>%
     # ggsave(
-    #     file.path(PLOT_DIR, 'HiTAD.TAD.length.pdf'),
+    #     file.path(PLOT_DIR, 'cooltools.boundaries_per_paramset.pdf'),
     #     .,
     #     width=10,
     #     height=10,
     #     units='in'
     # )
 ```
-
-# TAD Similarity
-
-Calculate MoC for all pairs of TAD annotation sets
-```{r calculate_mocs}
-hitad.mocs <- 
-    check_cached_results(
-        results_file=TAD_MOC_FILE,
-        force_redo=FALSE,
-        return_data=TRUE,
-        show_col_types=FALSE,
-        results_fnc=
-            function(hitad.annotations){
-                hitad.annotations %>% 
-                select(-c(group_col)) %>% 
-                nest(
-                    SampleInfo=
-                        c(
-                            Edit,
-                            Genotype,
-                            SampleNumber,
-                            Celltype
-                        )
-                ) %>%
-                nest(
-                    TADs=
-                        c(
-                            TAD.start,
-                            TAD.end,
-                            TAD.length
-                        )
-                ) %>%
-                calculate_all_pairs_MoCs(
-                    pair_grouping_cols=
-                        c(
-                            'resolution',
-                            'isMerged',
-                            'weight',
-                            'chr'
-                        )
-                )
-            },
-        hitad.annotations=hitad.annotations
-    ) %>%
-    mutate(
-        resolution=scale_numbers(resolution),
-        chr=factor(chr, levels=CHROMOSOMES),
-        isMerged=ifelse(grepl('Merged', SampleNumber), 'Merged', 'Individual')
-    )
-hitad.mocs
-```
-Plot distribution of similarity between genotype pairs 
-```{r plot_MoCs_boxplot, results='as.is'}
-hitad.mocs %>% 
-    rename('Measure.of.Concordance'=mocs) %>% 
+Strength of annotated boundaries per across param comvos
+```{r PLOT_boundary_strength_per_paramset, results='asis', fig.width=8, fig.height=6, eval=FALSE}
+all.cooltools.annotations %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
     make_nested_plot_tabs(
         group_cols=c('isMerged'),
         max_header_lvl=3,
         plot_fnc=plot_boxplot,
-        x_var='Genotype',
-        y_var='Measure.of.Concordance',
+        x_var='params',
+        y_var='boundary_strength',
+        fill_var='isMerged',
+        facet_col='threshold',
         facet_row='resolution',
         scales='fixed'
     )
-    # group_by(isMerged) %>%
-    # group_map(
-    #     ~ plot_boxplot(
-    #         plot.df=.x,
-    #         x_var='Genotype',
-    #         y_var='Measure.of.Concordance',
-    #         facet_row='resolution',
-    #         scales='fixed'
-    #     )
-    # ) %>% 
-    # cowplot::plot_grid(
-    #     plotlist=.,
-    #     align='v',
-    #     ncol=1
-    # ) %>% 
+    # plot_boxplot(
+    #     x_var='params',
+    #     y_var='boundary_strength',
+    #     fill_var='isMerged',
+    #     facet_col='threshold',
+    #     facet_row='resolution',
+    #     scales='fixed'
+    # ) %>%
     # ggsave(
-    #     file.path(PLOT_DIR, 'HiTAD.TAD.MoCs.boxplot.pdf'),
+    #     file.path(PLOT_DIR, 'cooltools.boundary_strength_per_paramset.pdf'),
     #     .,
     #     width=10,
     #     height=10,
     #     units='in'
     # )
 ```
-Plot mean similarity between genotype pairs per chromosome
-```{r plot_MoCs_heatmap, results='as.is'}
-hitad.mocs %>% 
-    rename('Measure.of.Concordance'=mocs) %>% 
-    group_by(weight, resolution, isMerged, chr, Genotype) %>%
-    summarize(mean.MoC=mean(Measure.of.Concordance)) %>% 
-    make_nested_plot_tabs(
-        group_cols=c('isMerged'),
-        max_header_lvl=3,
-        plot_fnc=plot_heatmap,
-        x_var='chr',
-        y_var='Genotype',
-        fill_var='mean.MoC',
-        facet_row='resolution',
-        scales='fixed'
-    )
-    # group_by(isMerged) %>%
-    # group_map(
-    #     ~ plot_heatmap(
-    #         plot.df=.x,
-    #         x_var='chr',
-    #         y_var='Genotype',
-    #         fill_var='mean.MoC',
-    #         facet_row='resolution',
-    #         scales='fixed'
-    #     )
-    # ) %>% 
-    # cowplot::plot_grid(
-    #     plotlist=.,
-    #     align='v',
-    #     ncol=1
-    # )
-    # ) %>% 
-    # ggsave(
-    #     file.path(PLOT_DIR, 'HiTAD.TAD.MoCs.heatmap.pdf'),
-    #     .,
-    #     width=10,
-    #     height=10,
-    #     units='in'
-    # )
-```
+Choose relevant parameter sets to use
 
 # Load Directionality Index scores
 
