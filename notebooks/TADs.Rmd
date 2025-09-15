@@ -45,46 +45,57 @@ library(ggh4x)
 library(purrr)
 ```
 
-# Load all TAD annotations
+# hiTAD TAD annotations {.tabset}
 
-Load all TAD Annotations
-```{r load_TADs}
-# library(furrr); plan(multisession, workers=length(availableWorkers()) / 2)
-# library(furrr); plan(multisession, workers=6)
-# library(furrr); plan(multisession, workers=12)
-tad.annotations <- 
+Load all hiTAD annotations
+```{r load_hiTAD_TADs}
+sample.metadata <- load_sample_metadata()
+all.hitad.annotations <- 
     check_cached_results(
         results_file=TAD_RESULTS_FILE,
         results_fnc=load_all_TAD_annotations,
-        force_redo=FALSE,
-        return_data=TRUE,
-        show_col_types=FALSE,
-        pattern=''
+        # force_redo=TRUE,
+        pattern='/method_hiTAD/'
     ) %>% 
-    filter(ReadFilter == 'mapq_30') %>% 
-    select(-c(ReadFilter, region, is_boundary)) %>% 
-    get_info_from_SampleIDs(
-        sample_ID_col='SampleID',
-        keep_id=TRUE,
-        nest_col=NA
+    inner_join(
+        sample.metadata %>% select(SampleID),
+        by=join_by(SampleID)
     ) %>% 
-    # filter(Celltype != 'iN') %>% 
     mutate(
+        isMerged=factor(ifelse(isMerged, 'Merged', 'Individual')),
+        resolution=scale_numbers(resolution),
         chr=factor(chr, levels=CHROMOSOMES),
-        isMerged=factor(ifelse(grepl('Merged', SampleNumber), 'Merged', 'Individual'))
+        TAD.length=TAD.end - TAD.start
+    ) %>% 
+    select(
+        isMerged,
+        Edit,
+        Genotype,
+        Celltype,
+        CloneID,
+        TechRepID,
+        SampleID,
+        resolution,
+        weight,
+        chr,
+        TAD.start,
+        TAD.end,
+        TAD.length
     )
-tad.annotations %>% head(1) %>%  t()
+# Subset to only relevant parameters
+hitad.annotations <- 
+    all.hitad.annotations %>% 
+    filter(weight == 'ICE')
 ```
-Columns for TAD annotations:
-- Sample Attributes
-  - Sample.ID
-  - Edit
-  - Genotype
-  - SampleNumber
-  - Celltype
-  - isMerged
+
+    )
+```
+
+# cooltools Boundary Annotations
+
+## Load cooltools annotations
+
 - Calling Parameters
-  - method
   - resolution
   - weight
   - threshold
@@ -96,11 +107,9 @@ Columns for TAD annotations:
   - TAD.end
   - n_valid_pixels
   - boundary_strength
-Separate results per method
-```{r methods.dfs}
+```{r load_cooltools_TADs, eval=FALSE}
 # tad.annotations %>% colnames()
 # tad.annotations %>% filter(region != chr)
-PLOT_DIR <- file.path(here(), 'notebooks', 'TADs_files')
 # Cooltools annotations
 all.cooltools.annotations <- 
     tad.annotations %>%
@@ -112,107 +121,13 @@ all.cooltools.annotations <-
         resolution=scale_numbers(resolution)
     ) %>% 
     select(-c(TAD.end, window.size, method))
-# HiTAD Annotations
-all.hitad.annotations <- 
-    tad.annotations %>%
-    filter(method == 'hiTAD') %>% 
-    mutate(TAD.length=TAD.end - TAD.start) %>% 
-    select(
-        isMerged,
-        Edit,
-        Genotype,
-        SampleNumber,
-        Celltype,
-        Sample.ID,
-        resolution,
-        weight,
-        chr,
-        TAD.start,
-        TAD.end,
-        TAD.length
+    # filter(ReadFilter == 'mapq_30') %>% 
+    # select(-c(ReadFilter, region, is_boundary)) %>% 
+    get_info_from_SampleIDs(
+        sample_ID_col='SampleID',
+        keep_id=TRUE,
+        nest_col=NA
     )
-```
-
-# Cooltools plot parameter variability
-
-Number of boundaries per chr + sample across param combos
-```{r PLOT_boundaries_per_paramset, results='asis', fig.width=8, fig.height=6}
-all.cooltools.annotations %>% 
-    mutate(resolution=scale_numbers(resolution)) %>% 
-    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
-    group_by(
-        across(
-            -c(
-               chr,
-               TAD.boundary,
-               n_valid_pixels,
-               boundary_strength
-            )
-        )
-    ) %>% 
-    dplyr::count(name='nBoundaries') %>%
-    ungroup() %>% 
-    make_nested_plot_tabs(
-        group_cols=c('isMerged'),
-        max_header_lvl=3,
-        plot_fnc=plot_boxplot,
-        x_var='params',
-        y_var='nBoundaries',
-        fill_var='isMerged',
-        facet_col='threshold',
-        facet_row='resolution',
-        scales='free_y',
-    )
-    # plot_boxplot(
-    #     x_var='params',
-    #     y_var='nBoundaries',
-    #     fill_var='isMerged',
-    #     facet_col='threshold',
-    #     facet_row='resolution',
-    #     scales='free_y'
-    # ) %>%
-    # ggsave(
-    #     file.path(PLOT_DIR, 'cooltools.boundaries_per_paramset.pdf'),
-    #     .,
-    #     width=10,
-    #     height=10,
-    #     units='in'
-    # )
-```
-Strength of annotated boundaries per across param comvos
-```{r PLOT_boundary_strength_per_paramset, results='asis', fig.width=8, fig.height=6}
-all.cooltools.annotations %>% 
-    mutate(resolution=scale_numbers(resolution)) %>% 
-    mutate(params=glue('{weight},{mfvp},{window.size.bins}')) %>% 
-    make_nested_plot_tabs(
-        group_cols=c('isMerged'),
-        max_header_lvl=3,
-        plot_fnc=plot_boxplot,
-        x_var='params',
-        y_var='boundary_strength',
-        fill_var='isMerged',
-        facet_col='threshold',
-        facet_row='resolution',
-        scales='fixed'
-    )
-    # plot_boxplot(
-    #     x_var='params',
-    #     y_var='boundary_strength',
-    #     fill_var='isMerged',
-    #     facet_col='threshold',
-    #     facet_row='resolution',
-    #     scales='fixed'
-    # ) %>%
-    # ggsave(
-    #     file.path(PLOT_DIR, 'cooltools.boundary_strength_per_paramset.pdf'),
-    #     .,
-    #     width=10,
-    #     height=10,
-    #     units='in'
-    # )
-```
-Choose relevant parameter sets to use
-```{r choose_params}
 # Filter tads to relevant parameter set
 cooltools.annotations <- 
     all.cooltools.annotations %>%
@@ -221,19 +136,13 @@ cooltools.annotations <-
         mfvp == 0.9,
         window.size.bins == 60,
         threshold == 'Li'
-    ) %>%
-    mutate(group_col=glue('{resolution},{Sample.ID},{chr}'))
-hitad.annotations <- 
-    all.hitad.annotations %>% 
-    filter(weight == 'ICE') %>% 
-    mutate(group_col=glue('{resolution},{Sample.ID},{chr}'))
-# setdiff(union(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()), intersect(cooltools.annotations %>% colnames(), hitad.annotations %>% colnames()))
+    )
 ```
 
-# Plot TAD Stats
+## cooltools parameter variability
 
 Now plot number of TADs/boundaries 
-```{r PLOT_cooltools_tad_number, results='asis', fig.width=8, fig.height=6}
+```{r PLOT_cooltools_tad_number, results='asis', fig.width=8, fig.height=6, eval=FALSE}
 cooltools.annotations %>% 
     mutate(resolution=scale_numbers(resolution)) %>% 
     group_by(isMerged, resolution, Sample.ID, chr) %>% 
@@ -598,20 +507,3 @@ hitad.annotations
 hitad.mocs
 ```
 
-```{r eval=FALSE}
-tad.annotations %>% 
-    rowwise() %>% 
-    mutate(nTADs=TADs %>% nrow()) %>% 
-    ungroup() %>% 
-    summarize(nTADs=sum(nTADs))
-tad.annotations %>% 
-    rowwise() %>% 
-    mutate(nTADs=TADs %>% filter(is_boundary) %>% nrow()) %>% 
-    ungroup() %>% 
-    summarize(nTADs=sum(nTADs))
-tad.annotations %>% 
-    rowwise() %>% 
-    mutate(nTADs=TADs %>% filter(is_boundary) %>% nrow()) %>% 
-    group_by(method, resolution, weight) %>% 
-    summarize(as_tibble_row(summary(nTADs)))
-```
