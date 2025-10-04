@@ -273,13 +273,23 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 One-liners to generate results
 
 ```bash
+# Generate qc3C report for each bam file
 ./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam
+# Generate multiQC reprots from fastqc and pairtools resutls
 ./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
+# Generated merged matrices for each condition
 ./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
+# Calculate total bin-wise coverage 
 ./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
+# Generate HiCRep results for all pairs of unmerged matrices
 ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
-
+# Generate HiCRep results for all pairs of merged matrices
 ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
-./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
-./scripts/annotate.TADs.sh --output-dir ./results/TADs/ --resolution  "100000,50000,25000,10000" cooltools ./results/coolers_library/**/*.mapq_30.1000.mcool
+# Generate TAD annotations with hiTAD for merged matrices
+./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD     $(find ./results/coolers_library -maxdepth 99 -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+# Generate TAD boundary annotations with cooltools insulation for merged matrices
+./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" cooltools $(find ./results/coolers_library -maxdepth 99 -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+# ./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+# Generate multiHiCCompare results (not analysis
+Rscript ./scripts/run.multiHiCCompare.R
 ```
