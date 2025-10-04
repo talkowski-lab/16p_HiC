@@ -62,7 +62,7 @@ regions.of.interest <-
             "chr16q"
         )
     ) %>% 
-    mutate(region.dist=scale_numbers(region.dist)) %>% 
+    mutate(region.dist=scale_numbers(region.dist))
 # Print regions
 regions.of.interest %>%
     select(c(region, region.chr, region.start, region.end, region.dist, region.UCSC)) %>% 
@@ -74,7 +74,7 @@ regions.of.interest %>%
         'Size'=region.dist,
         'UCSC'=region.UCSC
     ) %>% 
-    kable()
+    knitr::kable()
 ```
 We also only compare distance-matched contacts to the CNV-telomere contacts of interest, using the following distance range of those CNV-telomere contacts
 ```{r distance_range}
@@ -109,34 +109,37 @@ glue("All control contacts used are between {dist.min}bp and {dist.max}bp apart"
 Load contact matrices for each file 
 ```{r load_contacts, rows.print=5}
 # Load all contacts for all samples + annotated contacts for which region they are in
-annotated.contacts.df <- 
+contacts.df <- 
     check_cached_results(
         results_file=ROBINSON_REPLICATION_DATA_FILE,
-        force_redo=TRUE,
+        # force_redo=TRUE,
         results_fnc=load_mcool_files,
         pattern='.hg38.mapq_30.1000.mcool',
         range1s='chr16',
-        resolutions=c(25, 50, 100) * 1e3,
+        # resolutions=c(25, 50, 100) * 1e3,
+        resolutions=c(25, 50) * 1e3,
         normalizations="NONE",
         cis=TRUE
-    )
-annotated.contacts.df %>% count(SampleID, chr)
+    ) %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    select(-c(ReadFilter))
+contacts.df
+contacts.df %>% count(resolution, normalization, SampleID, chr)
 ```
 Annotate region-pair of interest for each bin-pair (contacts, 1 per row)
 ```{r annotate_contacts, rows.print=5}
+annotated.contacts.df <- 
+    contacts.df %>% 
+    annotate_contact_region_pairs(
+        regions.of.interest=regions.of.interest,
+        most_specific_only=TRUE,
+    )
 ```
 Now format annotated contact data for easier plotting
 ```{r format_annotated_contacts_for_plotting}
 # Keep only distance matched control bin-pairs and specify names+colors
 plot.df <- 
     annotated.contacts.df %>% 
-    select(
-        -c(
-            ReadFilter,
-            resolution,
-            weight
-        )
-    ) %>%
     format_annotated_contacts()
 plot.df %>% dplyr::count(IF.Threshold, Sample.ID, region.title)
 ```
@@ -235,4 +238,8 @@ plot.df %>%
         test_offset_y=3
     )
 ```
+
+# Now Repeat for Other RGDs
+
+## 8p23 CNV - Telomere Contacts
 

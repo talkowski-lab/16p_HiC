@@ -63,9 +63,6 @@ coverage.summary <-
     check_cached_results(
         results_file=RESOLTION_COVERAGE_SUMAMRY_FILE,
         # force_redo=TRUE,
-        force_redo=FALSE,
-        return_data=TRUE,
-        show_col_types=FALSE,
         results_fnc=get_all_matrix_minimum_resolutions,
         resolutions=c(100, 50, 25, 10, 5, 2) * 1e3   # Kbs
     )

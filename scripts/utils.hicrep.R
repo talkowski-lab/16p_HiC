@@ -39,15 +39,21 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
     ) %>% 
     # Add extra sample metadata as paired columns 
     # NOTE: using right_join to filter samples only present in the metadata table
-    inner_join(
-        .,
-        sample_metadata %>% 
-        rename_with(
-            .fn=~ str_replace(.x, '^', 'SampleInfo.P1.'),
-            .cols=-c(SampleID)
-        ),
-        by=join_by(SampleInfo.P1.SampleID == SampleID)
-    ) %>% 
+    {
+        if (!is.null(sample_metadata)) {
+            inner_join(
+                .,
+                sample_metadata %>% 
+                rename_with(
+                    .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
+                    .cols=-c(SampleID)
+                ),
+                by=join_by(SampleInfo.P2.SampleID == SampleID)
+            )
+        } else {
+            .
+        }
+    } %>% 
     # Repeat for the other sample in each pair
     get_info_from_MatrixIDs(
         matrix_ID_col='MatrixID.P2',
@@ -57,15 +63,21 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
         nest_col=NA
     ) %>% 
     # NOTE: using right_join to filter samples only present in the metadata table
-    inner_join(
-        .,
-        sample_metadata %>% 
-        rename_with(
-            .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
-            .cols=-c(SampleID)
-        ),
-        by=join_by(SampleInfo.P2.SampleID == SampleID)
-    ) %>% 
+    {
+        if (!is.null(sample_metadata)) {
+            inner_join(
+                .,
+                sample_metadata %>% 
+                rename_with(
+                    .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
+                    .cols=-c(SampleID)
+                ),
+                by=join_by(SampleInfo.P2.SampleID == SampleID)
+            )
+        } else {
+            .
+        }
+    } %>% 
     # Now format sample metadata per pair for easy grouping+plotting
     nest(
         SampleInfo.P1=starts_with('SampleInfo.P1.'),
@@ -150,11 +162,9 @@ make_heatmap_plotdf <- function(
 ###################################################
 plot_hicrep_boxplot <- function(
     plot.df,
-    sample_group='Celltype',
+    x_var='Celltype',
+    y_var='hicrep.score',
     fill_var='is.downsampled', 
-    facet_row=NULL,
-    facet_col=NULL,
-    scales='fixed',
     mark_df=NULL,
     mark_fill_var='chr',
     mark_alpha=0.6,
@@ -167,8 +177,8 @@ plot_hicrep_boxplot <- function(
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[sample_group]],
-                    y=hicrep.score
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
                 )
             )
     } else {
@@ -176,8 +186,8 @@ plot_hicrep_boxplot <- function(
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[sample_group]],
-                    y=hicrep.score,
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
                     fill=.data[[fill_var]]
                 )
             )
@@ -190,8 +200,8 @@ plot_hicrep_boxplot <- function(
             geom_jitter(
                 data=mark_df,
                 aes(
-                    x=.data[[sample_group]],
-                    y=hicrep.score,
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
                     color=.data[[mark_fill_var]]
                 ),
                 alpha=mark_alpha,
@@ -216,21 +226,8 @@ plot_hicrep_boxplot <- function(
     figure <- 
         figure %>% 
         post_process_plot(
-            facet_col=facet_row,
-            facet_row=facet_col,
-            scales=scales,
-            scale_mode='',
-            log_base=10,
-            axis_label_accuracy=2,
-            legend.position='top',
-            axis.text.x=element_text(angle=35, hjust=1),
+            y_axis_label_accuracy=0.01,
             ...
-            # n_breaks=NULL,
-            # limits=NULL,
-            # expand=c(0.00, 0.00, 0.00, 0.00),
-            # legend.position='right',
-            # legend.ncols=1,
-            # axis.text.x=element_text(angle=35, hjust=1),
         )
 }
 

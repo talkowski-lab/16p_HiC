@@ -43,7 +43,6 @@ library(magrittr)
 library(ggplot2)
 library(ggh4x)
 library(purrr)
-PLOT_DIR <- file.path(here(), 'notebooks', 'TADs_files')
 ```
 
 # hiTAD TAD annotations {.tabset}

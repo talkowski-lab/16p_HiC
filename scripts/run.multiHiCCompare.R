@@ -20,9 +20,9 @@ library(purrr)
 ###################################################
 # GRanges object with Centro/Telomere regions to filter
 data('hg38_cyto') 
+sample.metadata.df <- 
+    load_sample_metadata()
 # Set up all combinations of parameters and sample groups to test
-# no covariates to control for
-sample.metadata.df <- load_sample_metadata()
 covariates.df <- 
     sample.metadata.df %>% 
     select(
@@ -41,10 +41,6 @@ hyper.params.df <-
 # All pairs of sample groups to compare for differential contacts
 comparisons.df <- 
     set_up_sample_comparisons() %>%
-    filter(resolution.type == 'max') %>%
-    select(-c(resolution.type))
-# comparisons.df
-# comparisons.df %>% filter(chr == 'chr1') %>% count(isMerged, Sample.Group.A, Sample.Group.B)
 # For every group of samples + parameter combination run multiHiCCompare and cache the results.
 ###################################################
 # Run multiHiCCompare on all comparisons

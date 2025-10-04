@@ -28,7 +28,7 @@ knitr::opts_chunk$set(
     dpi=300
 )
 ```
-Set up file locations + load dependenies
+Load dependenies
 ```{r dependencies, results=FALSE, message=FALSE, warning=FALSE}
 library(here)
 here::i_am('notebooks/hicrep.Rmd')

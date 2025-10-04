@@ -268,11 +268,12 @@ get_info_from_MatrixIDs <- function(
 }
 
 ###################################################
-# Utilities
+# Format stuff
 ###################################################
 scale_numbers <- function(
     numbers,
-    accuracy=2){
+    accuracy=2,
+    force_numeric=FALSE){
     if (is.character(numbers)) {
         numbers %>%
         tibble(resolution.str=.) %>%
@@ -292,7 +293,7 @@ scale_numbers <- function(
                 multiply_by(magnitude)
         ) %>% 
         pull(resolution)
-    } else if (is.numeric(numbers)) {
+    } else if (is.numeric(numbers) & !force_numeric) {
         numbers %>%
         tibble(resolution=.) %>%
         mutate(
@@ -314,13 +315,11 @@ scale_numbers <- function(
     }
 }
 
-count_dirs <- function(filepath){
-    filepath %>%
-    dirname() %>% 
-    str_split('/') %>% 
-    length()
 }
 
+###################################################
+# Handle pairs of samples
+###################################################
 join_all_rows <- function(
     df1,
     df2=NULL,
@@ -493,7 +492,7 @@ get_min_resolution_per_matrix <- function(
         }
     } %>% 
     add_column(is.smallest.resolution=TRUE) %>% 
-    right_join(
+    left_join(
         df,
         by=join_by(SampleID)
     ) %>%
