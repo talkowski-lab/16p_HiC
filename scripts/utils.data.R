@@ -315,6 +315,15 @@ scale_numbers <- function(
     }
 }
 
+rename_chrs <- function(chrs){
+    case_when(
+        chrs == 23           ~ 'X',
+        chrs == 24           ~ 'Y',
+        chrs > 0 & chrs < 23 ~ as.character(chrs),
+        TRUE ~ NA
+    ) %>% 
+    paste0('chr', .) %>% 
+    factor(levels=CHROMOSOMES)
 }
 
 ###################################################
@@ -646,6 +655,45 @@ load_mcool_file <- function(
     }
 }
 
+list_mcool_files <- function(
+    pattern,
+    resolutions=NULL,
+    normalizations=NULL,
+    ...){
+    # List all cooler files 
+    COOLERS_DIR %>% 
+    list.files(
+        pattern=pattern,
+        recursive=TRUE,
+        full.names=TRUE
+    ) %>% 
+    tibble(filepath=.) %>% 
+    # parse sample metadata
+    mutate(MatrixID=basename(filepath)) %>% 
+    get_info_from_MatrixIDs(
+        matrix_ID_col='MatrixID',
+        sample_ID_col='SampleID',
+        col_prefix='',
+        keep_id=FALSE,
+        nest_col=NA,
+    ) %>% 
+    # List all paramter combinations
+    {
+        if (!is.null(normalizations)) {
+            cross_join(., tibble(normalization=normalizations))
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if (!is.null(resolutions)) {
+            cross_join(., tibble(resolution=resolutions))
+        } else {
+            .
+        }
+    }
+}
+
 load_mcool_files <- function(
     pattern='.hg38.mapq_30.1000.mcool',
     resolutions=NULL,
@@ -684,40 +732,13 @@ load_mcool_files <- function(
         } else {
             regions.df
         }
-    # List all cooler files 
-    COOLERS_DIR %>% 
-    list.files(
-        pattern=pattern,
-        recursive=TRUE,
-        full.names=TRUE
-    ) %>% 
-    tibble(filepath=.) %>% 
-    # parse sample metadata
-    mutate(MatrixID=basename(filepath)) %>% 
-    get_info_from_MatrixIDs(
-        matrix_ID_col='MatrixID',
-        sample_ID_col='SampleID',
-        col_prefix='',
-        keep_id=FALSE,
-        nest_col=NA,
-    ) %>% 
     # List all regions for all samples
+    list_mcool_files(
+        pattern=pattern,
+        resolutions=resolutions,
+        normalizations=normalizations,
+    ) %>% 
     join_all_rows(regions.df) %>% 
-    # List all paramter combinations
-    {
-        if (!is.null(normalizations)) {
-            cross_join(., tibble(normalization=normalizations))
-        } else {
-            .
-        }
-    } %>% 
-    {
-        if (!is.null(resolutions)) {
-            cross_join(., tibble(resolution=resolutions))
-        } else {
-            .
-        }
-    } %>% 
     # Load contacts if specified or just return sample metadata + filepaths + regions
     {
         if (return_metadata_only) {
