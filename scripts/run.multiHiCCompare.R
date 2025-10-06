@@ -15,6 +15,8 @@ library(magrittr)
 library(ggplot2)
 library(ggh4x)
 library(purrr)
+library(future)
+
 ###################################################
 # Load data + Set up comparisons to compute 
 ###################################################
@@ -41,19 +43,38 @@ hyper.params.df <-
 # All pairs of sample groups to compare for differential contacts
 comparisons.df <- 
     set_up_sample_comparisons() %>%
-# For every group of samples + parameter combination run multiHiCCompare and cache the results.
+    # filter(resolution.type == 'max') %>%
+    select(-c(resolution.type)) %>% 
+    # all comparison at all resolutions that exist for at least 1 matrix
+    nest(data=-c(resolution)) %>% 
+    right_join(
+        .,
+        expand({.}, data, resolution),
+        by=join_by(resolution, data)
+    ) %>% 
+    unnest(data) %>% 
+    distinct()
+
+comparisons.df %>% 
+    filter(grepl('NSC', Sample.Group.P1), grepl('NSC', Sample.Group.P2)) %>% 
+    head(1) %>%
+    pull(samples.df) %>% {.[[1]]} %>% pull(filepath)
 ###################################################
 # Run multiHiCCompare on all comparisons
 ###################################################
 # parallelizing params
 library(BiocParallel)
-numCores <- length(availableWorkers())
-message(glue('Using {numCores} workers for parallelism'))
-register(MulticoreParam(workers=numCores / 2), default=TRUE)
-plan(multisession, workers=numCores / 2)
-# Run multiHiCComapre on all comparisons
+# numCores <- length(availableWorkers())
+# message(glue('Using {numCores} workers for parallelism'))
+# register(MulticoreParam(workers=numCores / 2), default=TRUE)
+# plan(multisession, workers=numCores / 2)
+register(MulticoreParam(workers=8), default=TRUE)
+plan(multisession, workers=24)
+# For every group of samples + parameter combination run multiHiCCompare and cache the results.
 comparisons.df %>% 
-    arrange(desc(chr)) %>% 
+    # filter(resolution == 10000) %>% 
+    filter(grepl('NSC', Sample.Group.P1), grepl('NSC', Sample.Group.P2)) %>% 
+    arrange(Sample.Group.P1, Sample.Group.P2) %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
         covariates.df=covariates.df,
