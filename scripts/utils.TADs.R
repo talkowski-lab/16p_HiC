@@ -245,7 +245,8 @@ load_all_TAD_annotations <- function(
     } %>% 
     mutate(
         TADs=
-            future_pmap(
+            # future_pmap(
+            pmap(
                 .,
                 load_TAD_annotation,
                 .progress=TRUE
@@ -258,10 +259,56 @@ load_all_TAD_annotations <- function(
 ###################################################
 # Compute Similarities
 ###################################################
+define_TAD_pairs <- function(
+    TADs.P1,
+    TADs.P2,
+    ...){
+    # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]];
+    cross_join(
+        TADs.P1 %>% 
+            unite(
+                'TAD_idx',
+                TAD.start, TAD.end,
+                sep='#',
+                remove=FALSE
+            ),
+        TADs.P2 %>% 
+            unite(
+                'TAD_idx',
+                TAD.start, TAD.end,
+                sep='#',
+                remove=FALSE
+            ),
+        suffix=c('.P1', '.P2')
+    ) %>%
+    # only keep pairs of TADs that overlap at all
+    filter(
+        between(TAD.start.P1, TAD.start.P2, TAD.end.P2) |
+        between(TAD.end.P1,   TAD.start.P2, TAD.end.P2) |
+        between(TAD.start.P2, TAD.start.P1, TAD.end.P1) |
+        between(TAD.end.P2,   TAD.start.P1, TAD.end.P1)
+    ) %>% 
+    #   000000000111111111122222222223333
+    #   123456789012345678901234567890123
+    # P ---|++++|------|+++++|-----------|+++++++++++|------|++++++|------------|+++++|--
+    # Q ------|++++|------------|++++|-------|++++|------|+++++++++++++++|----|++++|-----
+    # P 04-09, 16-22
+    # Q 07-12, 25-30
+    mutate(
+        rightmost.start=max(TAD.start.P1, TAD.start.P2),
+        leftmost.end=min(TAD.end.P1, TAD.end.P2),
+        overlap=leftmost.end  - rightmost.start,
+        # observed overlap / total possible overlap
+        TAD.jaccard=((overlap**2) / (TAD.length.P1 * TAD.length.P2))
+    ) %>%
+    select(-c(rightmost.start, leftmost.end, overlap))
+}
+
 calculate_pair_MoC <- function(
     TADs.P1,
     TADs.P2,
     ...){
+    # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]]
     # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length
     # 1 row per TAD
     # Number of TADs
@@ -272,56 +319,14 @@ calculate_pair_MoC <- function(
         1
     } else {
         norm_const <- 1 / (sqrt(nTADs.P * nTADs.Q) - 1)
-        # Get all pairs of TADs
-        cross_join(
+        define_TAD_pairs(
             TADs.P1,
-            TADs.P2,
-            suffix=c('.P', '.Q')
-        ) %>%
-        # only keep pairs of TADs that overlap at all
-        filter(
-            between(TAD.start.P, TAD.start.Q, TAD.end.Q) |
-            between(TAD.end.P,   TAD.start.Q, TAD.end.Q)
+            TADs.P2
         ) %>% 
-        #   000000000111111111122222222223333
-        #   123456789012345678901234567890123
-        # P ---|++++|------|+++++|-----------
-        # Q ------|++++|------------|++++|---
-        # P 04-09, 16-22
-        # Q 07-12, 25-30
-        rowwise() %>% 
-        # Based on formula in this paper under "Assessing concordance between TAD partitions"
-        # https://genomebiology.biomedcentral.com/articles/10.1186/s13059-018-1596-9 
-        mutate(
-            rightmost.start=max(TAD.start.P, TAD.start.Q),
-            leftmost.end=min(TAD.end.P, TAD.end.Q),
-            overlap=leftmost.end  - rightmost.start,
-            # observed overlap / total possible overlap
-            inner.term=((overlap**2) / (TAD.length.P * TAD.length.Q))
-        ) %>%
-        pull(inner.term) %>% 
+        pull(TAD.jaccard) %>% 
         sum() %>% 
         {(. - 1) * norm_const}
     }
-}
-
-calculate_pair_boundary_conservation <- function(
-    TADs.P1,
-    TADs.P2,
-    tolerance=50000,
-    ...){
-    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
-    # 1 row per TAD
-    cross_join(
-        TADs.P1,
-        TADs.P2,
-        suffix=c('.P', '.Q')
-    ) %>%
-    mutate(
-        case_when(
-            resolution.P == resolution.Q ~ TRUE,
-        )
-    )
 }
 
 calculate_all_pairs_MoCs <- function(
@@ -363,6 +368,20 @@ calculate_all_pairs_MoCs <- function(
     ) %>%
     unnest(mocs) %>%
     select(-c(TADs.P1, TADs.P2))
+}
+
+calculate_pair_boundary_conservation <- function(
+    TADs.P1,
+    TADs.P2,
+    tolerance=50000,
+    ...){
+    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
+    # 1 row per TAD
+    cross_join(
+        boundaries.P1,
+        boundaries.P2,
+        suffix=c('.P', '.Q')
+    )
 }
 
 ###################################################
