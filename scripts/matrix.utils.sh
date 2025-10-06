@@ -207,27 +207,28 @@ merge_NIPBLWAPL_matrices() {
     activate_conda 'cooler'
     cooler_dir="$(readlink -e "${1}")"
     # For all groups of matrices
-    for read_filter in ${MAPQ_FITERS[@]}; do 
-        for celltype in ${CELLTYPES[@]}; do 
-            for genotype in ${genotypes[@]}; do 
-                for edit in ${edits[@]}; do 
+    for read_filter in "${MAPQ_FITERS[@]}"; do 
+        for celltype in "${CELLTYPES_EDITS[@]}"; do 
+            for genotype in "${GENOTYPES_EDITS[@]}"; do 
+                for edit in "${PROJECT_EDITS[@]}"; do 
                     # merge across all biological + technical replicates
                     sample_group="${edit}.${celltype}.${genotype}"
+                    echo "${sample_group}"
                     merge_matrices                      \
                         "${cooler_dir}"                 \
                         "${sample_group}.Merged.Merged" \
                         "${read_filter}"                \
-                        ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
+                        $(find "${cooler_dir}" -type f -name "${sample_group}.*.${read_filter}.1000.cool" | paste -sd" ")
                 done
+            # Merge across edits per genotype & celltype
+            # all_edits="$(echo "${PROJECT_EDITS[@]}" | paste -sd',' )"
+            sample_group="${celltype}.${genotype}"
+            merge_matrices                      \
+                "${cooler_dir}"                 \
+                "All.${sample_group}.Merged.Merged" \
+                "${read_filter}"                \
+                $(find "${cooler_dir}" -type f -name "*.${celltype}.${genotype}.*.${read_filter}.1000.cool")
             done
-        # Merge across edits per genotype & celltype
-        all_edits="$(paste -sd',' ${edits[@]})"
-        sample_group="All.${celltype}.${genotype}"
-        merge_matrices                      \
-            "${cooler_dir}"                 \
-            "${sample_group}.Merged.Merged" \
-            "${read_filter}"                \
-            ${cooler_dir}/{${all_edits}}.${celltype}.${genotype}.*.*/*.${read_filter}.1000.cool
         done
     done
 }
@@ -301,6 +302,20 @@ merge_NIPBLWAPL_stats() {
 ###################################################
 # QC Stats
 ###################################################
+matrix_balance() {
+    hic_matrices=${*}
+    activate_conda 'cooltools'
+    for sample_file in ${hic_matrices[*]}; do
+        [[ ${sample_file} == *.mcool ]] || continue
+        sample_file="$(readlink -e "${sample_file}")"
+        for uri in $(cooler ls "${sample_file}"); do 
+            cooler balance           \
+                --nproc "${THREADS}" \
+                "${uri}"
+        done
+    done
+}
+
 matrix_coverage() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
