@@ -45,6 +45,75 @@ make_ggtheme <- function(...){
     )
 }
 
+scale_x_axis <- function(
+    figure,
+    scale_mode='',
+    log_base=10,
+    axis_label_accuracy=0.1,
+    n_breaks=NULL,
+    limits=NULL,
+    expand=c(0.00, 0.00, 0.00, 0.00),
+    ...){
+    # Scale y axis based on scale_mode argumetn
+    if (scale_mode == 'pct') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_x_continuous(
+            expand=expand,
+            n.breaks=n_breaks,
+            labels=label_percent(),
+            ...
+        )
+    } else if (scale_mode == 'mb') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_x_continuous(
+            expand=expand,
+            n.breaks=n_breaks,
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis_label_accuracy
+                ),
+            ...
+        )
+    } else if (scale_mode == 'log10') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_x_log10(
+            expand=expand,
+            guide='axis_logticks',
+            labels=
+                label_log(
+                    base=log_base,
+                    digits=axis_label_accuracy,
+                    signed=FALSE
+                ),
+            ...
+        )
+    } else if (scale_mode == 'discrete') {
+        figure +
+        scale_x_discrete(expand=expand)
+    } else if (scale_mode == '') {
+        if (is.null(limits)) {
+            figure + 
+            scale_x_continuous(
+                labels=
+                    function(x) {
+                        format(x, digits=max(1, -log10(axis_label_accuracy)))
+                    }
+            )
+        } else {
+            figure + 
+            coord_cartesian(xlim=limits) +
+            scale_x_continuous(
+                expand=expand,
+                ...
+            )
+        }
+    }
+}
+
 scale_y_axis <- function(
     figure,
     scale_mode='',
@@ -95,27 +164,25 @@ scale_y_axis <- function(
             ...
         )
     } else if (scale_mode == 'discrete') {
-        figure
+        figure +
+        scale_y_discrete(expand=expand)
     } else if (scale_mode == '') {
         if (is.null(limits)) {
             figure + 
             scale_y_continuous(
                 labels=
                     function(x) {
-                        format(x, digits=axis_label_accuracy)
+                        format(x, digits=max(1, -log10(axis_label_accuracy)))
                     }
             )
         } else {
             figure + 
             coord_cartesian(ylim=limits) +
             scale_y_continuous(
-                # limits=limits,
                 expand=expand,
                 ...
             )
         }
-        # coord_cartesian(ylim=limits) +
-        # scale_y_continuous(...)
     }
 }
 
@@ -166,48 +233,73 @@ add_faceting <- function(
 post_process_plot <- function(
     figure,
     theme_obj=NULL,
-    # add_theme=TRUE,
     facet_row=NULL,
+    facet_nrow=NULL,
     facet_col=NULL,
+    facet_ncol=NULL,
     facet_group=NULL,
     scales='fixed',
-    scale_mode='',
-    log_base=10,
-    axis_label_accuracy=0.1,
-    n_breaks=NULL,
-    limits=NULL,
-    expand=c(0.00, 0.00, 0.00, 0.00),
-    facet_nrow=NULL,
-    facet_ncol=NULL,
+    x_scale_mode='',
+    x_log_base=10,
+    x_axis_label_accuracy=0.1,
+    x_n_breaks=NULL,
+    x_limits=NULL,
+    x_expand=c(0.00, 0.00, 0.00, 0.00),
+    y_scale_mode='',
+    y_log_base=10,
+    y_axis_label_accuracy=0.1,
+    y_n_breaks=NULL,
+    y_limits=NULL,
+    y_expand=c(0.00, 0.00, 0.00, 0.00),
+    plot_elements=NULL,
     ...){
-    figure <- 
-        figure %>% 
-        add_faceting(
-            facet_row=facet_row,
-            facet_col=facet_col,
-            facet_group=facet_group,
-            scales=scales,
-            facet_nrow=facet_nrow,
-            facet_ncol=facet_ncol
-        ) %>% 
-        # Set y-axis scaling (log, Mb, percent etc.)
-        scale_y_axis(
-            scale_mode=scale_mode,
-            log_base=log_base,
-            axis_label_accuracy=axis_label_accuracy,
-            n_breaks=n_breaks,
-            limits=limits,
-            expand=expand
-        ) %>% 
-        # Add theme elements, as either an object or individual args
-        {
-            if (!is.null(theme_obj)) {
-                . + theme_obj
-            } else {
-                . + make_ggtheme(...)
-            } 
+    figure %>% 
+    add_faceting(
+        scales=scales,
+        facet_row=facet_row,
+        facet_col=facet_col,
+        facet_group=facet_group,
+        facet_nrow=facet_nrow,
+        facet_ncol=facet_ncol
+    ) %>% 
+    # Set x-axis scaling (log, Mb, percent etc.)
+    scale_x_axis(
+        scale_mode=x_scale_mode,
+        log_base=x_log_base,
+        axis_label_accuracy=x_axis_label_accuracy,
+        n_breaks=x_n_breaks,
+        limits=x_limits,
+        expand=x_expand
+    ) %>% 
+    # Set y-axis scaling (log, Mb, percent etc.)
+    scale_y_axis(
+        scale_mode=y_scale_mode,
+        log_base=y_log_base,
+        axis_label_accuracy=y_axis_label_accuracy,
+        n_breaks=y_n_breaks,
+        limits=y_limits,
+        expand=y_expand
+    ) %>% 
+    # Add extra elements
+    {
+        if (!is.null(plot_elements)) {
+            reduce(
+                .x=plot_elements,
+                .f=function(x, y) { x + y },
+                .init=.
+            )
+        } else {
+            .
         }
-    figure
+    } %>% 
+    # Add theme elements, as either an object or individual args
+    {
+        if (!is.null(theme_obj)) {
+            . + theme_obj
+        } else {
+            . + make_ggtheme(...)
+        } 
+    }
 }
 
 ###################################################
