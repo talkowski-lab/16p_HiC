@@ -401,16 +401,20 @@ make_nested_plot_tabs <- function(
     group_cols,
     plot_fnc,
     max_header_lvl=2,
+    add.top.layer=FALSE,
     tabset_format="{.tabset .tabset-pills}",
     nl_delim="\n\n\n",
     return_figure=FALSE,
     ...){
     cat(nl_delim)
-    cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
+    if (add.top.layer) {
+        cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
+        max_header_lvl <- max_header_lvl + 1
+    }
     plot.df %>% 
     make_tabs_recursive(
         group_cols=group_cols,
-        current_header_lvl=max_header_lvl+1,
+        current_header_lvl=max_header_lvl,
         plot_fnc=plot_fnc,
         tabset_format=tabset_format,
         nl_delim=nl_delim,
@@ -430,16 +434,9 @@ plot_barplot <- function(
     fill_var='', 
     position='dodge',
     legend_cols=1,
-    # facet_group=NULL,
-    # facet_col=NULL,
-    # facet_row=NULL,
-    # scales='fixed',
-    # scale_mode='',
-    # legend.position='right',
-    # axis.text.x=element_text(angle=35, hjust=1),
     ...){
     # Set fill group if specified
-    figure <- 
+    {
         if (is.null(fill_var)) {
             ggplot(
                 plot.df,
@@ -458,26 +455,15 @@ plot_barplot <- function(
                 )
             )
         }
+    } %>% 
     # make it a boxplot 
-    figure <- 
-        figure + 
+    { 
+        . + 
         geom_col(position=position) +
         guides(fill=guide_legend(ncol=legend_cols))
+    } %>% 
     # Handle faceting + scaling + theme options
-    figure <- 
-        figure %>% 
-        post_process_plot(
-            # facet_row=facet_row,
-            # facet_col=facet_col,
-            # facet_group=facet_group,
-            # scales=scales,
-            # scale_mode=scale_mode,
-            # axis_label_accuracy=axis_label_accuracy,
-            # legend.position=legend.position,
-            # axis.text.x=axis.text.x,
-            ...
-        )
-    figure
+    post_process_plot(...)
 }
 
 plot_boxplot <- function(
@@ -485,12 +471,10 @@ plot_boxplot <- function(
     x_var='',
     y_var='',
     fill_var=NULL, 
-    facet_row=NULL,
-    facet_col=NULL,
-    facet_group=NULL,
+    outlier.size=1,
     ...){
     # Set fill group if specified
-    figure <- 
+    {
         if (is.null(fill_var)) {
             ggplot(
                 plot.df,
@@ -509,18 +493,14 @@ plot_boxplot <- function(
                 )
             )
         }
+    } %>% 
     # make it a boxplot 
-    figure <- 
-        figure + 
-        geom_boxplot()
+    { 
+        . + 
+        geom_boxplot(outlier.size=1)
+    } %>% 
     # Handle faceting + scaling + theme options
-    figure %>% 
-    post_process_plot(
-        facet_row=facet_row,
-        facet_col=facet_col,
-        facet_group=facet_group,
-        ...
-    )
+    post_process_plot(...)
 }
 
 plot_heatmap <- function(
@@ -528,17 +508,11 @@ plot_heatmap <- function(
     x_var='',
     y_var='',
     fill_var='', 
-    facet_row=NULL,
-    facet_col=NULL,
-    facet_group=NULL,
-    scales='fixed',
-    labels=NULL,
-    label.size=4,
+    label_var=NULL,
+    label.size=2,
     label.color='white',
-    # legend.position='right',
-    # axis.text.x=element_text(angle=55, hjust=1),
     ...){
-    figure <- 
+    {
         ggplot(
             plot.df,
             aes(
@@ -548,27 +522,124 @@ plot_heatmap <- function(
             )
         ) +
         geom_tile()
+    } %>% 
     # Handle faceting + scaling + theme options
-    figure <- 
-        figure %>% 
-        post_process_plot(
-            facet_row=facet_row,
-            facet_col=facet_col,
-            facet_group=facet_group,
-            scales=scales,
-            scale_mode='discrete',
-            ...
-        )
-    if (!(is.null(labels))) {
-        figure <- 
-            figure + 
+    post_process_plot(
+        x_scale_mode='discrete',
+        y_scale_mode='discrete',
+        ...
+    ) %>% 
+    {
+        if (!(is.null(label_var))) {
+            . +
             geom_text(
-                aes(label=.data[[fill_var]]), 
+                aes(label=.data[[label_var]]), 
                 color=label.color,
                 size=label.size,
             )
+        } else {
+            .
+        }
     }
-    figure
+}
+
+plot_jitter<- function(
+    plot.df,
+    x_var='',
+    y_var='',
+    color_var=NULL, 
+    alpha=0.5,
+    size=0.5,
+    scales='fixed',
+    ...){
+    # Set fill group if specified
+    {
+        if (is.null(color_var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]]
+                )
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x_var]],
+                    y=.data[[y_var]],
+                    color=.data[[color_var]]
+                )
+            )
+        }
+    } %>% 
+    # make it a boxplot 
+    { 
+        . + 
+        geom_jitter(
+            alpha=alpha,
+            size=size
+        )
+    } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(
+        scales=scales,
+        ...
+    )
+}
+
+plot_upset <- function(
+    plot.df,
+    make.binary=FALSE,
+    category_col='Comparison',
+    title.str='Common DACs across Comparisons',
+    ...){
+    category_prefix <- fixed(glue('{category_col}.'))
+    if (make.binary) {
+        plot.df <-
+            plot.df %>%
+            add_column(is.category=TRUE) %>%
+            pivot_wider(
+                names_from=category_col,
+                names_prefix=category_prefix,
+                values_from=is.category,
+                values_fill=FALSE
+            )
+    } 
+    upset(
+        plot.df,
+        plot.df %>%
+            dplyr::select(starts_with(category_prefix)) %>%
+            colnames(),
+        width_ratio=0.3,
+        mode='exclusive_intersection',
+        name=category_col,
+        labeller=function(x) str_remove(x, category_prefix),
+        annotations=
+            list(
+                'Chrs'=
+                    (
+                        ggplot(mapping=aes(fill=chr))
+                        + geom_bar(stat='count', position='fill')
+                        + scale_y_continuous(labels=scales::percent_format())
+                        + ylab('Chrs')
+                    )
+            ),
+        set_sizes=
+            (
+                upset_set_size(
+                    position='right',
+                    geom=
+                        geom_bar(
+                            aes(fill=chr, x=group),
+                            width=0.8
+                        )
+                ) +
+                make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
+            ),
+        guides='over' # moves legends over the set sizes
+    ) +
+    ggtitle(title.str)
 }
 
 ###################################################
