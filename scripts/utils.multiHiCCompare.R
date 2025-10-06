@@ -16,109 +16,75 @@ library(furrr)
 ###################################################
 # Generate resutls
 ###################################################
-set_up_sample_comparisons <- function(...){
+set_up_sample_comparisons <- function(comparison.groups){
     # get info + filepaths for all contact matrices
     load_mcool_files(
         return_metadata_only=TRUE,
         keep_metadata_columns=FALSE
-    ) %>%
-    # Define minimum viable resolution for each matrix
-    get_min_resolution_per_matrix(as_int=TRUE, filter_res=TRUE) %>% 
-    # Create groups of samples with all the same celltype+genotype, even across edits
-    bind_rows(
-        filter(., !isMerged) %>% 
-        group_split(Genotype, Celltype, .keep=TRUE) %>%
-        sapply(
-            function(df) {
-                ifelse(
-                    length(unique(df$Edit)) > 1,
-                    df,
-                    tibble()
-                )
-            },
-            simplify=TRUE,
-            USE.NAMES=FALSE
-        ) 
     ) %>% 
+    get_min_resolution_per_matrix() %>% 
+    distinct() %>% 
     # Now group samples by condition, 
-    # these are the groups being comapred to find differential cotacts
-    mutate(
-        Sample.Group=glue('{Edit}.{Genotype}.{Celltype}'),
-        Sample.Group.copy=Sample.Group
-    ) %>% 
-    group_by(
-        isMerged,
-        Sample.Group.copy
-    ) %>%
-    nest(
-        samples.df=
-            c(
-                Sample.Group,
-                filepath,
-                SampleID,
-                resolution,
-                Edit,
-                Genotype,
-                CloneID,
-                TechRepID,
-                Celltype
-            )
-    ) %>% 
-    ungroup() %>% 
-    rename('Sample.Group'=Sample.Group.copy) %>% 
-    # Now get all possible pairs of sample groups (project + genotype + CellID
-    get_all_row_combinations(
-        .,
-        {.},
-        cols_to_pair=c('isMerged'),
-        keep_self=FALSE
-    ) %>% 
-    # Now each row represents a single compairson of 2 sample groups with all samples 
-    mutate(
-        samples.df=
-            pmap(
-                .l=list(samples.df.A, samples.df.B),
-                bind_rows
-            )
-    ) %>%
-    select(-c(starts_with('samples.df.'))) %>% 
-    # Only compute results with the max resolution of all usable resolutions for individual samples
+    filter(!isMerged) %>% 
+    nest(samples.df=-c(isMerged)) %>% 
+    cross_join(comparison.groups) %>%
+    # subset relevant samples for each comparison
     rowwise() %>% 
     mutate(
-        resolution.max=max(samples.df$resolution),
+        samples.df=
+            samples.df %>%
+            mutate(
+                Sample.Group=
+                    case_when(
+                        str_detect(SampleID, Sample.Group.P1.Pattern) ~ Sample.Group.P1,
+                        str_detect(SampleID, Sample.Group.P2.Pattern) ~ Sample.Group.P2,
+                        TRUE ~ NA
+                    )
+            ) %>%
+            filter(!is.na(Sample.Group)) %>% 
+            list()
+    ) %>%
+    # minimum and max resoltion of all individual matrices per comparison
+    mutate(
         resolution.min=min(samples.df$resolution),
+        resolution.max=max(samples.df$resolution)
     ) %>% 
-    ungroup() %>% 
-    pivot_longer(
-        starts_with('resolution.'),
-        names_to='resolution.type',
-        names_prefix='resolution.',
-        values_to='resolution'
+    # Now list every comparison at every resolution that is either a min or max for 1 comparison
+    ungroup() %>%
+    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
+    unnest(resolution) %>% 
+    mutate(
+        resolution.type=
+            case_when(
+                resolution == resolution.max ~ 'max',
+                resolution == resolution.min ~ 'min',
+                TRUE                         ~ NA
+            )
     ) %>% 
-    # list all chromosomes separately,
-    join_all_rows(tibble(chr=CHROMOSOMES))
+    select(-c(resolution.min, resolution.max))
 }
 
 sample_group_priority_fnc_16p <- function(Sample.Group){
     case_when(
-        grepl('16p.DUP.NSC', Sample.Group) ~ 1,  # always numerator in FCs
-        grepl('16p.DUP.iN',  Sample.Group) ~ 2,
-        grepl('16p.DEL.NSC', Sample.Group) ~ 3,
-        grepl('16p.DEL.iN',  Sample.Group) ~ 4,
-        grepl('16p.WT.NSC',  Sample.Group) ~ 5,
-        grepl('16p.WT.iN',   Sample.Group) ~ 6,
-        TRUE ~ -Inf
+        Sample.Group == '16p.NSC.DUP' ~ 6,  # always numerator in FCs
+        Sample.Group == '16p.NSC.DEL' ~ 5,
+        Sample.Group == '16p.NSC.WT'  ~ 4,
+        Sample.Group == '16p.iN.DUP'  ~ 3,
+        Sample.Group == '16p.iN.DEL'  ~ 2,
+        Sample.Group == '16p.iN.WT'   ~ 1,
+        TRUE                          ~ -Inf
     )
 }
 
 sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
     case_when(
-        grepl('WAPL.DEL',  Sample.Group) ~ 1,
-        grepl('NIPBL.DEL', Sample.Group) ~ 2,
-        grepl('All.WT',    Sample.Group) ~ 3,
-        grepl('WAPL.WT',   Sample.Group) ~ 4,
-        grepl('NIPBL.WT',  Sample.Group) ~ 5,
-        TRUE ~ -Inf
+        grepl(  'All.iN.DEL', Sample.Group) ~ 6,  # always numerator in FCs
+        grepl( 'WAPL.iN.DEL', Sample.Group) ~ 5,
+        grepl('NIPBL.iN.DEL', Sample.Group) ~ 4,
+        grepl(  'All.iN.WT',  Sample.Group) ~ 3,
+        grepl( 'WAPL.iN.WT',  Sample.Group) ~ 2,
+        grepl('NIPBL.iN.WT',  Sample.Group) ~ 1,
+        TRUE                                ~ -Inf
     )
 }
 
@@ -185,7 +151,6 @@ handle_covariates <- function(
 run_multiHiCCompare <- function(
     samples.df,
     sample_group_priority_fnc,
-    covariates.df=NULL,
     zero.p,
     A.min,
     resolution,
@@ -193,11 +158,12 @@ run_multiHiCCompare <- function(
     range2,
     remove.regions,
     md_plot_file,
+    covariates.df=NULL,
     frac.cutoff=0.8,
     effect.col='Sample.Group',
     p.method='fdr',
     ...){
-    # row_index=357; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]
+    # row_index=1; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]
     # tmp[row_index,]
     # Handle covariates if specified
     design.info <- 
@@ -206,7 +172,6 @@ run_multiHiCCompare <- function(
             covariates.df,
             effect.col
         )
-    # print(design.info)
     # Get sample groups, ensure consistent num/denom for fc estimates
     # function with more priority (smaller number) will be numerator
     # should be no ties, but ties are broken alphabetically
@@ -322,20 +287,22 @@ run_multiHiCCompare <- function(
 run_all_multiHiCCompare <- function(
     comparisons.df,
     hyper.params.df,
-    covariates.df,
     sample_group_priority_fnc,
     force_redo=FALSE,
+    covariates.df=NULL,
+    chromosomes=CHROMOSOMES,
     ...){
-    # force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
+    # chromosomes=CHROMOSOMES; covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
     comparisons.df %>% 
     # for each comparison list all paramter combinations
-    join_all_rows(hyper.params.df) %>% 
+    cross_join(hyper.params.df) %>% 
+    cross_join(tibble(chr=chromosomes)) %>% 
     # Determine sample group priority i.e. 
     # which sample group is numerator in fold-change values (lower priority value) and 
     # which sample group is denominator in fold change values (higher priority value)
     mutate(
         across(
-            matches('Sample.Group.(A|B)'),
+            matches('Sample.Group.(P1|P2)'),
             ~ sample_group_priority_fnc(.x),
             .names='{.col}.Priority'
         )
@@ -343,18 +310,18 @@ run_all_multiHiCCompare <- function(
     mutate(
         Sample.Group.Numerator=
             case_when(
-                Sample.Group.A.Priority < Sample.Group.B.Priority ~ Sample.Group.A,
-                Sample.Group.A.Priority > Sample.Group.B.Priority ~ Sample.Group.B,
+                Sample.Group.P1.Priority > Sample.Group.P2.Priority ~ Sample.Group.P1,
+                Sample.Group.P1.Priority < Sample.Group.P2.Priority ~ Sample.Group.P2,
                 TRUE ~ NA
             ),
         Sample.Group.Denominator=
             case_when(
-                Sample.Group.Numerator == Sample.Group.A ~ Sample.Group.B,
-                Sample.Group.Numerator == Sample.Group.B ~ Sample.Group.A,
+                Sample.Group.Numerator == Sample.Group.P1 ~ Sample.Group.P2,
+                Sample.Group.Numerator == Sample.Group.P2 ~ Sample.Group.P1,
                 TRUE ~ NA
-            ),
+            )
     ) %>% 
-    select(-c(matches('Sample.Group.(A|B)'))) %>% 
+    select(-c(matches('Sample.Group.(P1|P2)'))) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -367,6 +334,7 @@ run_all_multiHiCCompare <- function(
                 glue('zero.p_{zero.p}'),
                 glue('A.min_{A.min}'),
                 glue('resolution_{scale_numbers(resolution)}'),
+                glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
         md_plot_file=
@@ -380,8 +348,8 @@ run_all_multiHiCCompare <- function(
                 glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-multiHiCCompare.tsv')
             )
     ) %>% 
+    arrange(resolution) %>% 
         # {.} -> tmp
-    # pmap(
     future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
@@ -393,7 +361,8 @@ run_all_multiHiCCompare <- function(
                     results_fnc=run_multiHiCCompare,
                     sample_group_priority_fnc=sample_group_priority_fnc,
                     covariates.df=covariates.df,
-                    ... # arguments taken from columns of .
+                    # all columns also passed as input arguments to run_multiHiCCompare() by pmap
+                    ...  # passed from the call run_all_multiHiCCompare()
                 )
             },
         ...,  # passed from the call to this function
@@ -404,24 +373,35 @@ run_all_multiHiCCompare <- function(
 ###################################################
 # Load resutls
 ###################################################
-load_multiHiCCompare_results <- function(
-    filepath,
+load_and_correct_multiHiCCompare_results <- function(
+    filepaths,
     nom.threshold,
     fdr.threshold,
+    gw.fdr.threshold,
     ...){
-    filepath %>%
-    read_tsv(show_col_types=FALSE) %>%
-    filter(p.adj < fdr.threshold) %>%
-    filter(p.value < nom.threshold)
+    filepaths %>% 
+    read_tsv(
+        show_col_types=FALSE,
+        progress=FALSE
+    ) %>% 
+    bind_rows() %>%
+    mutate(p.adj.gw=p.adjust(p.value, method='BH')) %>% 
+    filter(
+        p.adj.gw < gw.fdr.threshold,
+        p.adj    < fdr.threshold,
+        p.value  < nom.threshold
+    )
 }
 
 load_all_multiHiCCompare_results <- function(
-    file_suffix='-multiHiCCompare.tsv',
-    sample_group_priority_fnc=NULL,
     resolutions=NULL,
+    comparisons=NULL,
+    gw.fdr.threshold=1,
     fdr.threshold=1,
     nom.threshold=1,
+    file_suffix='-multiHiCCompare.tsv',
     ...){
+    # comparisons=NULL; resolutions=NULL; gw.fdr.threshold=1; fdr.threshold=1; nom.threshold=0.05; file_suffix='-multiHiCCompare.tsv'
     # Load all results
     parse_results_filelist(
         input_dir=file.path(MULTIHICCOMPARE_DIR, 'results'),
@@ -436,261 +416,83 @@ load_all_multiHiCCompare_results <- function(
         delim='_vs_',
         names=c('Sample.Group.A', 'Sample.Group.B')
     ) %>% 
-    mutate(
-        across(
-            starts_with('Sample.Group'),
-            sample_group_priority_fnc,
-            .names='{.col}.Priority'
-        )
+    rename(
+        'Sample.Group.Numerator'=Sample.Group.A,
+        'Sample.Group.Denominator'=Sample.Group.B
     ) %>% 
+    # Filter relevant results sets
     mutate(
-        Sample.Group.Numerator=
-            case_when(
-                Sample.Group.A.Priority < Sample.Group.B.Priority ~ Sample.Group.A,
-                Sample.Group.A.Priority > Sample.Group.B.Priority ~ Sample.Group.B
-            ),
-        Sample.Group.Denominator=
-            case_when(
-                Sample.Group.Numerator == Sample.Group.A ~ Sample.Group.B,
-                Sample.Group.Numerator == Sample.Group.B ~ Sample.Group.A
-            )
+        comparison=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
+        resolution=scale_numbers(resolution, force_numeric=TRUE)
     ) %>% 
-    select(-ends_with(c('.A', '.B', '.Priority'))) %>% 
-    # Only load results with specific params
+    {
+        if (!is.null(resolutions)) {
+            filter(., resolution %in% resolutions)
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if (!is.null(comparisons)) {
+            filter(., any(grepl(comparisons,  comparison)))
+        } else {
+            .
+        }
+    } %>% 
+    # Load all results + correct pvalues genome wide per comparison
+    group_by(across(-c(filepath, region))) %>% 
+    summarize(filepaths=list(c(filepath))) %>% 
+    # filter(resolution == 50000) %>% 
+    ungroup() %>% 
     mutate(
         results=
+            # future_pmap(
             pmap(
                 .l=.,
-                .f=load_multiHiCCompare_results,
+                # correct adjusted pvalues genome-wide
+                .f=load_and_correct_multiHiCCompare_results,
+                # Only load results with specific params
+                gw.fdr.threshold=gw.fdr.threshold,
                 fdr.threshold=fdr.threshold,
                 nom.threshold=nom.threshold,
                 .progress=TRUE
             )
+    ) %>% 
+        {.} %>% select(comparison, filepaths, results)
+    unnest(results) %>% 
+    select(-c(filepaths, D)) %>% 
+    rename(
+        'region1.bp'=region1,
+        'region2.bp'=region2
+    ) %>% 
+    mutate(
+        chr=rename_chrs(chr),
+        resolution=scale_numbers(resolution),
+        distance.bp=region2.bp - region1.bp,
+        # calculate log of all pvalues + add columns
+        across(
+            starts_with('p.'),
+            .f=~ -log10(.x),
+            .names='log.{.col}'
+        )
     ) %>%
-    select(-c(filepath)) %>% 
-    unnest(results)
-}
-
-###################################################
-# Plot Results
-###################################################
-multiHiCCompare_genome_volcano_plot <- function(
-    plot.df,
-    color='distance.discrete',
-    shape='Comparison',
-    scales='fixed',
-    pal.direction=-1,
-    pal='A',
-    size=1,
-    alpha=0.6,
-    ncol=1,
-    ...){
-    plot.df %>%
-    ggplot() +
-    geom_jitter(
-        aes(
-            x=logFC,
-            y=log.p.adj,
-            color=.data[[color]],
-            shape=.data[[shape]]
-            # color=Comparison, size=distance.kb
-        ), 
-        alpha=alpha
-    ) +
-    {
-        if (is.numeric(plot_df[[color]])) {
-            scale_color_viridis(direction=pal.direction, option=pal)
-        } else {
-            scale_color_viridis(direction=pal.direction, option=pal, discrete=TRUE)
-        }
-    } +
-    facet_wrap(
-        ~ Resolution,
-        ncol=ncol,
-        scales=scales
-    ) +
-    geom_hline(yintercept=-log10(1e-8), linetype='dashed', color='black') +
-    labs(
-        title=glue('All Genome Bins with Differential Contacts'),
-        color='Contact Distance (Kb)'
-    ) +
-    scale_y_continuous(
-        expand=c(0.01, 0.01, 0.01, 0.01),
-        limits=c(0, NA)
-    ) +
-    theme(
-        axis.text.x=element_text(angle=45),
-        legend.position='right'
-    ) +
-    add_ggtheme()
-}
-
-multiHiCCompare_allChromosome_volcano_plot <- function(
-    plot_df,
-    color='distance.discrete',
-    shape='Comparison',
-    scales='free_y',
-    pal='A',
-    pal.direction=-1,
-    size=1,
-    alpha=0.6,
-    ncol=1,
-    ...){
-    g <- 
-        plot.df %>%
-        ggplot() +
-        geom_jitter(
-            aes(
-                x=logFC,
-                y=log.p.adj,
-                color=.data[[color]],
-                shape=.data[[shape]]
-                # color=Comparison, size=distance.kb
-            ), 
-            alpha=alpha
-        ) +
-        {
-            if (is.numeric(plot_df[[color]])) {
-                scale_color_viridis(direction=pal.direction, option=pal)
-            } else {
-                scale_color_viridis(direction=pal.direction, option=pal, discrete=TRUE)
-            }
-        } +
-        facet_wrap(
-            ~ Chr,
-            ncol=ncol,
-            scales=scales
-        ) +
-        # geom_hline(yintercept=-log10(1e-8), linetype='dashed', color='black') +
-        labs(
-            title=glue('All Genome Bins with Differential Contacts'),
-            color='Contact Distance (Kb)'
-        ) +
-        scale_y_continuous(
-            expand=c(0.01, 0.01, 0.01, 0.01),
-            limits=c(0, NA)
-        ) +
-        theme(
-            strip.text=element_text(size = 20, face='bold'),
-            axis.text.x=element_text(angle=45),
-            legend.position='right'
-        ) +
-        add_ggtheme()
-    shift_legend(g)
-}
-
-multiHiCCompare_chromosome_volcano_plot <- function(
-    plot.df,
-    chr,
-    color='distance.discrete',
-    shape='Comparison',
-    size=1,
-    alpha=0.6,
-    scales='fixed',
-    ncol=1,
-    ...){
-    plot.df %>%
-    ggplot() +
-    geom_jitter(
-        aes(
-            x=logFC,
-            y=log.p.adj,
-            color=.data[[color]],
-            shape=.data[[shape]]
-        ), 
-        alpha=alpha,
-        size=size
-    ) +
-    facet_wrap(
-        ~ Resolution,
-        ncol=ncol,
-        scales=scales
-    ) +
-    labs(
-        title=glue('Chr{chr} Bins with Differential Contacts'),
-        color='Contact Distance (Kb)'
-    ) +
-    scale_y_continuous(
-        expand=c(0.01, 0.01, 0.01, 0.01),
-        limits=c(0, NA)
-    ) +
-    theme(
-        axis.text.x=element_text(angle=45),
-        legend.position='right'
-    ) +
-    add_ggtheme()
-}
-
-multiHiCCompare_manhattan_plot <- function(
-    plot.df, 
-    chr,
-    Resolution,
-    y_axis='region1.bin',
-    n.breaks=50,
-    ...){
-    plot.df %>%
-    ggplot() +
-    geom_jitter(
-        aes(
-            x=value,
-            y=.data[[y_axis]],
-            color=Comparison
-        ), 
-    ) +
-    facet_wrap(
-        ~ statistic,
-        nrow=1,
-        scales='free_x'
-    ) +
-    labs(
-        title=glue('Chr{chr} Bins with Differential Contacts'),
-        x=glue('Chr{chr} bins at {Resolution}  resolution')
-    ) +
-    scale_y_continuous(
-        n.breaks=n.breaks,
-        expand=c(0.01, 0.01, 0.01, 0.01),
-        limits=c(0, NA)
-    ) +
-    theme(
-        axis.text.x=element_text(angle=45),
-        legend.position='right'
-    ) +
-    add_ggtheme()
-}
-
-multiHiCCompare_genome_scatter_plot <- function(
-    plot.df,
-    size=1,
-    alpha=0.6,
-    ncol=1,
-    ...){
-    plot.df %>% 
-    ggplot() +
-    geom_point(
-        aes(
-            x=distance.value,
-            y=logFC,
-            shape=Comparison
-        ), 
-        alpha=alpha,
-        size=size
-    ) +
-    facet_wrap(
-        ~ distance.unit,
-        nrow=1,
-        scales='free_x'
-    ) +
-    labs(
-        title=glue('Differential Contacts Genome-wide'),
-        x='Bin Distance'
-    ) +
-    scale_y_continuous(
-        expand=c(0.01, 0.01, 0.01, 0.01),
-        limits=c(0, NA)
-    ) +
-    theme(
-        legend.position='right'
-    ) +
-    add_ggtheme()
+    unite(
+        'bin.pair.idx',
+        chr, region1.bp, region2.bp,
+        sep='#',
+        remove=FALSE
+    )
+    # left_join(
+    #     load_chr_sizes() %>% rename('chr'=Chr),
+    #     by='chr'
+    # ) %>% 
+    # mutate(
+    #     region1.bin=region1.bp / resolution,
+    #     region2.bin=region2.bp / resolution,
+    #     distance.bin=region2.bin - region1.bin,
+    #     region1.pct=100 * (region1.bp / chr.total.bp),
+    #     region2.pct=100 * (region2.bp / chr.total.bp),
+    #     distance.pct=region2.pct - region1.pct
+    # )
 }
 
