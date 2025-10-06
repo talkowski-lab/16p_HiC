@@ -184,72 +184,29 @@ main() {
 # BASE_DIR="/data/talkowski/Samples/16p_HiC"
 BASE_DIR="./"
 OUTPUT_DIR="${BASE_DIR}/results/TADs"
+EVAL_METHOD='txt'
 RESOLUTIONS=(100000 50000 25000 10000)
 # Default SLURM params
-USE_SLURM=0
-PARTITION="normal"
-MEM_GB=30
-NTASKS_PER_NODE=1
-CPUS=2
-THREADS=2
+QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; THREADS=2; LOG_DIR="${BASE_DIR}/slurm.logs"
 CONDA_DIR="$(conda info --base)"
-# Handle CLI args
-[[ $? -ne 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ho:l:r:n:c:p:m:a:t: --long help,output-dir,log-dir,resolution,nstasks-per-node,cpus,partition,mem,anaconda-dir,threads -- "$@")
-eval set -- "${VALID_ARGS}"
-while [ : ]; do
-    echo "${1} ||| ${2}"
-    case "$1" in
-        -a|--anaconda-dir)
-            CONDA_DIR="${2}"
-            shift 2
-            ;;
-        -r|--resolution)
-            RESOLUTIONS=($(echo "${2}" | cut -d',' --output-delimiter=' ' -f1-))
-            shift 2
-            ;;
-        -o|--output-dir)
-            OUTPUT_DIR="${2}" 
-            shift 2
-            ;;
-        -t|--threads)
-            THREADS="${2}" 
-            shift 2
-            ;;
-        -s|--use-slurm)
-            USE_SLURM=1
-            shift 
-            ;;
-        -m|--mem)
-            MEM_GB="${2}" 
-            shift 2
-            ;;
-        -n|--ntasks-per-node)
-            NTASKS_PER_NODE="${2}" 
-            shift 2
-            ;;
-        -c|--cpus)
-            CPUS="${2}" 
-            shift 2
-            ;;
-        -p|--partition)
-            PARTITION="${2}" 
-            shift 2
-            ;;
-        -l|--log-dir)
-            LOG_DIR="${2}" 
-            shift 2
-            ;;
-        -h|--help) 
-            help 
-            ;;
-        --)
-            shift 
-            break
-            ;;
+[[ $# -eq 0 ]] && echo "No Args" && exit 1
+while getopts "ho:l:r:n:c:q:m:a:t:e:" flag; do
+    case ${flag} in 
+        a) CONDA_DIR="${OPTARG}" ;;
+        r) RESOLUTIONS=($(echo "${OPTARG}" | cut -d',' --output-delimiter=' ' -f1-)) ;;
+        o) OUTPUT_DIR="${OPTARG}" ;;
+        t) THREADS="${OPTARG}" ;;
+        e) EVAL_METHOD="${OPTARG}" ;;
+        m) MEM_GB="${OPTARG}" ;;
+        n) NTASKS_PER_NODE="${OPTARG}" ;;
+        c) CPUS="${OPTARG}" ;;
+        q) QUEUE="${OPTARG}" ;;
+        l) LOG_DIR="${OPTARG}" ;;
+        h) help && exit 0 ;;
+        *) echo "Invalid flag ${flag}" && help && exit 1 ;;
     esac
 done
-# Print args
+shift $(( OPTIND-1 ))
 
 ###################################################
 # Main 
