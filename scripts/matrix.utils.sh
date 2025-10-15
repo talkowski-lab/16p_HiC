@@ -117,30 +117,6 @@ dump_all_regions() {
     done
 }
 
-plot_fanc() {
-    mkdir -p "${1}"
-    output_dir="$(readlink -e "${1}")"
-    region="$2"
-    resolution="$3"
-    hic_samples=${@:4}
-    activate_conda 'fanc'
-    for sample_file in ${hic_samples[@]}; do
-        [[ ${sample_file} == *.mcool ]] || continue
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.*.mcool}"
-        output_file="${output_dir}/${sample_ID}.${resolution}.${region}.heatmap.pdf"
-        fancplot $region \
-            -vv \
-            --output ${output_file} \
-            -p triangular \
-            -u -l \
-            --title "${sample_ID} Contacts on ${region%:*}" \
-            ${sample_file}@${resolution}
-        # fancplot chr16:0mb-96mb --output ./WT_VS_DEL.Merged.100K.heatmap.pdf -p split --title 'Merged WT vs Merged DEL Contacts chr16' ../coolers_library/16pWTNSCHIC_S5S6.hg38.mapq_30.1000.mcool::resolutions/100000 ../coolers_library/16pDELNSCHIC_S1S2.hg38.mapq_30.1000.mcool::resolutions/100000
-done
-}
-
 ###################################################
 # Merging matrices 
 ###################################################
@@ -229,72 +205,6 @@ merge_NIPBLWAPL_matrices() {
                 "${read_filter}"                \
                 $(find "${cooler_dir}" -type f -name "*.${celltype}.${genotype}.*.${read_filter}.1000.cool")
             done
-        done
-    done
-}
-
-###################################################
-# Merging stats files
-###################################################
-merge_stats() {
-    # Arg list
-    output_dir="${1}"
-    merged_name="${2}"
-    stats_files="${3}"
-    # ignore any existing merged files
-    stats_files=$(ls ${stats_files} | grep -vi 'merged')
-    echo ${stats_files}
-    # process args
-    output_dir="${output_dir}/${merged_name}"
-    mkdir -p "${output_dir}"
-    output_stats_file="${output_dir}/${merged_name}.hg38.dedup.stats"
-    pairtools stats \
-        --merge \
-        --output ${output_stats_file} \
-        ${stats_files}
-        
-}
-
-merge_16p_stats() {
-    activate_conda 'cooler'
-    pairs_dir="$(readlink -e "${1}")"
-    pair_file_suffix="hg38.dedup.stats"
-    # Merge pairs with and without MAPQ filtering
-    for celltype in ${CELLTYPES[@]}; do 
-        for genotype in ${genotypes[@]}; do 
-            # merge across all biological + technical replicates
-            sample_group="16p.${celltype}.${genotype}"
-            merge_stats \
-                "${pairs_dir}" \
-                "${sample_group}.Merged.Merged" \
-                "${pairs_dir}/**/${sample_group}.*.*.${pair_file_suffix}"
-        done
-    done
-}
-
-merge_NIPBLWAPL_stats() {
-    pairs_dir="$(readlink -e "${1}")"
-    activate_conda 'cooler'
-    pair_file_suffix="hg38.dedup.stats"
-    # Merge pairs with and without MAPQ filtering
-    for celltype in ${CELLTYPES[@]}; do 
-        for genotype in ${genotypes[@]}; do 
-            for edit in ${edits[@]}; do
-                # merge across all biological + technical replicates
-                sample_group="${edit}.${celltype}.${genotype}"
-                merge_stats \
-                    "${pairs_dir}" \
-                    "${sample_group}.Merged.Merged" \
-                    "${pairs_dir}/**/${sample_group}.*.*.${pair_file_suffix}"
-            done
-            # Merge across edits per genotype & celltype
-            all_edits="$(paste -sd',' ${edits[@]})"
-            sample_group="All.${celltype}.${genotype}"
-            merge_matrices                      \
-                "${cooler_dir}"                 \
-                "${sample_group}.Merged.Merged" \
-                "${read_filter}"                \
-                "${pairs_dir}/**/{${all_edits}}.${celltype}.${genotype}.*.*.${pair_file_suffix}"
         done
     done
 }
@@ -476,6 +386,33 @@ make_multiqc_reports() {
     readlink -e ${output_dir}/*
 }
 
+###################################################
+# Compute intermediate results
+###################################################
+compute_expected_cis() {
+    mkdir -p "${1}"
+    output_dir="$(readlink -e "${1}")"
+    hic_samples=${@:2}
+    activate_conda 'cooler'
+    for sample_file in ${hic_samples[@]}; do
+        sample_file="$(readlink -e ${sample_file})"
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.mcool}"
+        param_dir="${output_dir}/resolution_${resolution}"
+        output_file="${param_dir}/${sample_ID}-expected.cis.tsv"
+        [[ -f "$output_file" ]] && continue
+        cooltools expected-cis         \
+            --nproc "${THREADS}"       \
+            --smooth                   \
+            --clr_weight_name 'weight' \
+            --output "${output_file}"  \
+            "${sample_ID}"
+    done
+}
+
+###################################################
+# Main
+###################################################
 main() {
     mode="$1"
     echo "${mode}"
