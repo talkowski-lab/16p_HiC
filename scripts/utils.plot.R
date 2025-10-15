@@ -128,7 +128,6 @@ scale_y_axis <- function(
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
-            # limits=limits,
             expand=expand,
             n.breaks=n_breaks,
             labels=label_percent(),
@@ -138,7 +137,6 @@ scale_y_axis <- function(
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
-            # limits=limits,
             expand=expand,
             n.breaks=n_breaks,
             labels=
@@ -152,7 +150,6 @@ scale_y_axis <- function(
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_log10(
-            # limits=limits,
             expand=expand,
             guide='axis_logticks',
             labels=
@@ -543,7 +540,7 @@ plot_heatmap <- function(
     }
 }
 
-plot_jitter<- function(
+plot_jitter <- function(
     plot.df,
     x_var='',
     y_var='',

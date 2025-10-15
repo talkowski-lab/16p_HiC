@@ -274,8 +274,9 @@ scale_numbers <- function(
     numbers,
     accuracy=2,
     force_numeric=FALSE){
-    if (is.character(numbers)) {
+    if (is.character(numbers) | is.factor(numbers)) {
         numbers %>%
+        as.character() %>% 
         tibble(resolution.str=.) %>%
         mutate(
             suffix=str_extract(resolution.str, '[KMG]b'),
