@@ -11,7 +11,16 @@ library(purrr)
 load_pairtools_stats <- function(
     stats_file_suffix='.hg38.dedup.stats',
     samples.to.include=NULL,
+    SampleID.fields=
+        c(
+            'Edit',
+            'Celltype',
+            'Genotype',
+            'CloneID',
+            'TechRepID'
+        ),
     ...){
+    # stats_file_suffix='.hg38.dedup.stats'; samples.to.include=NULL; SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', 'Batch')
     # Load all stats
     all.stats.df <- 
         PAIRS_DIR %>%
@@ -44,7 +53,8 @@ load_pairtools_stats <- function(
                         # ignore stat that is not included in all outputs 
                         filter(stat != 'summary/dist_freq_convergence/strands_w_max_convergence_dist') %>%
                         mutate(value=as.numeric(value))
-                    }
+                    },
+                    .progress=TRUE
                 )
         ) %>%
         select(-c(filepath)) %>%
@@ -52,16 +62,22 @@ load_pairtools_stats <- function(
     # Compute stats for merged matrices and add as new rows
     all.stats.df <- 
         all.stats.df %>% 
-        get_info_from_SampleIDs(keep_id=FALSE) %>% 
-        group_by(Edit, Celltype, Genotype, stat) %>% 
+        get_info_from_SampleIDs(
+            keep_id=FALSE,
+            SampleID.fields=SampleID.fields
+        ) %>% 
+        group_by(across(all_of(c(setdiff(SampleID.fields, c('CloneID', 'TechRepID')), 'stat')))) %>%
+        # group_by(Edit, Celltype, Genotype, stat) %>% 
         summarize(value=sum(value)) %>%
         ungroup() %>% 
         add_column(
             CloneID='Merged',
             TechRepID='Merged'
         ) %>% 
-        mutate(SampleID=glue('{Edit}.{Celltype}.{Genotype}.{CloneID}.{TechRepID}')) %>% 
-        select(-c(Edit, Celltype, Genotype, CloneID, TechRepID)) %>% 
+        mutate(SampleID=glue(paste0('{', SampleID.fields, '}', collapse='.'))) %>% 
+        select(-all_of(SampleID.fields)) %>% 
+        # mutate(SampleID=glue('{Edit}.{Celltype}.{Genotype}.{CloneID}.{TechRepID}')) %>% 
+        # select(-c(Edit, Celltype, Genotype, CloneID, TechRepID)) %>% 
         bind_rows(all.stats.df)
     # all.stats.df %>% distinct(SampleID)
     # Matrix-wide stats
@@ -368,12 +384,6 @@ compute_all_coverage_summaries <- function(
         param_delim='_'
     ) %>%
     mutate(MatrixID=str_remove(MatrixID, file.suffix)) %>% 
-    get_info_from_MatrixIDs(
-        ID_col='MatrixID',
-        keep_id=FALSE,
-        nest_col=NA,
-        add_sample_id=TRUE
-    ) %>% 
     # Only need raw coverage
     filter(weight == 'raw') %>% 
     # Ignore results not matching param values
@@ -421,10 +431,10 @@ plot_barplot_with_threshold_lines <- function(
     lines.df %>% 
     mutate(
         !!lines.variable := 
-                factor(
-                    !!sym(lines.variable),
-                    levels=levels(plot.df[[lines.variable]])
-                ),
+            factor(
+                !!sym(lines.variable),
+                levels=levels(plot.df[[lines.variable]])
+            ),
         x_line=as.numeric(!!sym(lines.variable)) - line_bleed,
         xend_line=as.numeric(!!sym(lines.variable)) + line_bleed
     ) %>% 

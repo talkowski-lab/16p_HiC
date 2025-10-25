@@ -146,6 +146,14 @@ get_info_from_SampleIDs <- function(
     col_prefix='',
     keep_id=TRUE,
     nest_col=NA,
+    SampleID.fields=
+        c(
+            'Edit',
+            'Celltype',
+            'Genotype',
+            'CloneID',
+            'TechRepID'
+        ),
     ...){
     df %>%
     mutate(
@@ -160,15 +168,7 @@ get_info_from_SampleIDs <- function(
     separate_wider_delim(
         all_of(sample_ID_col),
         delim=fixed('.'),
-        names=
-            c(
-                'Edit',
-                'Celltype',
-                'Genotype',
-                'CloneID',
-                'TechRepID'
-            ) %>%
-            paste0(col_prefix, .),
+        names=SampleID.fields %>% paste0(col_prefix, .),
         cols_remove=!keep_id
     ) %>% 
     {
@@ -179,13 +179,11 @@ get_info_from_SampleIDs <- function(
                 nest(
                     ., 
                     !!nest_col :=
-                        c(
-                            Edit,
-                            Celltype,
-                            Genotype,
-                            CloneID,
-                            TechRepID,
-                            isMerged
+                        all_of(
+                            c(
+                                SampleID.fields,
+                                'isMerged'
+                            )
                         )
                 )
             }
@@ -203,10 +201,7 @@ get_info_from_MatrixIDs <- function(
     keep_id=TRUE,
     nest_col=NA,
     delim=fixed('.'),
-    ...){
-    # matrix_ID_col='MatrixID.P1'; sample_ID_col='SampleID.P1'; col_prefix='SampleInfo.P1.'; keep_id=FALSE; nest_col=NA
-    # Set up some column names/variables
-    separate_names <- 
+    separate_names=
         c(
             'Edit',
             'Celltype',
@@ -216,7 +211,10 @@ get_info_from_MatrixIDs <- function(
             NA,
             'ReadFilter',
             NA
-        )
+        ),
+    ...){
+    # matrix_ID_col='MatrixID.P1'; sample_ID_col='SampleID.P1'; col_prefix='SampleInfo.P1.'; keep_id=FALSE; nest_col=NA
+    # Set up some column names/variables
     col_names <- c(separate_names[!is.na(separate_names)], 'isMerged')
     # extract + format metadata
     df %>%

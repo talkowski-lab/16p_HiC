@@ -346,9 +346,9 @@ make_multiqc_report() {
     input_dir="${2}"
     file_ext="${3}"
     tmp_file=$(mktemp)
-    echo ${tmp_file}
-    echo find ${input_dir} -maxdepth 99 -type f -name "*${file_ext}"
-    find ${input_dir} -maxdepth 99 -type f -name "*${file_ext}" >| ${tmp_file}
+    # echo ${tmp_file}
+    # echo find ${input_dir} -maxdepth 99 -type f -name "*${file_ext}"
+    find "${input_dir}" -maxdepth 99 -type f -name "*${file_ext}" >| "${tmp_file}"
         # --no-ai                     \
     multiqc                         \
         --no-data-dir               \
@@ -362,7 +362,7 @@ make_multiqc_report() {
 make_multiqc_reports() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
-    distiller_dir="$(readlink -e ${2})"
+    distiller_dir="$(readlink -e "${2}")"
     activate_conda 'multiqc'
     # make each multi-sample report by datatype
     make_multiqc_report                \
@@ -373,9 +373,8 @@ make_multiqc_reports() {
         "${output_dir}/fastp.multiqc"                   \
         "${distiller_dir}/mapped_parsed_sorted_chunks/" \
         ".fastp.json"
-        # "${distiller_dir}/sample.QC/pairtools.stats/" \
-    make_multiqc_report                               \
-        "${output_dir}/pairtools.multiqc"             \
+    make_multiqc_report                   \
+        "${output_dir}/pairtools.multiqc" \
         "${distiller_dir}/pairs_library/" \
         ".dedup.stats"
     make_multiqc_report                    \
@@ -383,7 +382,7 @@ make_multiqc_reports() {
         "${distiller_dir}/sample.QC/qc3C/" \
         "report.qc3C.json"
     # list all generated reports
-    readlink -e ${output_dir}/*
+    find "${output_dir}" -type f -exec readlink -e {} \;
 }
 
 ###################################################

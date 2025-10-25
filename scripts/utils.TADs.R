@@ -436,35 +436,23 @@ define_TAD_pairs <- function(
     ...){
     # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]];
     cross_join(
-        TADs.P1 %>% 
-            unite(
-                'TAD_idx',
-                TAD.start, TAD.end,
-                sep='#',
-                remove=FALSE
-            ),
-        TADs.P2 %>% 
-            unite(
-                'TAD_idx',
-                TAD.start, TAD.end,
-                sep='#',
-                remove=FALSE
-            ),
+        TADs.P1,
+        TADs.P2,
         suffix=c('.P1', '.P2')
     ) %>%
     # only keep pairs of TADs that overlap at all
+    #   000000000111111111122222222223333
+    #   123456789012345678901234567890123
+    # P ---|++++|------|+++++|-----------|+++++++++++|------|++++++|------------|+++++|--
+    # Q ------|++++|------------|++++|-------|++++|------|+++++++++++++++|----|++++|-----
     filter(
         between(TAD.start.P1, TAD.start.P2, TAD.end.P2) |
         between(TAD.end.P1,   TAD.start.P2, TAD.end.P2) |
         between(TAD.start.P2, TAD.start.P1, TAD.end.P1) |
         between(TAD.end.P2,   TAD.start.P1, TAD.end.P1)
     ) %>% 
-    #   000000000111111111122222222223333
-    #   123456789012345678901234567890123
-    # P ---|++++|------|+++++|-----------|+++++++++++|------|++++++|------------|+++++|--
-    # Q ------|++++|------------|++++|-------|++++|------|+++++++++++++++|----|++++|-----
-    # P 04-09, 16-22
-    # Q 07-12, 25-30
+    # Only keep each TAD once at most
+    # compute overlap similarity (MoC) for each pair of TADs between the 2 annotations
     mutate(
         rightmost.start=max(TAD.start.P1, TAD.start.P2),
         leftmost.end=min(TAD.end.P1, TAD.end.P2),
@@ -504,7 +492,7 @@ calculate_all_pairs_MoCs <- function(
     tad.annotations,
     pair_grouping_cols,
     ...){
-    # pair_grouping_cols=c('isMerged', 'resolution', 'chr'); tad.annotations=hitad.annotations %>% nest(TADs=c(TAD.start, TAD.end, TAD.length)) %>% nest(SampleInfo=c(Edit, Genotype, Celltype, CloneID, TechRepID, weight, SampleID)); tad.annotations
+    # pair_grouping_cols=c('isMerged', 'resolution', 'chr'); tad.annotations=hitad.TAD.df %>% nest(TADs=c(TAD.start, TAD.end, TAD.length)) %>% nest(SampleInfo=c(Edit, Genotype, Celltype, CloneID, TechRepID, SampleID)); tad.annotations
     # tad.annotations Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # TADs: nested tibble with 3 columns; TAD.start, TAD.end, TAD.length
@@ -516,6 +504,7 @@ calculate_all_pairs_MoCs <- function(
         cols_to_pair=pair_grouping_cols,
         keep_self=FALSE
     ) %>% 
+        # {.} -> tmp
     rowwise() %>% 
     mutate(
         SamplePairInfo=
