@@ -509,3 +509,80 @@ load_all_multiHiCCompare_results <- function(
     # )
 }
 
+post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
+    results.df %>% 
+    mutate(
+        chr=factor(chr, levels=CHROMOSOMES),
+        resolution=
+            resolution %>% 
+            scale_numbers(force_numeric=TRUE) %>% 
+            scale_numbers(),
+        comparison=
+            factor(
+                comparison,
+                levels=
+                    c(
+                        'NIPBL.iN.DEL vs NIPBL.iN.WT',
+                         'WAPL.iN.WT vs NIPBL.iN.WT',
+                         'WAPL.iN.DEL vs WAPL.iN.WT',
+                        'NIPBL.iN.DEL vs WAPL.iN.WT',
+                         'WAPL.iN.DEL vs NIPBL.iN.WT',
+                        'NIPBL.iN.DEL vs All.iN.WT',
+                         'WAPL.iN.DEL vs All.iN.WT'
+                    )
+            ),
+        comparison.type=
+            case_when(
+                str_detect(comparison, 'NIPBL.* vs NIPBL.*') ~ 'main',
+                str_detect(comparison, 'WAPL.* vs WAPL.*')   ~ 'main',
+                str_detect(comparison, '.*WT vs .*WT')       ~ 'main',
+                str_detect(comparison, '.*vs All.iN.WT')     ~ 'over.edits',
+                str_detect(comparison, 'NIPBL.* vs WAPL.*')  ~ 'across.edits',
+                str_detect(comparison, 'WAPL.* vs NIPBL.*')  ~ 'across.edits',
+                TRUE                                         ~ '???'
+            ) %>%
+            factor(levels=c('main', 'across.edits', 'over.edits'))
+    )
+}
+
+post_process_multiHiCCompare_results_16p <- function(results.df){
+    results.df %>% 
+    mutate(
+        chr=factor(chr, levels=CHROMOSOMES),
+        resolution=
+            resolution %>% 
+            scale_numbers(force_numeric=TRUE) %>% 
+            scale_numbers(),
+        comparison=
+            factor(
+                comparison,
+                levels=
+                    c(
+                        '16p.NSC.WT vs 16p.iN.WT',
+                        # '16p.NSC.DEL vs 16p.iN.DEL',
+                        # '16p.NSC.DUP vs 16p.iN.DUP',
+                        '16p.NSC.DUP vs 16p.NSC.DEL',
+                        '16p.NSC.DUP vs 16p.NSC.WT',
+                        '16p.NSC.DEL vs 16p.NSC.WT',
+                        '16p.iN.DUP vs 16p.iN.DEL',
+                        '16p.iN.DUP vs 16p.iN.WT',
+                        '16p.iN.DEL vs 16p.iN.WT'
+                    )
+            ),
+        comparison.type=
+            case_when(
+                comparison == '16.NSC.DUP vs 16p.NSC.DEL' ~ 'main.NSC',
+                comparison == '16.NSC.DUP vs 16p.NSC.WT'  ~ 'main.NSC',
+                comparison == '16.NSC.DEL vs 16p.NSC.WT'  ~ 'main.NSC',
+                comparison == '16.NSC.WT vs 16p.iN.WT'    ~ 'wt.vs.wt',
+                comparison == '16p.NSC.DEL vs 16p.iN.DEL' ~ 'crosstype',
+                        on == '16p.NSC.DUP vs 16p.iN.DUP' ~ 'crosstype',
+                comparison == '16.iN.DUP vs 16p.iN.DEL'   ~ 'main.iN',
+                comparison == '16.iN.DUP vs 16p.iN.WT'    ~ 'main.iN',
+                comparison == '16.iN.DEL vs 16p.iN.WT'    ~ 'main.iN',
+                TRUE                                      ~ '???'
+            ) %>%
+            factor(levels=c('main.NSC', 'main.iN', 'crosstype'))
+    )
+}
+
