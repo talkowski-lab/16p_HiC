@@ -10,7 +10,7 @@ GENOME_REF_DIR                 <- '/data/talkowski/tools/ref/Hi_c_noalt'
 CHROMOSOME_SIZES_FILE          <- file.path(GENOME_REF_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes')
 FASTQ_DIR                      <- file.path(BASE_DIR, 'fastq')
 SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
-# distiller produced ou           puts
+# distiller produced ouputs
 RESULTS_DIR                    <- file.path(BASE_DIR, 'results')
 BAM_DIR                        <- file.path(RESULTS_DIR, 'mapped_parsed_sorted_chunks')
 PAIRS_DIR                      <- file.path(RESULTS_DIR, 'pairs_library')
@@ -36,3 +36,7 @@ TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 HITAD_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.TAD.annotations.tsv')
 HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
+# Functional genome annotations
+FUNCTIONAL_ANNOTATIONS_DIR     <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements'
+FUNCTIONAL_ANNOTATION_FILES    <- list.files(file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'encode3'))
+ABC_ANNOTATIONS_FILE           <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
