@@ -94,35 +94,97 @@ load_hiTAD_DIs <- function(
                 'end',
                 'DI'
             )
-    )
+    ) %>% 
+    dplyr::rename('bin'=start) %>% 
+    select(-c(end))
 }
 
 load_DI_data <- function(
     filepath,
     method,
-    filetype,
     ...){
-    if (method == 'hiTAD' & filetype == 'DI') {
+    if (method == 'hiTAD') {
         load_hiTAD_DIs(filepath, ...)
-    } else if (method == 'cooltools' & filetype == 'TAD') {
+    } else if (method == 'cooltools') {
         load_cooltools_DIs(filepath, ...)
     } else {
-        message(glue('Invalid method ({method}) and/or suffix ({suffix})'))
+        stop(glue('Invalid method ({method})'))
     }
 }
 
-load_all_DI_data <- function(){
+annotated_bins_with_TADs <- function(
+    DIs,
+    TADs,
+    ...){
+    # DIs=tmp$DIs[[1]]; TADs=tmp$TADs[[1]]
+    # DIs %>% nrow(); TADs %>% nrow()
+    DIs %>% 
+    # Annotated within TAD bins
+    left_join(
+        TADs %>% 
+        select(TAD.start, TAD.end) %>% 
+        add_column(is.TAD.interior=TRUE),
+        by=join_by(between(bin, TAD.start, TAD.end, bounds="()"))
+    ) %>%
+    # Annotated within TAD Start 
+    left_join(
+        TADs %>% 
+        select(TAD.start) %>% 
+        add_column(is.TAD.start=TRUE),
+        by=join_by(bin == TAD.start)
+    ) %>%
+    # Annotated within TAD Ends
+    left_join(
+        TADs %>% 
+        select(TAD.end) %>% 
+        add_column(is.TAD.end=TRUE),
+        by=join_by(bin == TAD.end)
+        # by=join_by(between(bin, TAD.start, TAD.end))
+    ) %>% 
+    mutate(across(starts_with('is.TAD'), ~ !is.na(.x))) %>% 
+    mutate(
+        TAD.status=
+            case_when(
+                 is.TAD.start &  is.TAD.end ~ 'TAD Split',
+                 is.TAD.start & !is.TAD.end ~ 'TAD Start',
+                !is.TAD.start &  is.TAD.end ~ 'TAD End',
+                 is.TAD.interior            ~ 'Inside TAD',
+                 TRUE                       ~ 'Outside TADs'
+            )
+    ) %>%
+    select(bin, end, DI, TAD.status)
+}
+
+list_all_DI_results <- function(
+    pattern=NULL,
+    ignore.case=TRUE,
+    invert=FALSE){
+
     parse_results_filelist(
         input_dir=TAD_DIR,
-        suffix='-(TADs|DI).tsv',
-        filename.column.name='matrix.name',
-        param_delim='_',
+        suffix='-DI.tsv'
     ) %>%
-    process_matrix_name() %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    filter(weight == 'ICE') %>%
+    {
+        if (!is.null(pattern)) {
+            if (invert) {
+                filter(., !grepl(pattern, filepath, ignore.case=ignore.case))
+            } else {
+                filter(.,  grepl(pattern, filepath, ignore.case=ignore.case))
+            }
+        } else {
+            .
+        }
+    } %>%  
+    standardize_data_cols()
+}
+
+load_all_DI_data <- function(
+    hitad.TAD.df,
+    ...){
+    list_all_DI_results(...) %>% 
     mutate(
-        filetype=
-            filepath %>%
-            str_extract('-(TAD|DI).tsv$', group=1),
         DIs=
             pmap(
                 .,
@@ -130,8 +192,88 @@ load_all_DI_data <- function(){
                 .progress=TRUE
             )
     ) %>%
-    select(-c(filepath)) %>% 
-    unnest(DIs)
+    unnest(DIs) %>% 
+    standardize_data_cols() %>% 
+    select(-c(filepath))
+}
+
+annotate_DI_with_TADs <- function(
+    hitad.DI.df,
+    hitad.TAD.df,
+    pair_columns=
+        c(
+            'isMerged',
+            'resolution',
+            'SampleID',
+            'chr'
+        ),
+    ...){
+    hitad.DI.df %>% 
+    nest(DIs=c(bin, DI)) %>% 
+    post_process_hiTAD_DI_results() %>% 
+    # Match TAD annotations to bin-wise DI results
+    inner_join(
+        hitad.TAD.df %>% 
+        nest(TADs=c(TAD.start, TAD.end, TAD.length)),
+        by=pair_columns,
+    ) %>%
+    # Annotate every bin as to whether it is a TAD boundary/inside/outside
+    mutate(
+       tad.annotated.bins=
+            pmap(
+                .l=.,
+                .f=annotated_bins_with_TADs,
+                .progress=TRUE
+            )
+    ) %>% 
+    unnest(tad.annotated.bins) %>%
+    select(-c(TADs, DIs))
+}
+
+list_all_dataset_pairs <- function(
+    pair_grouping_cols,
+    ...){
+    # pair_grouping_cols=c('isMerged', 'resolution')
+    list_all_DI_results(...) %>% 
+    standardize_data_cols() %>% 
+    nest(
+        SampleInfo=
+            c(
+                # weight,
+                SampleID,
+                Edit,
+                Genotype,
+                Celltype,
+                CloneID,
+                TechRepID
+            )
+    ) %>% 
+    # List all pairs of annotations (SampleID + chr) that also have matching parameter values listed
+    get_all_row_combinations(
+        cols_to_pair=pair_grouping_cols,
+        keep_self=FALSE
+    ) %>% 
+    rowwise() %>% 
+    mutate(
+        SamplePairInfo=
+            merge_sample_info(
+                SampleInfo.P1,
+                SampleInfo.P2
+            ) %>%
+            list()
+    ) %>% 
+    ungroup() %>% 
+    select(
+        all_of(
+            c(
+                pair_grouping_cols,
+                'SamplePairInfo',
+                'filepath.P1',
+                'filepath.P2'
+            )
+        )
+    ) %>% 
+    unnest(SamplePairInfo)
 }
 
 ###################################################
