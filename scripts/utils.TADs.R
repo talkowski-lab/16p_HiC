@@ -398,6 +398,35 @@ load_all_TAD_annotations <- function(
     select(-c(filepath))
 }
 
+post_process_hiTAD_TAD_results <- function(results.df){
+    results.df %>% 
+    # Subset to only relevant parameters
+    filter(weight == 'ICE') %>% 
+    standardize_data_cols() %>% 
+    mutate(TAD.length=TAD.end - TAD.start) %>% 
+    select(
+        -c(
+            method,
+            weight,
+            threshold,
+            mfvp,
+            ReadFilter
+        )
+    )
+}
+
+post_process_cooltools_TAD_results <- function(results.df){
+    results.df %>% 
+    standardize_data_cols() %>% 
+    mutate(
+        window.size.bins=window.size / resolution,
+        window.size=scale_numbers(window.size),
+        param.combo=glue('{weight},{mfvp},{window.size.bins},{threshold}')
+    ) %>% 
+    rename('TAD.boundary'=TAD.start) %>% 
+    select(-c(TAD.end, method))
+}
+
 ###################################################
 # Compute Similarities
 ###################################################
