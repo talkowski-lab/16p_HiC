@@ -5,7 +5,6 @@ library(tidyverse)
 library(magrittr)
 library(glue)
 library(multiHiCcompare)
-library(furrr)
 library(BiocParallel)
 library(ggplot2)
 library(viridis)
@@ -163,8 +162,7 @@ run_multiHiCCompare <- function(
     effect.col='Sample.Group',
     p.method='fdr',
     ...){
-    # row_index=1; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]
-    # tmp[row_index,]
+# row_index=72 * 5 + 16; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]; frac.cutoff=0.8; samples.df; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL
     # Handle covariates if specified
     design.info <- 
         handle_covariates(
@@ -192,7 +190,7 @@ run_multiHiCCompare <- function(
         samples.df %>%
         select(-c(resolution)) %>% 
         pmap(
-            .l=,
+            .l=.,
             .f=load_mcool_file,
             resolution=resolution,
             range1=range1,
@@ -222,11 +220,10 @@ run_multiHiCCompare <- function(
                 )
             }
         )
-        # samples.contacts %>% lapply(nrow) %>% unlist()
     # Make experiment object with relevant data+parameters
     make_hicexp(
         data_list=samples.contacts,
-        groups=samples.df %>% pull(Sample.Group),
+        groups=samples.df %>% pull(!!effect.col),
         covariates=design.info$covariates,
         zero.p=zero.p,
         A.min=A.min,
@@ -258,7 +255,7 @@ run_multiHiCCompare <- function(
         )
         dev.off()
     } %>%
-    # Preform differential testing on  contacts 
+    # Preform differential testing on contacts (bin-pairs)
     # Handle covariate information
     {
         if (is.null(design.info$design.matrix)) {

@@ -1,89 +1,73 @@
 ###################################################
-# Dependencies 
+# Depdendencies
 ###################################################
 library(here)
 here::i_am('scripts/run.multiHiCCompare.R')
 BASE_DIR <- here()
-SCRIPT_DIR <- file.path(BASE_DIR, 'scripts')
-source(file.path(SCRIPT_DIR, 'locations.R'))
-source(file.path(SCRIPT_DIR, 'constants.R'))
-source(file.path(SCRIPT_DIR, 'utils.data.R'))
-source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-source(file.path(SCRIPT_DIR, 'utils.multiHiCCompare.R'))
-library(tidyverse)
-library(magrittr)
-library(ggplot2)
-library(ggh4x)
-library(purrr)
-library(future)
+SCRIPT_DIR <- here('scripts')
+suppressPackageStartupMessages({
+    source(file.path(SCRIPT_DIR, 'locations.R'))
+    source(file.path(SCRIPT_DIR, 'constants.R'))
+    source(file.path(SCRIPT_DIR, 'utils.data.R'))
+    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+    source(file.path(SCRIPT_DIR, 'utils.multiHiCCompare.R'))
+    library(tidyverse)
+    library(magrittr)
+    library(purrr)
+})
 
 ###################################################
-# Load data + Set up comparisons to compute 
+# Set up all comparisons
 ###################################################
-# GRanges object with Centro/Telomere regions to filter
-data('hg38_cyto') 
+# Individual sample metadata
 sample.metadata.df <- 
-    load_sample_metadata()
-# Set up all combinations of parameters and sample groups to test
-covariates.df <- 
-    sample.metadata.df %>% 
-    select(
-        SampleID,
-        FlowcellID
-    ) %>%
-    rename('Batch'=FlowcellID) %>% 
-    mutate(Batch=as.factor(Batch))
-# All combinations of analysis hyper-params 
+    load_sample_metadata(filter=FALSE)
+# All combinations of multiHiCCompare hyper-params to test
 hyper.params.df <- 
     expand_grid(
-        # zero.p=c(0.6, 0.8),
         zero.p=c(0.8),
         A.min=c(5)
     )
-# All pairs of sample groups to compare for differential contacts
+# List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
-    set_up_sample_comparisons() %>%
-    # filter(resolution.type == 'max') %>%
-    select(-c(resolution.type)) %>% 
-    # all comparison at all resolutions that exist for at least 1 matrix
-    nest(data=-c(resolution)) %>% 
-    right_join(
-        .,
-        expand({.}, data, resolution),
-        by=join_by(resolution, data)
+    tribble(
+        ~Sample.Group.P1, ~Sample.Group.P2,
+        '16p.iN.DUP',     '16p.iN.WT',
+        '16p.iN.DEL',     '16p.iN.WT',
+        '16p.NSC.WT',     '16p.iN.WT',
+        '16p.NSC.DUP',    '16p.NSC.WT',
+        '16p.NSC.DEL',    '16p.NSC.WT'
     ) %>% 
-    unnest(data) %>% 
-    distinct()
+    mutate(
+        across(
+            starts_with('Sample.Group.'),
+            ~ str_replace_all(.x, 'All', '.*'),
+            .names='{.col}.Pattern'
+        )
+    ) %>% 
+    set_up_sample_comparisons() %>%
+    select(-c(ends_with('.Pattern')))
 
-comparisons.df %>% 
-    filter(grepl('NSC', Sample.Group.P1), grepl('NSC', Sample.Group.P2)) %>% 
-    head(1) %>%
-    pull(samples.df) %>% {.[[1]]} %>% pull(filepath)
 ###################################################
-# Run multiHiCCompare on all comparisons
+# Generate DAC results for each comparison
 ###################################################
+# GRanges object with Centro/Telomere regions to filter
+data('hg38_cyto') 
 # parallelizing params
 library(BiocParallel)
-# numCores <- length(availableWorkers())
-# message(glue('Using {numCores} workers for parallelism'))
-# register(MulticoreParam(workers=numCores / 2), default=TRUE)
-# plan(multisession, workers=numCores / 2)
-register(MulticoreParam(workers=8), default=TRUE)
-plan(multisession, workers=24)
-# For every group of samples + parameter combination run multiHiCCompare and cache the results.
+numCores <- length(availableWorkers()); numCores
+# register(MulticoreParam(workers=numCores), default=TRUE)
+register(MulticoreParam(workers=numCores * 2 / 4), default=TRUE)
+plan(multisession,      workers=numCores * 2 / 4)
+# Run multiHiCComapre on all comparisons
+# 2 group comparison + no covariates -> use exact test
 comparisons.df %>% 
-    # filter(resolution == 10000) %>% 
-    filter(grepl('NSC', Sample.Group.P1), grepl('NSC', Sample.Group.P2)) %>% 
-    arrange(Sample.Group.P1, Sample.Group.P2) %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
-        covariates.df=covariates.df,
-        # covariates.df=NULL,
-        sample_group_priority_fnc=sample_group_priority_fnc_16p,
-        # force_redo=TRUE,
         remove.regions=hg38_cyto,
-        p.method='fdr'
+        # covariates.df=NULL,
+        # chromosomes=CHROMOSOMES,
+        # force_redo=TRUE,
+        sample_group_priority_fnc=sample_group_priority_fnc_16p
     )
-# bash one-liner to list results
-# find results/multiHiCCompare/results/merged_FALSE/ -type f -name "*-multiHiCCompare.tsv" -exec wc -l {} \; | tr '[/ ]' '\t' |  sed -e "s/-multiHiCCompre.tsv//" | cut -f1,8- |
 
