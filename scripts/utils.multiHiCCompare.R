@@ -65,25 +65,41 @@ set_up_sample_comparisons <- function(comparison.groups){
 
 sample_group_priority_fnc_16p <- function(Sample.Group){
     case_when(
-        Sample.Group == '16p.NSC.DUP' ~ 6,  # always numerator in FCs
-        Sample.Group == '16p.NSC.DEL' ~ 5,
-        Sample.Group == '16p.NSC.WT'  ~ 4,
-        Sample.Group == '16p.iN.DUP'  ~ 3,
-        Sample.Group == '16p.iN.DEL'  ~ 2,
-        Sample.Group == '16p.iN.WT'   ~ 1,
-        TRUE                          ~ -Inf
+        Sample.Group == '16p.NSC.DUP' ~ 1,  # always numerator in FCs
+        Sample.Group == '16p.NSC.DEL' ~ 2,
+        Sample.Group == '16p.NSC.WT'  ~ 3,
+        Sample.Group == '16p.iN.DUP'  ~ 4,
+        Sample.Group == '16p.iN.DEL'  ~ 5,
+        Sample.Group == '16p.iN.WT'   ~ 6,
+        TRUE                          ~ Inf
     )
 }
 
 sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
+    # FC is determined by the edger::exactTest() function called in multiHiCCompare
+    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
+    # According to the docs for exactTest()
+    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
+    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
+    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
+
+    # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
+    # the SECOND factor level i.e. have  a larger priority number 
+    # i.e. this works when the priority of NIPBL.DEL > NIPBL.WT 
+    # tmp.df <- tibble(Sample.Group=c(rep('NIPBL.iN.DEL', 3), rep('NIPBL.iN.WT', 3))) %>% 
+    # mutate(group.priority=sample_group_priority_fnc_NIPBLWAPL(Sample.Group), Sample.Group=fct_reorder(Sample.Group, group.priority, .desc=TRUE)) %>%
+    # arrange(Sample.Group)
+    # tmp.df %>% select(Sample.Group, group.priority)
+    # tmp.df %>% pull(Sample.Group)
+
     case_when(
-        grepl(  'All.iN.DEL', Sample.Group) ~ 6,  # always numerator in FCs
-        grepl( 'WAPL.iN.DEL', Sample.Group) ~ 5,
-        grepl('NIPBL.iN.DEL', Sample.Group) ~ 4,
-        grepl(  'All.iN.WT',  Sample.Group) ~ 3,
-        grepl( 'WAPL.iN.WT',  Sample.Group) ~ 2,
-        grepl('NIPBL.iN.WT',  Sample.Group) ~ 1,
-        TRUE                                ~ -Inf
+        grepl(  'All.iN.DEL', Sample.Group) ~ 1, # always numerator since always last factor level
+        grepl( 'WAPL.iN.DEL', Sample.Group) ~ 2,
+        grepl('NIPBL.iN.DEL', Sample.Group) ~ 3,
+        grepl(  'All.iN.WT',  Sample.Group) ~ 4,
+        grepl( 'WAPL.iN.WT',  Sample.Group) ~ 5,
+        grepl('NIPBL.iN.WT',  Sample.Group) ~ 6,
+        TRUE                                ~ Inf
     )
 }
 
