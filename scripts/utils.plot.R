@@ -86,7 +86,7 @@ scale_x_axis <- function(
             labels=
                 label_log(
                     base=log_base,
-                    digits=axis_label_accuracy,
+                    digits=max(1, -log10(axis_label_accuracy)),
                     signed=FALSE
                 ),
             ...
@@ -155,7 +155,7 @@ scale_y_axis <- function(
             labels=
                 label_log(
                     base=log_base,
-                    digits=axis_label_accuracy,
+                    digits=max(1, -log10(axis_label_accuracy)),
                     signed=FALSE
                 ),
             ...
