@@ -327,6 +327,48 @@ rename_chrs <- function(chrs){
     factor(levels=CHROMOSOMES)
 }
 
+standardize_data_cols <- function(results.df){
+    # results.df <- HITAD_DI_RESULTS_FILE %>% read_tsv(show_col_types=FALSE)
+    # results.df %>% group_by(resolution, weight, SampleID, chr) %>% slice_head(n=1)
+    results.df %>% 
+    {
+        if ('isMerged' %in% colnames(.)) {
+            if (is.logical(results.df$isMerged)) {
+                mutate(
+                    .,
+                    isMerged=
+                        ifelse(isMerged, 'Merged', 'Individual') %>%
+                        factor(levels=c('Merged', 'Individual'))
+                )
+            } else {
+                mutate(., isMerged=factor(isMerged, levels=c('Merged', 'Individual')))
+            }
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('resolution' %in% colnames(.)) {
+            mutate(
+                .,
+                resolution=
+                    resolution %>%
+                    scale_numbers(force_numeric=TRUE) %>%
+                    scale_numbers(),
+            )
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('chr' %in% colnames(.)) {
+            mutate(., chr=factor(chr, levels=CHROMOSOMES))
+        } else {
+            .
+        }
+    }
+}
+
 ###################################################
 # Handle pairs of samples
 ###################################################
