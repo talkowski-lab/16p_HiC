@@ -35,8 +35,8 @@ set_up_sample_comparisons <- function(comparison.groups){
             mutate(
                 Sample.Group=
                     case_when(
-                        str_detect(SampleID, Sample.Group.P1.Pattern) ~ Sample.Group.P1,
-                        str_detect(SampleID, Sample.Group.P2.Pattern) ~ Sample.Group.P2,
+                        str_detect(SampleID, Sample.Group.Left.Pattern) ~ Sample.Group.Left,
+                        str_detect(SampleID, Sample.Group.Right.Pattern) ~ Sample.Group.Right,
                         TRUE ~ NA
                     )
             ) %>%
@@ -83,7 +83,7 @@ sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
     # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
     # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
 
-    # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
+ # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
     # the SECOND factor level i.e. have  a larger priority number 
     # i.e. this works when the priority of NIPBL.DEL > NIPBL.WT 
     # tmp.df <- tibble(Sample.Group=c(rep('NIPBL.iN.DEL', 3), rep('NIPBL.iN.WT', 3))) %>% 
@@ -315,7 +315,7 @@ run_all_multiHiCCompare <- function(
     # which sample group is denominator in fold change values (higher priority value)
     mutate(
         across(
-            matches('Sample.Group.(P1|P2)'),
+            matches('Sample.Group..Left.Right)'),
             ~ sample_group_priority_fnc(.x),
             .names='{.col}.Priority'
         )
@@ -323,18 +323,18 @@ run_all_multiHiCCompare <- function(
     mutate(
         Sample.Group.Numerator=
             case_when(
-                Sample.Group.P1.Priority > Sample.Group.P2.Priority ~ Sample.Group.P1,
-                Sample.Group.P1.Priority < Sample.Group.P2.Priority ~ Sample.Group.P2,
+                Sample.Group.Left.Priority > Sample.Group.Right.Priority ~ Sample.Group.Left,
+                Sample.Group.Left.Priority < Sample.Group.Right.Priority ~ Sample.Group.Right,
                 TRUE ~ NA
             ),
         Sample.Group.Denominator=
             case_when(
-                Sample.Group.Numerator == Sample.Group.P1 ~ Sample.Group.P2,
-                Sample.Group.Numerator == Sample.Group.P2 ~ Sample.Group.P1,
+                Sample.Group.Numerator == Sample.Group.Left ~ Sample.Group.Right,
+                Sample.Group.Numerator == Sample.Group.Right ~ Sample.Group.Left,
                 TRUE ~ NA
             )
     ) %>% 
-    select(-c(matches('Sample.Group.(P1|P2)'))) %>% 
+    select(-c(matches('Sample.Group..Left.Right)'))) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
