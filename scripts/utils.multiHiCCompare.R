@@ -510,7 +510,15 @@ load_all_multiHiCCompare_results <- function(
 }
 
 post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
+format_meta_comparison_results <- function(results.df){
     results.df %>% 
+    nest(data=-c(resolution, comparison, chr)) %>%
+    get_all_row_combinations(
+        cols_to_pair=c('resolution', 'chr'),
+        suffixes=c('.Left', '.Right'),
+        keep_self=FALSE
+    ) %>%
+    rowwise() %>% 
     mutate(
         chr=factor(chr, levels=CHROMOSOMES),
         resolution=
@@ -529,6 +537,21 @@ post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
                          'WAPL.iN.DEL vs NIPBL.iN.WT',
                         'NIPBL.iN.DEL vs All.iN.WT',
                          'WAPL.iN.DEL vs All.iN.WT'
+        data.Left=list(rename_with(data.Left, ~ str_replace(.x, '$', '.Left'))),
+        data.Right=list(rename_with(data.Right, ~ str_replace(.x, '$', '.Right')))
+    ) %>% 
+    rowwise() %>% 
+    mutate(
+        # data.Left=mhc.plot.df$data.Left[[1]]
+        # data.Right=mhc.plot.df$data.Right[[1]]
+        data=
+            full_join(
+                data.Left %>% add_column(detected.Left=TRUE),
+                data.Right %>% add_column(detected.Right=TRUE),
+                by=
+                    join_by(
+                        region1.bp.Left == region1.bp.Right,
+                        region2.bp.Left == region2.bp.Right
                     )
             ),
         comparison.type=
@@ -542,6 +565,46 @@ post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
                 TRUE                                         ~ '???'
             ) %>%
             factor(levels=c('main', 'across.edits', 'over.edits'))
+            mutate(
+                presence=
+                    case_when(
+                        detected.Left        & detected.Right        ~ 'Both',
+                        detected.Left        & is.na(detected.Right) ~ 'Left Only',
+                        is.na(detected.Left) & detected.Right        ~ 'Right Only',
+                        TRUE ~ '???'
+                    ) %>%
+                    factor(levels=c('Both', 'Left Only', 'Right Only'))
+            ) %>%
+            select(-starts_with('detected.')) %>%
+            list()
+    ) %>%
+    select(-c(data.Left, data.Right)) %>%
+    unnest(data) %>%
+    mutate(
+        meta.logFC=
+            case_when(
+                presence == 'Both' ~ logFC.Left / logFC.Right,
+                presence == 'Left Only' ~ logFC.Left,
+                presence == 'Right Only' ~ logFC.Right,
+                TRUE ~ NA
+            )
+    ) %>% 
+    # mutate(log.p.adj.gw_sum=log.p.adj.gw.Left + log.p.adj.gw.Right) %>% 
+    mutate(log.p.adj.gw_sum=
+        case_when(
+            presence == 'Both'       ~ log.p.adj.gw.Left + log.p.adj.gw.Right,
+            presence == 'Left Only'  ~ log.p.adj.gw.Left,
+            presence == 'Right Only' ~ log.p.adj.gw.Right,
+            TRUE                     ~ 1
+        )
+    ) %>% 
+    mutate(log.p.adj.gw_sum_label=round(log.p.adj.gw_sum, digits=2)) %>% 
+    mutate(
+        meta.comparison=
+            pmap_chr(
+                list(comparison.Left, comparison.Right),
+                ~ paste(sort(c(...)), collapse=' ||| ')
+            )
     )
 }
 
@@ -583,6 +646,54 @@ post_process_multiHiCCompare_results_16p <- function(results.df){
                 TRUE                                      ~ '???'
             ) %>%
             factor(levels=c('main.NSC', 'main.iN', 'crosstype'))
+    )
+}
+
+format_meta_comparison_results_NIPBLWAPL <- function(mhc.results){
+    mhc.results.df %>% 
+    filter(comparison %in% 
+        c(
+            'NIPBL.iN.DEL vs WAPL.iN.WT',
+            'WAPL.iN.DEL vs NIPBL.iN.WT',
+            # 'NIPBL.iN.DEL vs All.iN.WT',
+            # 'WAPL.iN.DEL vs All.iN.WT',
+            'NIPBL.iN.DEL vs NIPBL.iN.WT',
+            'WAPL.iN.WT vs NIPBL.iN.WT',
+            'WAPL.iN.DEL vs WAPL.iN.WT'
+        ) 
+    ) %>%
+    mutate(
+        comparison=
+            case_when(
+                comparison == 'NIPBL.iN.DEL vs WAPL.iN.WT'  ~ 'NIPBL.DEL.vs.WAPL.WT', 
+                comparison == 'WAPL.iN.DEL vs NIPBL.iN.WT'  ~ ' WAPL.DEL.vs.NIPBL.WT', 
+                comparison == 'NIPBL.iN.DEL vs All.iN.WT'   ~ 'NIPBL.DEL.vs.All.WT', 
+                comparison == 'WAPL.iN.DEL vs All.iN.WT'    ~ ' WAPL.DEL.vs.All.WT',
+                comparison == 'NIPBL.iN.DEL vs NIPBL.iN.WT' ~ 'NIPBL.DEL.vs.NIPBL.WT',
+                comparison == 'WAPL.iN.WT vs NIPBL.iN.WT'   ~ '  WAPL.WT.vs.NIPBL.WT',
+                comparison == 'WAPL.iN.DEL vs WAPL.iN.WT'   ~ ' WAPL.DEL.vs.WAPL.WT',
+                TRUE ~ NA
+            ) %>% 
+            factor(
+                levels=
+                    c(
+                        'NIPBL.DEL.vs.NIPBL.WT',
+                        'NIPBL.DEL.vs.WAPL.WT', 
+                        ' WAPL.DEL.vs.NIPBL.WT',
+                        ' WAPL.DEL.vs.WAPL.WT',
+                        'NIPBL.DEL.vs.All.WT', 
+                        ' WAPL.DEL.vs.All.WT',
+                        '  WAPL.WT.vs.NIPBL.WT'
+                   )
+            )
+    ) %>%
+    format_meta_comparison_results() %>% 
+    mutate(
+        meta.comparison=
+            factor(
+                meta.comparison,
+                levels=
+            )
     )
 }
 
