@@ -10,78 +10,45 @@ library(HiCDOC)
 ###################################################
 # Generate Compartment Results
 ###################################################
-# set_up_sample_comparisons <- function(comparison.groups){
-#     # get info + filepaths for all contact matrices
-#     load_mcool_files(
-#         return_metadata_only=TRUE,
-#         keep_metadata_columns=FALSE
-#     ) %>% 
-#     get_min_resolution_per_matrix() %>% 
-#     distinct() %>% 
-#     # Now group samples by condition, 
-#     filter(!isMerged) %>% 
-#     nest(samples.df=-c(isMerged)) %>% 
-#     cross_join(comparison.groups) %>%
-#     # subset relevant samples for each comparison
-#     rowwise() %>% 
-#     mutate(
-#         samples.df=
-#             samples.df %>%
-#             mutate(
-#                 Sample.Group=
-#                     case_when(
-#                         str_detect(SampleID, Sample.Group.P1.Pattern) ~ Sample.Group.P1,
-#                         str_detect(SampleID, Sample.Group.P2.Pattern) ~ Sample.Group.P2,
-#                         TRUE ~ NA
-#                     )
-#             ) %>%
-#             filter(!is.na(Sample.Group)) %>% 
-#             list()
-#     ) %>%
-#     # minimum and max resoltion of all individual matrices per comparison
-#     mutate(
-#         resolution.min=min(samples.df$resolution),
-#         resolution.max=max(samples.df$resolution)
-#     ) %>% 
-#     # Now list every comparison at every resolution that is either a min or max for 1 comparison
-#     ungroup() %>%
-#     mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
-#     unnest(resolution) %>% 
-#     mutate(
-#         resolution.type=
-#             case_when(
-#                 resolution == resolution.max ~ 'max',
-#                 resolution == resolution.min ~ 'min',
-#                 TRUE                         ~ NA
-#             )
-#     ) %>% 
-#     select(-c(resolution.min, resolution.max))
-# }
 run_HiCDOC <- function(
     samples.df,
-    sample_group_priority_fnc,
-    filepath,
     resolution,
-    replicates,
-    conditions,
-    # range1,
-    # range2,
-    effect.col='conditions',
-    replicate.col='replicates'
+    chrThreshold,    # Remove chromosomes which are too small to be useful.
+    repThreshold,    # Filter sparse replicates to rm uninformative reps with few interactions.
+    posThreshold,    # Filter positions (bins) which have too few interactions.
+    loessSampleSize,
     ...){
+    # row_index=2; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; chrThreshold=tmp$chrThreshold[[row_index]]; repThreshold=tmp$repThreshold[[row_index]]; posThreshold=tmp$posThreshold[[row_index]]; loessSampleSize=tmp$loessSampleSize[[row_index]];
     # data(exampleHiCDOCDataSet)
+    row.tmp <- 
+    # exampleHiCDOCDataSet %>% 
     HiCDOCDataSetFromCool(
-        filepath,
-        replicates=replicate,
-        conditions=condition,
+        samples.df$filepath,
+        replicates=samples.df$conditions,
+        # replicates=samples.df$replicates,
+        conditions=samples.df$conditions,
         binSize=resolution
     ) %>% 
-    filterSmallChromosomes(threshold=100) %>% 
-    filterSparseReplicates(threshold=0.3)
-    filterWeakPositions(threshold=1)
-    normalizeTechnicalBiases()
-    normalizeDistanceEffect(loessSampleSize=20000)
+    filterSmallChromosomes(threshold=chrThreshold) %>% 
+    filterSparseReplicates(threshold=repThreshold) %>% 
+    # filterSparseReplicates(threshold=0.99) %>% 
+    # filterSparseReplicates(threshold=0.005) %>% 
+    # filterWeakPositions(threshold=posThreshold) %>% 
+    filterWeakPositions(threshold=0.1) %>% 
+    normalizeTechnicalBiases() %>% 
+    normalizeDistanceEffect(loessSampleSize=loessSampleSize) %>% 
     detectCompartments()
+}
+
+save_HiDOC_results <- function(
+    output_dir,
+    Sample.Group.Numerator,
+    Sample.Group.Denominator,
+    ...){
+    # parameters(row.tmp)
+    compartments(row.tmp)
+    differences(row.tmp)
+    concordances(row.tmp)
 }
 
 run_all_HiCDOC <- function(
@@ -89,12 +56,9 @@ run_all_HiCDOC <- function(
     hyper.params.df,
     sample_group_priority_fnc,
     force_redo=FALSE,
-    covariates.df=NULL,
-    chromosomes=CHROMOSOMES,
     ...){
+    # sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; force_redo=FALSE;
     comparisons.df %>% 
-    # for each comparison list all paramter combinations
-    cross_join(tibble(chr=chromosomes)) %>% 
     # Determine sample group priority i.e. 
     # which sample group is numerator in fold-change values (lower priority value) and 
     # which sample group is denominator in fold change values (higher priority value)
@@ -108,8 +72,8 @@ run_all_HiCDOC <- function(
     mutate(
         Sample.Group.Numerator=
             case_when(
-                Sample.Group.P1.Priority > Sample.Group.P2.Priority ~ Sample.Group.P1,
-                Sample.Group.P1.Priority < Sample.Group.P2.Priority ~ Sample.Group.P2,
+                Sample.Group.P1.Priority < Sample.Group.P2.Priority ~ Sample.Group.P1,
+                Sample.Group.P1.Priority > Sample.Group.P2.Priority ~ Sample.Group.P2,
                 TRUE ~ NA
             ),
         Sample.Group.Denominator=
@@ -120,30 +84,26 @@ run_all_HiCDOC <- function(
             )
     ) %>% 
     select(-c(matches('Sample.Group.(P1|P2)'))) %>% 
+    # for each comparison list all paramter combinations
+    cross_join(hyper.params.df) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
-        range1=chr, range2=chr,
         output_dir=
             file.path(
                 COMPARTMENTS_DIR,
                 'results',
                 'method_HiCDOC',
-                glue('merged_{isMerged}'),
                 glue('resolution_{scale_numbers(resolution)}'),
                 glue('resolution.type_{resolution.type}'),
-                glue('region_{chr}')
+                glue('chrThreshold_{chrThreshold}'),
+                glue('repThreshold_{repThreshold}'),
+                glue('posThreshold_{posThreshold}'),
+                glue('loessSampleSize_{loessSampleSize}')
             ),
-        results_file=
-            file.path(
-                output_dir,
-                glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-compartments.tsv')
-            )
     ) %>% 
     arrange(resolution) %>% 
-        # {.} -> tmp
-    # nibpl.tmp <- tmp %>% filter(Sample.Group.Numerator == "NIPBL.iN.DEL", Sample.Group.Denominator == "NIPBL.iN.WT") %>% select(samples.df, Sample.Group.Numerator, Sample.Group.Denominator, chr)
-    # nibpl.tmp$samples.df[[1]]
+        {.} -> tmp
     future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
