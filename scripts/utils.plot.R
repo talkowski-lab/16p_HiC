@@ -47,37 +47,37 @@ make_ggtheme <- function(...){
 
 scale_x_axis <- function(
     figure,
-    scale_mode='',
-    log_base=10,
-    axis_label_accuracy=0.1,
-    n_breaks=NULL,
+    scale.mode='',
+    log.base=10,
+    axis.label.accuracy=0.1,
+    n.breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
-    # Scale y axis based on scale_mode argumetn
-    if (scale_mode == 'pct') {
+    # Scale y axis based on scale.mode argumetn
+    if (scale.mode == 'pct') {
         figure +
         coord_cartesian(xlim=limits) +
         scale_x_continuous(
             expand=expand,
-            n.breaks=n_breaks,
+            n.breaks=n.breaks,
             labels=label_percent(),
             ...
         )
-    } else if (scale_mode == 'mb') {
+    } else if (scale.mode == 'mb') {
         figure +
         coord_cartesian(xlim=limits) +
         scale_x_continuous(
             expand=expand,
-            n.breaks=n_breaks,
+            n.breaks=n.breaks,
             labels=
                 label_bytes(
                     units="auto_si",
-                    accuracy=axis_label_accuracy
+                    accuracy=axis.label.accuracy
                 ),
             ...
         )
-    } else if (scale_mode == 'log10') {
+    } else if (scale.mode == 'log10') {
         figure +
         coord_cartesian(xlim=limits) +
         scale_x_log10(
@@ -85,22 +85,22 @@ scale_x_axis <- function(
             guide='axis_logticks',
             labels=
                 label_log(
-                    base=log_base,
-                    digits=max(1, -log10(axis_label_accuracy)),
+                    base=log.base,
+                    digits=max(1, -log10(axis.label.accuracy)),
                     signed=FALSE
                 ),
             ...
         )
-    } else if (scale_mode == 'discrete') {
+    } else if (scale.mode == 'discrete') {
         figure +
         scale_x_discrete(expand=expand)
-    } else if (scale_mode == '') {
+    } else if (scale.mode == '') {
         if (is.null(limits)) {
             figure + 
             scale_x_continuous(
                 labels=
                     function(x) {
-                        format(x, digits=max(1, -log10(axis_label_accuracy)))
+                        format(x, digits=max(1, -log10(axis.label.accuracy)))
                     }
             )
         } else {
@@ -116,37 +116,37 @@ scale_x_axis <- function(
 
 scale_y_axis <- function(
     figure,
-    scale_mode='',
-    log_base=10,
-    axis_label_accuracy=0.1,
-    n_breaks=NULL,
+    scale.mode='',
+    log.base=10,
+    axis.label.accuracy=0.1,
+    n.breaks=NULL,
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
     # Scale y axis based on scale_mode argumetn
-    if (scale_mode == 'pct') {
+    if (scale.mode == 'pct') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
             expand=expand,
-            n.breaks=n_breaks,
+            n.breaks=n.breaks,
             labels=label_percent(),
             ...
         )
-    } else if (scale_mode == 'mb') {
+    } else if (scale.mode == 'mb') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_continuous(
             expand=expand,
-            n.breaks=n_breaks,
+            n.breaks=n.breaks,
             labels=
                 label_bytes(
                     units="auto_si",
-                    accuracy=axis_label_accuracy
+                    accuracy=axis.label.accuracy
                 ),
             ...
         )
-    } else if (scale_mode == 'log10') {
+    } else if (scale.mode == 'log10') {
         figure +
         coord_cartesian(ylim=limits) +
         scale_y_log10(
@@ -154,22 +154,22 @@ scale_y_axis <- function(
             guide='axis_logticks',
             labels=
                 label_log(
-                    base=log_base,
-                    digits=max(1, -log10(axis_label_accuracy)),
+                    base=log.base,
+                    digits=max(1, -log10(axis.label.accuracy)),
                     signed=FALSE
                 ),
             ...
         )
-    } else if (scale_mode == 'discrete') {
+    } else if (scale.mode == 'discrete') {
         figure +
         scale_y_discrete(expand=expand)
-    } else if (scale_mode == '') {
+    } else if (scale.mode == '') {
         if (is.null(limits)) {
             figure + 
             scale_y_continuous(
                 labels=
                     function(x) {
-                        format(x, digits=max(1, -log10(axis_label_accuracy)))
+                        format(x, digits=max(1, -log10(axis.label.accuracy)))
                     }
             )
         } else {
@@ -185,42 +185,42 @@ scale_y_axis <- function(
 
 add_faceting <- function(
     figure,
-    facet_group=NULL,
-    facet_col=NULL,
-    facet_row=NULL,
-    facet_nrow=NULL,
-    facet_ncol=NULL,
+    facet.group=NULL,
+    facet.col=NULL,
+    facet.row=NULL,
+    facet.nrow=NULL,
+    facet.ncol=NULL,
     ...){
     # Facet as specified
-    if (!is.null(facet_col) & !is.null(facet_row)) {
+    if (!is.null(facet.col) & !is.null(facet.row)) {
         figure <- 
             figure +
             facet_grid2(
-                rows=vars(!!sym(facet_row)),
-                cols=vars(!!sym(facet_col)),
+                rows=vars(!!sym(facet.row)),
+                cols=vars(!!sym(facet.col)),
                 ...
             )
-    } else if (!is.null(facet_row)) {
+    } else if (!is.null(facet.row)) {
         figure <- 
             figure +
             facet_grid2(
-                rows=vars(!!sym(facet_row)),
+                rows=vars(!!sym(facet.row)),
                 ...
             )
-    } else if (!is.null(facet_col)) {
+    } else if (!is.null(facet.col)) {
         figure <- 
             figure +
             facet_grid2(
-                cols=vars(!!sym(facet_col)),
+                cols=vars(!!sym(facet.col)),
                 ...
             )
-    } else if (!is.null(facet_group)) {
+    } else if (!is.null(facet.group)) {
         figure <- 
             figure +
             facet_wrap2(
-                vars(!!sym(facet_group)),
-                nrow=facet_nrow,
-                ncol=facet_ncol,
+                vars(!!sym(facet.group)),
+                nrow=facet.nrow,
+                ncol=facet.ncol,
                 ...
             )
     }
@@ -229,73 +229,73 @@ add_faceting <- function(
 
 post_process_plot <- function(
     figure,
-    theme_obj=NULL,
-    facet_row=NULL,
-    facet_nrow=NULL,
-    facet_col=NULL,
-    facet_ncol=NULL,
-    facet_group=NULL,
+    theme.obj=NULL,
+    facet.row=NULL,
+    facet.nrow=NULL,
+    facet.col=NULL,
+    facet.ncol=NULL,
+    facet.group=NULL,
     scales='fixed',
-    x_scale_mode='',
-    x_log_base=10,
-    x_axis_label_accuracy=0.1,
-    x_n_breaks=NULL,
-    x_limits=NULL,
-    x_expand=c(0.00, 0.00, 0.00, 0.00),
-    y_scale_mode='',
-    y_log_base=10,
-    y_axis_label_accuracy=0.1,
-    y_n_breaks=NULL,
-    y_limits=NULL,
-    y_expand=c(0.00, 0.00, 0.00, 0.00),
-    plot_elements=NULL,
+    x.scale.mode='',
+    x.log.base=10,
+    x.axis.label.accuracy=0.1,
+    x.n.breaks=NULL,
+    x.limits=NULL,
+    x.expand=c(0.00, 0.00, 0.00, 0.00),
+    y.scale.mode='',
+    y.log.base=10,
+    y.axis.label.accuracy=0.1,
+    y.n.breaks=NULL,
+    y.limits=NULL,
+    y.expand=c(0.00, 0.00, 0.00, 0.00),
+    plot.elements=NULL,
     ...){
     figure %>% 
     add_faceting(
         scales=scales,
-        facet_row=facet_row,
-        facet_col=facet_col,
-        facet_group=facet_group,
-        facet_nrow=facet_nrow,
-        facet_ncol=facet_ncol
+        facet.row=facet.row,
+        facet.col=facet.col,
+        facet.group=facet.group,
+        facet.nrow=facet.nrow,
+        facet.ncol=facet.ncol
     ) %>% 
     # Set x-axis scaling (log, Mb, percent etc.)
     scale_x_axis(
-        scale_mode=x_scale_mode,
-        log_base=x_log_base,
-        axis_label_accuracy=x_axis_label_accuracy,
-        n_breaks=x_n_breaks,
-        limits=x_limits,
-        expand=x_expand
+        scale.mode=x.scale.mode,
+        log.base=x.log.base,
+        axis.label.accuracy=x.axis.label.accuracy,
+        n.breaks=x.n.breaks,
+        limits=x.limits,
+        expand=x.expand
     ) %>% 
     # Set y-axis scaling (log, Mb, percent etc.)
     scale_y_axis(
-        scale_mode=y_scale_mode,
-        log_base=y_log_base,
-        axis_label_accuracy=y_axis_label_accuracy,
-        n_breaks=y_n_breaks,
-        limits=y_limits,
-        expand=y_expand
+        scale.mode=y.scale.mode,
+        log.base=y.log.base,
+        axis.label.accuracy=y.axis.label.accuracy,
+        n.breaks=y.n.breaks,
+        limits=y.limits,
+        expand=y.expand
     ) %>% 
+    # Add theme elements, as either an object or individual args
+    {
+        if (!is.null(theme.obj)) {
+            . + theme.obj
+        } else {
+            . + make_ggtheme() + theme(...)
+        } 
+    } %>% 
     # Add extra elements
     {
-        if (!is.null(plot_elements)) {
+        if (!is.null(plot.elements)) {
             reduce(
-                .x=plot_elements,
+                .x=plot.elements,
                 .f=function(x, y) { x + y },
                 .init=.
             )
         } else {
             .
         }
-    } %>% 
-    # Add theme elements, as either an object or individual args
-    {
-        if (!is.null(theme_obj)) {
-            . + theme_obj
-        } else {
-            . + make_ggtheme(...)
-        } 
     }
 }
 
@@ -371,22 +371,27 @@ make_tabs_recursive <- function(
         # message(paste(current_header_lvl, group_col, collapse=','))
         group_values <- 
             plot.df[[group_col]] %>% 
+        group.col <- group.cols[1]
+        # message(paste(current.header.lvl, group.col, collapse=','))
+        group.values <- 
+            plot.df[[group.col]] %>% 
             as.factor() %>% 
             droplevels() %>% 
             levels()
-        for (group_value in group_values) {
+        for (group.value in group.values) {
             cat(
-                strrep('#', current_header_lvl), group_value, tabset_format,
-                # nl_delim, "Rows:", nrow(plot.df), 
-                nl_delim
+                strrep('#', current.header.lvl), group.value, tabset.format,
+                nl.delim
             )
             make_tabs_recursive(
-                plot.df=plot.df %>% filter(get({{group_col}}) == group_value),
-                group_cols=group_cols[2:length(group_cols)],
-                current_header_lvl=current_header_lvl + 1,
-                plot_fnc=plot_fnc,
-                tabset_format=tabset_format,
-                nl_delim=nl_delim,
+                plot.df=plot.df %>% filter(get({{group.col}}) == group.value),
+                group.cols=group.cols[2:length(group.cols)],
+                current.header.lvl=current.header.lvl + 1,
+                plot.fnc=plot.fnc,
+                tabset.format=tabset.format,
+                nl.delim=nl.delim,
+                return.figure=return.figure,
+                merge.base.layers=merge.base.layers,
                 ...
             )
         }
@@ -395,30 +400,32 @@ make_tabs_recursive <- function(
 
 make_nested_plot_tabs <- function(
     plot.df,
-    group_cols,
-    plot_fnc,
-    max_header_lvl=2,
+    group.cols,
+    plot.fnc,
+    max.header.lvl=2,
     add.top.layer=FALSE,
-    tabset_format="{.tabset .tabset-pills}",
-    nl_delim="\n\n\n",
-    return_figure=FALSE,
+    # tabset.format="{.tabset .tabset-pills}",
+    tabset.format="{.tabset}",
+    nl.delim="\n\n\n",
+    return.figure=FALSE,
     ...){
-    cat(nl_delim)
+    cat(nl.delim)
     if (add.top.layer) {
-        cat(strrep('#', max_header_lvl), tabset_format, nl_delim)
-        max_header_lvl <- max_header_lvl + 1
+        cat(strrep('#', max.header.lvl), tabset.format, nl.delim)
+        max.header.lvl <- max.header.lvl + 1
     }
     plot.df %>% 
     make_tabs_recursive(
-        group_cols=group_cols,
-        current_header_lvl=max_header_lvl,
-        plot_fnc=plot_fnc,
-        tabset_format=tabset_format,
-        nl_delim=nl_delim,
-        return_figure=return_figure,
+        group.cols=group.cols,
+        current.header.lvl=max.header.lvl,
+        plot.fnc=plot.fnc,
+        tabset.format=tabset.format,
+        nl.delim=nl.delim,
+        return.figure=return.figure,
+        merge.base.layers=merge.base.layers,
         ...
     )
-    cat(nl_delim)
+    cat(nl.delim)
 }
 
 ###################################################
@@ -426,29 +433,29 @@ make_nested_plot_tabs <- function(
 ###################################################
 plot_barplot <- function(
     plot.df,
-    x_var='',
-    y_var='',
-    fill_var='', 
+    x.var='',
+    y.var='',
+    fill.var='', 
     position='dodge',
-    legend_cols=1,
+    legend.cols=1,
     ...){
     # Set fill group if specified
     {
-        if (is.null(fill_var)) {
+        if (is.null(fill.var)) {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]]
                 )
             )
         } else {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]],
-                    fill=.data[[fill_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    fill=.data[[fill.var]]
                 )
             )
         }
@@ -457,7 +464,7 @@ plot_barplot <- function(
     { 
         . + 
         geom_col(position=position) +
-        guides(fill=guide_legend(ncol=legend_cols))
+        guides(fill=guide_legend(ncol=legend.cols))
     } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...)
@@ -465,28 +472,28 @@ plot_barplot <- function(
 
 plot_boxplot <- function(
     plot.df,
-    x_var='',
-    y_var='',
-    fill_var=NULL, 
+    x.var='',
+    y.var='',
+    fill.var=NULL, 
     outlier.size=1,
     ...){
     # Set fill group if specified
     {
-        if (is.null(fill_var)) {
+        if (is.null(fill.var)) {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]]
                 )
             )
         } else {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]],
-                    fill=.data[[fill_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    fill=.data[[fill.var]]
                 )
             )
         }
@@ -502,10 +509,10 @@ plot_boxplot <- function(
 
 plot_heatmap <- function(
     plot.df,
-    x_var='',
-    y_var='',
-    fill_var='', 
-    label_var=NULL,
+    x.var='',
+    y.var='',
+    fill.var='', 
+    label.var=NULL,
     label.size=2,
     label.color='white',
     ...){
@@ -513,24 +520,24 @@ plot_heatmap <- function(
         ggplot(
             plot.df,
             aes(
-                x=.data[[x_var]],
-                y=.data[[y_var]],
-                fill=.data[[fill_var]]
+                x=.data[[x.var]],
+                y=.data[[y.var]],
+                fill=.data[[fill.var]]
             )
         ) +
         geom_tile()
     } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(
-        x_scale_mode='discrete',
-        y_scale_mode='discrete',
+        x.scale.mode='discrete',
+        y.scale.mode='discrete',
         ...
     ) %>% 
     {
-        if (!(is.null(label_var))) {
+        if (!(is.null(label.var))) {
             . +
             geom_text(
-                aes(label=.data[[label_var]]), 
+                aes(label=.data[[label.var]]), 
                 color=label.color,
                 size=label.size,
             )
@@ -542,30 +549,30 @@ plot_heatmap <- function(
 
 plot_jitter <- function(
     plot.df,
-    x_var='',
-    y_var='',
-    color_var=NULL, 
+    x.var='',
+    y.var='',
+    color.var=NULL, 
     alpha=0.5,
     size=0.5,
     scales='fixed',
     ...){
     # Set fill group if specified
     {
-        if (is.null(color_var)) {
+        if (is.null(color.var)) {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]]
                 )
             )
         } else {
             ggplot(
                 plot.df,
                 aes(
-                    x=.data[[x_var]],
-                    y=.data[[y_var]],
-                    color=.data[[color_var]]
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    color=.data[[color.var]]
                 )
             )
         }
@@ -763,7 +770,7 @@ plot_contacts_heatmap <- function(
     facet_row=NULL,
     scales='fixed',
     cmap=coolerColors(),
-    axis_label_accuracy=0.01,
+    axis.label.accuracy=0.01,
     x_text_angle=25,
     linetype='solid',
     linecolor='black',
@@ -793,7 +800,7 @@ plot_contacts_heatmap <- function(
             labels=
                 label_bytes(
                     units="auto_si",
-                    accuracy=axis_label_accuracy
+                    accuracy=axis.label.accuracy
                 )
         ) +
         scale_y_continuous(
@@ -801,7 +808,7 @@ plot_contacts_heatmap <- function(
             labels=
                 label_bytes(
                     units="auto_si",
-                    accuracy=axis_label_accuracy
+                    accuracy=axis.label.accuracy
                 )
         ) +
         theme(
