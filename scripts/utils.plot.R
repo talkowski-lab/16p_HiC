@@ -304,73 +304,81 @@ post_process_plot <- function(
 ###################################################
 plot_figure_tabs <- function(
     plot.df,
-    group_col,
-    plot_fnc,
-    header_lvl,
-    nl_delim,
-    return_figure=FALSE,
+    group.col,
+    plot.fnc,
+    header.lvl,
+    nl.delim,
+    return.figure=FALSE,
+    merge.base.layers=FALSE,
+    grob.nrow=1,
+    grob.ncol=NULL,
     ...){
-    # message(paste(header_lvl, group_col, collapse=','))
-    # print(table(plot.df[[group_col]]))
-    plot.df[[group_col]] %>% 
+    # List all the groups to plot
+    plot.df[[group.col]] %>% 
     as.factor() %>% 
     droplevels() %>% 
     levels() %>%
+    # make plot with options for each group of the data
     sapply(
-        function(group_value, plot.df, plot_fnc, header_lvl, group_col, nl_delim, return_figure){
+        function(group.value, plot.df, plot.fnc, header.lvl, group.col, nl.delim, return.figure){
             figure <- 
                 plot.df %>%
-                # filter(get({{group_col}}) == group_value) %>%
-                filter(!!sym(group_col) == group_value) %>%
-                plot_fnc(...)
-                if (return_figure) {
-                    figure
-                } else {
+                filter(!!sym(group.col) == group.value) %>%
+                plot.fnc(...)
+            if (!return.figure & !merge.base.layers) {
                 cat(
-                    strrep('#', header_lvl), group_value,
-                    # nl_delim, "Rows per df", nrow(plot.df),
-                    nl_delim
+                    strrep('#', header.lvl), group.value,
+                    nl.delim
                 )
                 print(figure)
-                cat(nl_delim)
+                cat(nl.delim)
+            } else {
+                figure
             }
         },
         plot.df=plot.df,
-        plot_fnc=plot_fnc,
-        header_lvl=header_lvl,
-        group_col=group_col,
-        nl_delim=nl_delim,
-        return_figure=return_figure,
+        plot.fnc=plot.fnc,
+        header.lvl=header.lvl,
+        group.col=group.col,
+        nl.delim=nl.delim,
+        return.figure=return.figure,
         simplify=FALSE,
         USE.NAMES=TRUE
-    )
+    ) %>%
+    # Plot in separate tabs unless specified, then make a single, multi-panel plot 
+    {
+        if (merge.base.layers) {
+            cat(
+                strrep('#', header.lvl),
+                nl.delim
+            )
+            cowplot::plot.grid(
+                plotlist=.,
+                nrow=grob.nrow,
+                ncol=grob.ncol,
+                labels=names(.),
+                axis='tb',
+                align='hv'
+            ) %>%
+            print()
+            cat(nl.delim)
+        } else {
+            NULL
+        }
+    }
 }
 
 make_tabs_recursive <- function(
     plot.df, 
-    group_cols,
-    current_header_lvl,
-    plot_fnc,
-    tabset_format,
-    nl_delim,
-    return_figure=FALSE,
+    group.cols,
+    current.header.lvl,
+    plot.fnc,
+    tabset.format,
+    nl.delim,
+    return.figure,
+    merge.base.layers,
     ...){
-    # cat("LENGTH OF GROUP COLS", length(group_cols), group_cols, "\n\n\n")
-    if (length(group_cols) == 1) {
-        plot_figure_tabs(
-            plot.df=plot.df, 
-            group_col=group_cols[1],
-            header_lvl=current_header_lvl,
-            plot_fnc=plot_fnc,
-            nl_delim=nl_delim,
-            return_figure=return_figure,
-            ...
-        )
-    } else {
-        group_col <- group_cols[1]
-        # message(paste(current_header_lvl, group_col, collapse=','))
-        group_values <- 
-            plot.df[[group_col]] %>% 
+    if (length(group.cols) > 1) {
         group.col <- group.cols[1]
         # message(paste(current.header.lvl, group.col, collapse=','))
         group.values <- 
@@ -395,6 +403,31 @@ make_tabs_recursive <- function(
                 ...
             )
         }
+    } else if (length(group.cols) == 1) {
+        plot_figure_tabs(
+            plot.df=plot.df, 
+            group.col=group.cols[1],
+            header.lvl=current.header.lvl,
+            plot.fnc=plot.fnc,
+            nl.delim=nl.delim,
+            return.figure=return.figure,
+            merge.base.layers=merge.base.layers,
+            ...
+        )
+    } else if (length(group.cols) == 0) {
+        figure <- 
+            plot.df %>%
+            plot.fnc(...)
+        if (return.figure) {
+            return(figure)
+        } else {
+            cat(
+                strrep('#', header.lvl),
+                nl.delim
+            )
+            print(figure)
+            cat(nl.delim)
+        }
     }
 }
 
@@ -408,6 +441,7 @@ make_nested_plot_tabs <- function(
     tabset.format="{.tabset}",
     nl.delim="\n\n\n",
     return.figure=FALSE,
+    merge.base.layers=FALSE,
     ...){
     cat(nl.delim)
     if (add.top.layer) {
