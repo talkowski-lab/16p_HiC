@@ -471,45 +471,19 @@ load_all_multiHiCCompare_results <- function(
                 .progress=TRUE
             )
     ) %>% 
-        {.} %>% select(comparison, filepaths, results)
+        # {.} %>% select(comparison, filepaths, results)
     unnest(results) %>% 
-    select(-c(filepaths, D)) %>% 
-    rename(
-        'region1.bp'=region1,
-        'region2.bp'=region2
-    ) %>% 
+    select(-c(filepaths, D)) %>%
     mutate(
-        chr=rename_chrs(chr),
-        resolution=scale_numbers(resolution),
-        distance.bp=region2.bp - region1.bp,
         # calculate log of all pvalues + add columns
         across(
             starts_with('p.'),
             .f=~ -log10(.x),
             .names='log.{.col}'
         )
-    ) %>%
-    unite(
-        'bin.pair.idx',
-        chr, region1.bp, region2.bp,
-        sep='#',
-        remove=FALSE
     )
-    # left_join(
-    #     load_chr_sizes() %>% rename('chr'=Chr),
-    #     by='chr'
-    # ) %>% 
-    # mutate(
-    #     region1.bin=region1.bp / resolution,
-    #     region2.bin=region2.bp / resolution,
-    #     distance.bin=region2.bin - region1.bin,
-    #     region1.pct=100 * (region1.bp / chr.total.bp),
-    #     region2.pct=100 * (region2.bp / chr.total.bp),
-    #     distance.pct=region2.pct - region1.pct
-    # )
 }
 
-post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
 format_meta_comparison_results <- function(results.df){
     results.df %>% 
     nest(data=-c(resolution, comparison, chr)) %>%
@@ -520,23 +494,6 @@ format_meta_comparison_results <- function(results.df){
     ) %>%
     rowwise() %>% 
     mutate(
-        chr=factor(chr, levels=CHROMOSOMES),
-        resolution=
-            resolution %>% 
-            scale_numbers(force_numeric=TRUE) %>% 
-            scale_numbers(),
-        comparison=
-            factor(
-                comparison,
-                levels=
-                    c(
-                        'NIPBL.iN.DEL vs NIPBL.iN.WT',
-                         'WAPL.iN.WT vs NIPBL.iN.WT',
-                         'WAPL.iN.DEL vs WAPL.iN.WT',
-                        'NIPBL.iN.DEL vs WAPL.iN.WT',
-                         'WAPL.iN.DEL vs NIPBL.iN.WT',
-                        'NIPBL.iN.DEL vs All.iN.WT',
-                         'WAPL.iN.DEL vs All.iN.WT'
         data.Left=list(rename_with(data.Left, ~ str_replace(.x, '$', '.Left'))),
         data.Right=list(rename_with(data.Right, ~ str_replace(.x, '$', '.Right')))
     ) %>% 
@@ -553,18 +510,7 @@ format_meta_comparison_results <- function(results.df){
                         region1.bp.Left == region1.bp.Right,
                         region2.bp.Left == region2.bp.Right
                     )
-            ),
-        comparison.type=
-            case_when(
-                str_detect(comparison, 'NIPBL.* vs NIPBL.*') ~ 'main',
-                str_detect(comparison, 'WAPL.* vs WAPL.*')   ~ 'main',
-                str_detect(comparison, '.*WT vs .*WT')       ~ 'main',
-                str_detect(comparison, '.*vs All.iN.WT')     ~ 'over.edits',
-                str_detect(comparison, 'NIPBL.* vs WAPL.*')  ~ 'across.edits',
-                str_detect(comparison, 'WAPL.* vs NIPBL.*')  ~ 'across.edits',
-                TRUE                                         ~ '???'
             ) %>%
-            factor(levels=c('main', 'across.edits', 'over.edits'))
             mutate(
                 presence=
                     case_when(
@@ -608,6 +554,9 @@ format_meta_comparison_results <- function(results.df){
     )
 }
 
+###################################################
+# 16p Format results
+###################################################
 post_process_multiHiCCompare_results_16p <- function(results.df){
     results.df %>% 
     mutate(
@@ -647,6 +596,69 @@ post_process_multiHiCCompare_results_16p <- function(results.df){
             ) %>%
             factor(levels=c('main.NSC', 'main.iN', 'crosstype'))
     )
+}
+
+###################################################
+# NIPBL+WAPL Format results
+###################################################
+post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
+    results.df %>% 
+    # rename(
+    #     'region1.bp'=region1,
+    #     'region2.bp'=region2
+    # ) %>% 
+    # unite(
+    #     'bin.pair.idx',
+    #     chr, region1.bp, region2.bp,
+    #     sep='#',
+    #     remove=FALSE
+    # ) %>% 
+    mutate(
+        logFC=-logFC,
+        distance.bp=region2.bp - region1.bp,
+        chr=factor(chr, levels=CHROMOSOMES),
+        resolution=
+            resolution %>% 
+            scale_numbers(force_numeric=TRUE) %>% 
+            scale_numbers(),
+        comparison=
+            factor(
+                comparison,
+                levels=
+                    c(
+                        'NIPBL.iN.DEL vs NIPBL.iN.WT',
+                         'WAPL.iN.WT vs NIPBL.iN.WT',
+                         'WAPL.iN.DEL vs WAPL.iN.WT',
+                        'NIPBL.iN.DEL vs WAPL.iN.WT',
+                         'WAPL.iN.DEL vs NIPBL.iN.WT',
+                        'NIPBL.iN.DEL vs All.iN.WT',
+                         'WAPL.iN.DEL vs All.iN.WT'
+                    )
+            ),
+        comparison.type=
+            case_when(
+                str_detect(comparison, 'NIPBL.* vs NIPBL.*') ~ 'main',
+                str_detect(comparison, 'WAPL.* vs WAPL.*')   ~ 'main',
+                str_detect(comparison, '.*WT vs .*WT')       ~ 'main',
+                str_detect(comparison, '.*vs All.iN.WT')     ~ 'over.edits',
+                str_detect(comparison, 'NIPBL.* vs WAPL.*')  ~ 'across.edits',
+                str_detect(comparison, 'WAPL.* vs NIPBL.*')  ~ 'across.edits',
+                TRUE                                         ~ '???'
+            ) %>%
+            factor(levels=c('main', 'across.edits', 'over.edits'))
+    )
+    # left_join(
+    #     load_chr_sizes() %>% rename('chr'=Chr),
+    #     by='chr'
+    # ) %>% 
+    # mutate(
+    #     region1.bin=region1.bp / resolution,
+    #     region2.bin=region2.bp / resolution,
+    #     distance.bin=region2.bin - region1.bin,
+    #     region1.pct=100 * (region1.bp / chr.total.bp),
+    #     region2.pct=100 * (region2.bp / chr.total.bp),
+    #     distance.pct=region2.pct - region1.pct
+    # )
 }
 
 format_meta_comparison_results_NIPBLWAPL <- function(mhc.results){
