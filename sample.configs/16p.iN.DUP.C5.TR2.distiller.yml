@@ -43,7 +43,6 @@ input:
     # order of contigs in a resulting contact map.
     genome:
         assembly_name: 'hg38'
-        # bwa_index_wildcard_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.*'
         bwa_index_wildcard_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.*'
         chrom_sizes_path: '/data/talkowski/tools/ref/Hi_c_noalt/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes'
 
@@ -164,7 +163,6 @@ bin:
     # Multiple filters are allowed; for each filter, all pairs satisfying the
     # given filter expression will be binned into a separate cooler.
     # Filters are specified using the following syntax:
-    # {filter_name}: '{a valid Python expression}'
     filters:
         no_filter: ''
         mapq_30: '(mapq1>=30) and (mapq2>=30)'
@@ -179,5 +177,5 @@ output:
         fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.iN.DUP.C5.TR2'
         pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.iN.DUP.C5.TR2'
         coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.iN.DUP.C5.TR2'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.iN.DUP.C5.TR2'
         stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.iN.DUP.C5.TR2'

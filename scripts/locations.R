@@ -5,12 +5,14 @@ if (grepl('/home/', BASE_DIR)) {
 } else {
     SCRIPT_DIR <- here('scripts')
 }
+# FASTQ_DIR                      <- file.path(BASE_DIR, 'fastq')
 # Input Data
+SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
+# distiller-nf input files
 GENOME_REF_DIR                 <- '/data/talkowski/tools/ref/Hi_c_noalt'
 CHROMOSOME_SIZES_FILE          <- file.path(GENOME_REF_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes')
-FASTQ_DIR                      <- file.path(BASE_DIR, 'fastq')
-SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
-# distiller produced ouputs
+BWA_INDEX_WILDCARD_PATH        <- file.path(GENOME_REF_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.*')
+# distiller-nf ouput files
 RESULTS_DIR                    <- file.path(BASE_DIR, 'results')
 BAM_DIR                        <- file.path(RESULTS_DIR, 'mapped_parsed_sorted_chunks')
 PAIRS_DIR                      <- file.path(RESULTS_DIR, 'pairs_library')
