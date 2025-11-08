@@ -1,19 +1,15 @@
 # 16p HiC Analysis
 
-Analysis and code of HiC data for 16p, NIPBL and WAPL cells.
+Analysis and code of HiC data for 16p samples
 
 ## Links to figures/notebooks
 
-NIPBL+WAPL
-- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/hicrep.html
-- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/matrix.QC.html
-- /data/talkowski/Samples/WAPL_NIPBL/HiC/notebooks/TADs.html
-- /data/talkowski/Samples/WAPL_NIPBL/HiC/results.iN/plots/
-
 16p
-- /data/talkowski/Samples/16p_HiC/notebooks/hicrep.html
 - /data/talkowski/Samples/16p_HiC/notebooks/matrix.QC.html
+- /data/talkowski/Samples/16p_HiC/notebooks/hicrep.html
 - /data/talkowski/Samples/16p_HiC/notebooks/replicate.robinson.results.html
+- /data/talkowski/Samples/16p_HiC/notebooks/TADs.html
+- /data/talkowski/Samples/16p_HiC/notebooks/multiHiCCompare.html
 
 ## Repo+Results structure
 
@@ -28,38 +24,33 @@ All SampleIDs are follow the same format format `Project.CellType.Genotype.BioRe
 - `A3`: ID string specifiying which biological replicate the sample is
 - `TR1`: ID string specifiyng which technical replicate the sample is
 
-
 ```
 # Note ... indicates that these files exist for all samples/pairs, truncated for brevity
 ./
-├── public.data/             # Public HiC datasets to compare against
-├── distiller-nf/            # distiller nextflow installation
-├── notebooks/               # results+figures
-├── scripts/                 # scripts+notebook backends
-├── reference.files/         # mostly conda envs, coordinates etc.
+├── 16p.sample.metadata.tsv     # metadata for all HiC samples
+├── public.data/                # Public HiC datasets to compare against
+├── distiller-nf/               # distiller nextflow installation
+├── notebooks/                  # results+figures
+├── scripts/                    # scripts+notebook backends
+├── reference.files/            # mostly conda envs, coordinates etc.
 │   ├── cooltools.env.yml
 │   ├── distiller.env.yml
 │   ├── TADLib.env.yml
 │   └── README.md
-├── 16p.sample.metadata.tsv     # metadata for all HiC samples
-├── fastq/                  # Raw reads for HiC samples
+├── fastq/                      # Raw reads for HiC samples
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R2_001.fastq.gz
 │   └── ....fastq.gz
-├── sample.configs/         # Config files for distiller
+├── sample.configs/             # Config files for distiller
 │   ├── 16p.NSC.DEL.A3.TR1.distiller.yml
 │   └── ....distiller.yml
-└── results/                # all HiC results
+└── results/                    # all HiC results
     ├── sample.QC/
     │   ├── multiqc.reports/
     │   │   ├── fastp.multiqc.html
     │   │   ├── fastqc.multiqc.html
     │   │   ├── pairtools.multiqc.html
     │   │   └── qc3C.multiqc.html
-    │   └── qc3C/
-    │       ├── 16p.NSC.DEL.A3.TR1/    # SampleID, unique to each sample (library)
-    │       │   └── report.qc3C.json 
-    │       └── ../
     ├── coolers_library/
     │   ├── 16p.NSC.DEL.A3.TR1/
     │   │   ├── 16p.NSC.DEL.A3.TR1.hg38.mapq_30.1000.cool
@@ -82,7 +73,7 @@ All SampleIDs are follow the same format format `Project.CellType.Genotype.BioRe
     │   │   └── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.bam
     │   └── .../
     └── pairs_library
-        ├── 16p.NSC.DEL.A3.TR1/
+        ├── 16p.NSC.DEL.A3.TR1/
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dedup.stats
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.bam
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.pairs.gz
@@ -99,33 +90,12 @@ All SampleIDs are follow the same format format `Project.CellType.Genotype.BioRe
 ### Running distiller pipeline
 
 Each sample as a `.yml` file (in `./sample.configs`) specifiying the params for `distiller-nf` to run the sample with. We separte each sample into its own file so we can run them in parallel, but the only difference between files are the input fastq files, all pipeline parameters are the same. 
-
-```bash
-# launch 1 slurm job running the distiller-nf pipeline per sample 
-$ ./scripts/run.distiller.sh             
-        -a $HOME/miniforge3              # location of conda install
-        -w ./work                        # nextflow working dir
-        -p bigmem                        # slurm --partition
-        -m 40                            # slurm --mem (in Gb)
-        -t 8                             # slurm --ntasks-per-node 
-        -c 8                             # slurm --cpus-per-task
-        ./sample.configs/*.distiller.yml # distiller-nf param files per sample
-# copy pastable
-./scripts/run.distiller.sh -a $HOME/miniforge3 -w ./work -p bigmem -m 40 -t 8 -c 8 ./sample.configs/*.distiller.yml
-```
-This is 64 cores total, with 128 maxCPUs set in the nextflow config. 
+We use 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
 
 ### Running qc3C profiling
 
 Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
-
-```bash
-$ ./scripts/matrix.utils.sh qc3C                     # run qc3C with specified params
-        ./results/sample.QC/qc3C/                    # output dir
-        DpnII HinfI                                  # enzymes used
-        results/mapped_parsed_sorted_chunks/**/*.bam # bam files produced by distiller for each sample
-```
 
 ### Generate MultiQC reports
 
@@ -138,12 +108,6 @@ Ultimately we can generate 3 multiqc reports
 - `qc3C`: Quality statistics from sub-sampled aligned reads
 - `pairtools stats`: Summary statistics of processed HiC pairs
 
-```bash
-$ ./scripts/matrix.utils.sh multiqcs         # generate multiqc reports for different outputs from distiller,qc3C
-        ./results/sample.QC/multiqc.reports/ # output dir
-        ./results/                           # all multiqc data is under here in specific directories
-```
-
 ### Calculate QC Metrics
 
 Two things we want to check to QC matrix samples 
@@ -154,31 +118,18 @@ Two things we want to check to QC matrix samples
 Metrics 1 and 2 are calcualted by `distiller-nf` and found in the `*.dedup.stats` files. 
 For metric 3 and subsequent plots we need to calculate the per-bin coverage using [cooltools coverage ](https://cooltools.readthedocs.io/en/latest/cli.html#cooltools-coverage).
 
-```bash
-$ ./scripts/matrix.utils.sh coverage
-        ./results/sample.QC/coverage/
-        ./results/coolers_library/**/*.mapq_30.1000.mcool
-```
-
 ### Merging Matrices
 
 For some subsequent steps we will analyze matrices formed by merging all biological/technical replicates for a given Edit+Genotype+CellType (e.g. 16p+WT+NSC).
 Merging her means summing all the total number of contacts over all samples for each bin-bin pair (matrix entry) and is handled by [cooler merge](https://cooler.readthedocs.io/en/latest/cli.html#cooler-merge).
-We separately create merged matrices for MAPQ filtered and unfiltered contacts for each 
+We create merged matrices for MAPQ filtered for each which produces the following files
 
-```bash
-# Wrapper command to merge all biological + technical replicates for each celltype+genotype
-$ ./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
-```
-which produces the following files
 ```
 results 
 └── coolers_library
     ├── 16p.NSC.WT.Merged.Merged/
     │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.cool
     │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.mcool
-    │   ├── 16p.NSC.WT.Merged.Merged.hg38.no_filter.1000.cool
-    │   └── 16p.NSC.WT.Merged.Merged.hg38.no_filter.1000.mcool
     ├── 16p.NSC.DEL.Merged.Merged/
     │   └── ...
     └── 16p.NSC.DUP.Merged.Merged/
@@ -188,63 +139,32 @@ results
 ### HiCRep Analysis
 
 We use HiCRep to calculate the "reproducibility score" for all pairs of sample matrices, under several parameter combinations. The command below actually runs the HiCRep and produces 1 file per sample pair + parameter combination, each file contains scores for each chromosome separately (`chr{1..22,X,Y}`).
-
-```bash
-# Compare all pairs of Individual sample matrices
-$ ./scripts/run.hicrep.sh 
-        ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged')
-# Compare all pairs of Merged matrices
-$ ./scripts/run.hicrep.sh 
-        ./results/hicrep/
-        $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
-```
-
 After this there is a `.Rmd` notebook that coallates these files into a single neat dataframe that is used for plotting.
 
 ### TAD Analysis
 
-We produce TAD annotations from the individual and merged matrices. 
-We use the individual matrix annotations to assess (
-
 #### TAD Annotation
 
-We generate the TAD annotations we use 2 different programs:
+We generate the TAD annotations we use 3 different programs:
 
 1. [HiTAD](https://xiaotaowang.github.io/TADLib/domaincaller.html)
 2. [cooltools insulation](https://cooltools.readthedocs.io/en/latest/cli.html#cooltools-insulation)
+3. [TADCompare](https://pubmed.ncbi.nlm.nih.gov/32211023/)
 
 For `HiTAD` we only generate single-level TADs (not hierarchical) using default parameters. This produces a set of bin-pairs, each pair marking the start and end of the predicted TAD.
-```bash
-$ ./scripts/annotate.TADs.sh
-    --output-dir ./results/TADs/
-    --resolution  "100000,50000,25000,10000"
-    HiTAD
-    ./results/coolers_library/**/*.mapq_30.1000.mcool
-```
 
 For `cooltools insulation` it only annotates whether a bin is a TAD boundary or not, it does not group a pair of boundaries to explicitly define the start/end of a specific TAD.
 This changes the downstream analysis, but it is easy to adjust for the sake of making comparisons between 2 different TAD annotations.
 For cooltools we also compute TAD annotations for multiple sets of hyper-parameters, just to asses how much these parameters affect the annotations. 
-These parameter are hard-coded in the `annotate.TAD.sh` script at the top
-```bash
-$ ./scripts/annotate.TADs.sh
-    --output-dir ./results/TADs/
-    --resolution  "100000,50000,25000,10000"
-    cooltools
-    ./results/coolers_library/**/*.mapq_30.1000.mcool
-```
 
 Both of these tools also output the Diamond Insulation (DI) score calcualted per genomic bin.
 This can be used to score regions to compare the relative insulation of regions. 
-This likely only makes sense to calculate between boundaries or maybe just compare the distribution of all insulation scores across all bins within 2 regions.
-No specific plans to do this analysis yet
-The DI annotation data can also be compared directly to ATAC-Seq data to look for regions of high correlation between ATAC-Seq tracks and DI tracks.
-We can also check if is ATAC peaks and and insulation boundaries are close/overlap (midpoint distance?)
 
 #### TAD Comparison
 
 For 2 different TAD annotation sets (start/end pairs) of the same region (e.g. chr16) we can calculate the similarity of the 2 sets by computing the Measure of Concordance as defined in [this paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-018-1596-9#Sec21). 
+
+We also compare TADs called from merged matrices using `TADCompare`, since each merged matrix represents a biological condition (e.g. WAPL.iN.WT) it is an expliciit differential analysis 
 
 For 2 different TAD boundary annotation sets (just is/is not a boundary) of the same region we can calculate similarity as follows:
 1. Calculate the distance between all pairs of boundaries between the sets
@@ -253,6 +173,7 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 4. Using all the boundary-pair distance, summarize in at least 1 of the following ways
    1. Test if the distribution is > 0 (KS-test vs Gaussian + observed variance) -> need to correct p-values since there are many tests (1 per pair of TAD annotation set)
    2. Calculate mean distance and just compare that between pairs
+
 
 ### Loop Analysis
 
@@ -270,9 +191,17 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
 
 ## Command list
 
-One-liners to generate results
+Commands used to generate results which are analyzed in separate notebooks
 
 ```bash
+# Run the distiller-nf pipeline by submitting each sample config as an individual SLURM job
+./scripts/run.distiller.sh $(find ./sample.configs -type f -name '*.distiller.yml')
+# List all unmergeed matrices
+find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | 
+    grep -v 'Merged' | 
+    grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1'
+
+
 # Generate qc3C report for each bam file
 ./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam
 # Generate multiQC reprots from fastqc and pairtools resutls
@@ -281,15 +210,25 @@ One-liners to generate results
 ./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
 # Calculate total bin-wise coverage 
 ./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
+
 # Generate HiCRep results for all pairs of unmerged matrices
-./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
 # Generate HiCRep results for all pairs of merged matrices
-./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
+./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
+
 # Generate TAD annotations with hiTAD for merged matrices
-./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD     $(find ./results/coolers_library -maxdepth 99 -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
-# Generate TAD boundary annotations with cooltools insulation for merged matrices
-./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" cooltools $(find ./results/coolers_library -maxdepth 99 -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
-# ./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ -r "100000,50000,25000,10000" hiTAD $(find ./results/coolers_library -maxdepth 99 -type f -name "*.mapq_30.1000.mcool" | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD     $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+# Generate TAD boundary annotations with cooltools insulation for
+./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+# ./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ hiTAD $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+# Run TADCompare to generated differential TAD results
+Rscript ./scripts/run.TADCompare.R 
+
 # Generate multiHiCCompare results (not analysis
 Rscript ./scripts/run.multiHiCCompare.R
+# List summary of all generated multiHiCCompare results 
+watch -n60 "find results/multiHiCCompare/results/ -type f -name '*.tsv' | cut -d'/' -f4-7,10 | cut -d'-' -f1 | sort -k4,3 | uniq -c | column -s'/' -t"
+
+# Generate Compartment annotations
+Rscript ./scripts/run.compartments.R
 ```
