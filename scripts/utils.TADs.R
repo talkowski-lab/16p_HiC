@@ -49,37 +49,92 @@ load_cooltools_file <- function(
     pivot_wider(
         names_from=stat,
         values_from=value
+    )
+}
+
+load_all_cooltools_results <- function(){
+    parse_results_filelist(
+        input_dir=TAD_DIR,
+        suffix='-TAD.tsv'
     ) %>%
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    filter(method == 'cooltools') %>% 
     mutate(
-        is_boundary=as.logical(is_boundary),
-        window.size=as.integer(window.size)
-    )
+        DIs=
+            # pmap(
+            future_pmap(
+                .,
+                load_cooltools_file,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(DIs) %>% 
+    select(-c(filepath))
 }
 
-###################################################
-# Load Insulation data
-###################################################
-load_cooltools_DIs <- function(
-    filepath,
-    ...){
-    filepath %>% 
-    load_cooltools_file() %>% 
-    # filter(!is_bad_bin) %>% 
+post_process_cooltools_results <- function(results.df){
+    results.df %>% 
+    filter(!is_bad_bin) %>% 
+    standardize_data_cols() %>% 
+    rename(
+        'chr'=chrom,
+        'bin.start'=start
+    ) %>% 
+    mutate(
+        window.size.bins=window.size / resolution,
+        window.size=scale_numbers(window.size),
+        is.boundary=as.logical(is.boundary)
+    ) %>% 
+    unite(
+        'cooltools.params',
+        weight, window.size.bins, mfvp, threshold, 
+        sep='#',
+        remove=TRUE
+    ) %>% 
     select(
-        is_bad_bin,
-        # is_boundary,
-        log2_insulation_score,
-        # n_valid_pixels,
-        # boundary_strength,
-        # sum_balanced,
-        # sum_counts,
-        region,
-        chrom,
-        start,
-        end
+        -c(
+            method,
+            end,
+            is_bad_bin,
+            sum_counts,           
+            sum_balanced,         
+            ReadFilter,
+            region,               
+            n_valid_pixels       
+            # method               
+            # resolution           
+            # weight               
+            # threshold            
+            # mfvp                 
+            # window.size          
+            # Edit                 
+            # Celltype             
+            # Genotype             
+            # CloneID              
+            # TechRepID            
+            # isMerged             
+            # SampleID             
+            # chr                
+            # bin.start                
+            # is.bad.bin
+            # log2.insulation.score
+            # boundary.strength    
+            # is.boundary          
+        )
+    ) %>% 
+    rename_with(
+        c(
+            log2_insulation_score,
+            boundary_strength,
+            is_boundary
+        ),
+        ~ str_replace_all(.x, '_', '.')
     )
 }
 
+###################################################
+# hiTAD 
+###################################################
 load_hiTAD_DIs <- function(
     filepath,
     ...){
@@ -99,17 +154,78 @@ load_hiTAD_DIs <- function(
     select(-c(end))
 }
 
-load_DI_data <- function(
+load_all_hiTAD_DIs <- function(){
+    parse_results_filelist(
+        input_dir=TAD_DIR,
+        suffix='-DI.tsv'
+    ) %>%
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    filter(method == 'hiTAD') %>% 
+    filter(weight == 'ICE') %>%
+    mutate(
+        DIs=
+            # pmap(
+            future_pmap(
+                .,
+                load_hiTAD_DIs,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(DIs) %>% 
+    select(-c(filepath))
+}
+
+load_hiTAD_TADs <- function(
     filepath,
-    method,
     ...){
-    if (method == 'hiTAD') {
-        load_hiTAD_DIs(filepath, ...)
-    } else if (method == 'cooltools') {
-        load_cooltools_DIs(filepath, ...)
-    } else {
-        stop(glue('Invalid method ({method})'))
-    }
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE,
+        col_names=
+            c(
+                'chr',
+                'TAD.start',
+                'TAD.end'
+            )
+    )
+}
+
+load_all_hiTAD_TADs <- function(){
+    parse_results_filelist(
+        input_dir=TAD_DIR,
+        suffix='-TAD.tsv'
+    ) %>%
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    filter(method == 'hiTAD') %>% 
+    mutate(
+        TADs=
+            # pmap(
+            future_pmap(
+                .,
+                load_hiTAD_TADs,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(TADs) %>% 
+    select(-c(filepath))
+}
+
+post_process_hiTAD_TAD_results <- function(results.df){
+    results.df %>% 
+    # Subset to only relevant parameters
+    filter(weight == 'ICE') %>% 
+    standardize_data_cols() %>% 
+    mutate(TAD.length=TAD.end - TAD.start) %>% 
+    select(
+        -c(
+            method,
+            weight,
+            threshold,
+            mfvp,
+            ReadFilter
+        )
+    )
 }
 
 annotated_bins_with_TADs <- function(
@@ -155,48 +271,6 @@ annotated_bins_with_TADs <- function(
     select(bin, end, DI, TAD.status)
 }
 
-list_all_DI_results <- function(
-    pattern=NULL,
-    ignore.case=TRUE,
-    invert=FALSE){
-
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-DI.tsv'
-    ) %>%
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
-    filter(weight == 'ICE') %>%
-    {
-        if (!is.null(pattern)) {
-            if (invert) {
-                filter(., !grepl(pattern, filepath, ignore.case=ignore.case))
-            } else {
-                filter(.,  grepl(pattern, filepath, ignore.case=ignore.case))
-            }
-        } else {
-            .
-        }
-    } %>%  
-    standardize_data_cols()
-}
-
-load_all_DI_data <- function(
-    hitad.TAD.df,
-    ...){
-    list_all_DI_results(...) %>% 
-    mutate(
-        DIs=
-            pmap(
-                .,
-                load_DI_data,
-                .progress=TRUE
-            )
-    ) %>%
-    unnest(DIs) %>% 
-    standardize_data_cols() %>% 
-    select(-c(filepath))
-}
-
 annotate_DI_with_TADs <- function(
     hitad.DI.df,
     hitad.TAD.df,
@@ -230,11 +304,22 @@ annotate_DI_with_TADs <- function(
     select(-c(TADs, DIs))
 }
 
+###################################################
+# Data loading wrappers
+###################################################
 list_all_dataset_pairs <- function(
     pair_grouping_cols,
     ...){
     # pair_grouping_cols=c('isMerged', 'resolution')
-    list_all_DI_results(...) %>% 
+    parse_results_filelist(
+        input_dir=TAD_DIR,
+        suffix='-DI.tsv'
+    ) %>%
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    filter(
+        (method == 'hiTAD' & weight == 'ICE') |
+        (method == 'cooltools')
+    ) %>%
     standardize_data_cols() %>% 
     nest(
         SampleInfo=
@@ -250,7 +335,7 @@ list_all_dataset_pairs <- function(
     ) %>% 
     # List all pairs of annotations (SampleID + chr) that also have matching parameter values listed
     get_all_row_combinations(
-        cols_to_pair=pair_grouping_cols,
+        cols_to_pair=c(pair_grouping_cols, 'method'),
         keep_self=FALSE
     ) %>% 
     rowwise() %>% 
@@ -274,157 +359,6 @@ list_all_dataset_pairs <- function(
         )
     ) %>% 
     unnest(SamplePairInfo)
-}
-
-###################################################
-# Load TAD annotation data
-###################################################
-load_arrowhead_TAD_annotation <- function(
-    filepath,
-    ...){
-    read_tsv(
-        filepath,
-        skip=2,
-        show_col_types=FALSE,
-        col_select=c(1,2,3,12,13,14),
-        # col_select=c(1,2,3,4,5,6,12,13,14),
-        col_names=
-            c(
-                'chr',
-                'start',
-                'end',
-                'B.chr',
-                'B.start',
-                'B.end',
-                'name',
-                'score',
-                'strand1',
-                'strand2',
-                'color',
-                'corner.score',
-                'uVarScore',
-                'lVarScore',
-                'upSign',
-                'loSign'
-            )
-    )
-}
-
-load_hiTAD_TAD_annotation <- function(
-    filepath,
-    ...){
-    read_tsv(
-        filepath,
-        show_col_types=FALSE,
-        progress=FALSE,
-        col_names=
-            c(
-                'chr',
-                'TAD.start',
-                'TAD.end'
-            )
-    )
-}
-
-load_cooltools_TAD_annotation <- function(
-    filepath,
-    ...){
-    # filepath="/data/talkowski/Samples/16p_HiC/results/TADs/method_cooltools/resolution_100000/weight_ICE/threshold_0/mfvp_0.33/16p.DEL.A3.NSC.HiC.hg38.mapq_30.1000-TAD.tsv"
-    filepath %>% 
-    load_cooltools_file() %>% 
-    filter(!is_bad_bin) %>% 
-    filter(is_boundary) %>% 
-    select(
-        # is_bad_bin,
-        # is_boundary,
-        # log2_insulation_score,
-        n_valid_pixels,
-        boundary_strength,
-        window.size,
-        # sum_balanced,
-        # sum_counts,
-        region,
-        chr,
-        TAD.start,
-        TAD.end
-    )
-}
-
-load_TAD_annotation <- function(
-    filepath,
-    method,
-    ...){
-    if (method == 'hiTAD') {
-        load_hiTAD_TAD_annotation(filepath)
-    } else if (method == 'cooltools') {
-        load_cooltools_TAD_annotation(filepath)
-    } else if (method == 'arrowhead') {
-        load_arrowhead_TAD_annotation(filepath)
-    } else {
-        message(glue('Invalid method {method}'))
-    }
-}
-
-load_all_TAD_annotations <- function(
-    pattern=NULL,
-    ignore.case=TRUE,
-    invert=FALSE){
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-TAD.tsv'
-    ) %>%
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
-    {
-        if (!is.null(pattern)) {
-            if (invert) {
-                filter(., !grepl(pattern, filepath, ignore.case=ignore.case))
-            } else {
-                filter(.,  grepl(pattern, filepath, ignore.case=ignore.case))
-            }
-        } else {
-            .
-        }
-    } %>% 
-    mutate(
-        TADs=
-            # future_pmap(
-            pmap(
-                .,
-                load_TAD_annotation,
-                .progress=TRUE
-            )
-    ) %>%
-    unnest(TADs) %>% 
-    select(-c(filepath))
-}
-
-post_process_hiTAD_TAD_results <- function(results.df){
-    results.df %>% 
-    # Subset to only relevant parameters
-    filter(weight == 'ICE') %>% 
-    standardize_data_cols() %>% 
-    mutate(TAD.length=TAD.end - TAD.start) %>% 
-    select(
-        -c(
-            method,
-            weight,
-            threshold,
-            mfvp,
-            ReadFilter
-        )
-    )
-}
-
-post_process_cooltools_TAD_results <- function(results.df){
-    results.df %>% 
-    standardize_data_cols() %>% 
-    mutate(
-        window.size.bins=window.size / resolution,
-        window.size=scale_numbers(window.size),
-        param.combo=glue('{weight},{mfvp},{window.size.bins},{threshold}')
-    ) %>% 
-    rename('TAD.boundary'=TAD.start) %>% 
-    select(-c(TAD.end, method))
 }
 
 ###################################################
@@ -709,5 +643,4 @@ calculate_all_pairs_InsulationCorr <- function(
 }
 
 ###################################################
-# Plot stuff
 ###################################################
