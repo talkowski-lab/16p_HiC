@@ -17,10 +17,7 @@ library(furrr)
 ###################################################
 set_up_sample_comparisons <- function(comparison.groups){
     # get info + filepaths for all contact matrices
-    load_mcool_files(
-        return_metadata_only=TRUE,
-        keep_metadata_columns=FALSE
-    ) %>% 
+    list_mcool_files() %>%
     get_min_resolution_per_matrix() %>% 
     distinct() %>% 
     # Now group samples by condition, 
@@ -60,7 +57,8 @@ set_up_sample_comparisons <- function(comparison.groups){
                 TRUE                         ~ NA
             )
     ) %>% 
-    select(-c(resolution.min, resolution.max))
+    select(-c(resolution.min, resolution.max)) %>%
+    select(-c(ends_with('.Pattern')))
 }
 
 sample_group_priority_fnc_16p <- function(Sample.Group){
@@ -305,7 +303,7 @@ run_all_multiHiCCompare <- function(
     covariates.df=NULL,
     chromosomes=CHROMOSOMES,
     ...){
-    # chromosomes=CHROMOSOMES; covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
+    # chromosomes=c('chr15', 'chr16'); covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
     comparisons.df %>% 
     # for each comparison list all paramter combinations
     cross_join(hyper.params.df) %>% 
@@ -315,7 +313,7 @@ run_all_multiHiCCompare <- function(
     # which sample group is denominator in fold change values (higher priority value)
     mutate(
         across(
-            matches('Sample.Group..Left.Right)'),
+            starts_with('Sample.Group.'),
             ~ sample_group_priority_fnc(.x),
             .names='{.col}.Priority'
         )
@@ -323,8 +321,8 @@ run_all_multiHiCCompare <- function(
     mutate(
         Sample.Group.Numerator=
             case_when(
-                Sample.Group.Left.Priority > Sample.Group.Right.Priority ~ Sample.Group.Left,
-                Sample.Group.Left.Priority < Sample.Group.Right.Priority ~ Sample.Group.Right,
+                Sample.Group.Left.Priority < Sample.Group.Right.Priority ~ Sample.Group.Left,
+                Sample.Group.Left.Priority > Sample.Group.Right.Priority ~ Sample.Group.Right,
                 TRUE ~ NA
             ),
         Sample.Group.Denominator=
@@ -334,7 +332,7 @@ run_all_multiHiCCompare <- function(
                 TRUE ~ NA
             )
     ) %>% 
-    select(-c(matches('Sample.Group..Left.Right)'))) %>% 
+    select(-c(ends_with('.Priority'))) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -362,7 +360,6 @@ run_all_multiHiCCompare <- function(
             )
     ) %>% 
     arrange(resolution) %>% 
-        # {.} -> tmp
     future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
@@ -471,9 +468,8 @@ load_all_multiHiCCompare_results <- function(
                 .progress=TRUE
             )
     ) %>% 
-        # {.} %>% select(comparison, filepaths, results)
     unnest(results) %>% 
-    select(-c(filepaths, D)) %>%
+    select(-c(filepaths)) %>%
     mutate(
         # calculate log of all pvalues + add columns
         across(
@@ -603,10 +599,10 @@ post_process_multiHiCCompare_results_16p <- function(results.df){
 ###################################################
 post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
     results.df %>% 
-    # rename(
-    #     'region1.bp'=region1,
-    #     'region2.bp'=region2
-    # ) %>% 
+    rename(
+        'region1.bp'=region1,
+        'region2.bp'=region2
+    ) %>% 
     # unite(
     #     'bin.pair.idx',
     #     chr, region1.bp, region2.bp,
@@ -614,9 +610,9 @@ post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
     #     remove=FALSE
     # ) %>% 
     mutate(
-        logFC=-logFC,
+        # logFC=-logFC,
         distance.bp=region2.bp - region1.bp,
-        chr=factor(chr, levels=CHROMOSOMES),
+        chr=factor(paste0('chr', chr), levels=CHROMOSOMES),
         resolution=
             resolution %>% 
             scale_numbers(force_numeric=TRUE) %>% 
@@ -646,7 +642,8 @@ post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
                 TRUE                                         ~ '???'
             ) %>%
             factor(levels=c('main', 'across.edits', 'over.edits'))
-    )
+    ) %>%
+    select(-c(D))
     # left_join(
     #     load_chr_sizes() %>% rename('chr'=Chr),
     #     by='chr'
