@@ -655,6 +655,7 @@ load_mcool_file <- function(
     range1="",
     range2="",
     cis=TRUE,
+    type='df',
     ...){
     filepath %>% 
     File(resolution=resolution) %>% 
@@ -664,7 +665,7 @@ load_mcool_file <- function(
         normalization=normalization,
         join=TRUE,
         query_type='UCSC',
-        type='df'
+        type=type
     ) %>% 
     as_tibble() %>%
     # format column names
@@ -697,7 +698,7 @@ load_mcool_file <- function(
 }
 
 list_mcool_files <- function(
-    pattern,
+    pattern='.hg38.mapq_30.1000.mcool',
     resolutions=NULL,
     normalizations=NULL,
     ...){
