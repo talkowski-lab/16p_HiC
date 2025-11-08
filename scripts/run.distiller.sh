@@ -4,87 +4,60 @@ set -euo pipefail
 DISTILLER_DIR="/data/talkowski/Samples/16p_HiC/distiller-nf"
 DISTILLER_FILE="${DISTILLER_DIR}/distiller.nf"
 BASE_DIR="$(pwd)"
-LOG_DIR="${BASE_DIR}/slurm.logs"
-mkdir -p "${LOG_DIR}"
 CONDA_ENV="dist2"
-CONDA_DIR="$(conda info --base)"
 
 # Functions
 help() {
     echo TODO
 }
 main() {
+    mkdir -p "${LOG_DIR}"
     for yml_file in ${@}; do
         sample_ID="$(basename "${yml_file}")"
         sample_ID="${sample_ID%%.distiller.yml}"
-        echo $sample_ID
+        echo "${sample_ID}"
         cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; source "${CONDA_DIR}/etc/profile.d/conda.sh"; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
-        echo $cmd
+        echo "${cmd}"
         # continue 
-        sbatch \
-            --partition ${PARTITION} \
-            --time ${TIME} \
-            --mem ${MEM} \
-            --ntasks-per-node ${NTASKS_PER_NODE} \
-            --cpus-per-task ${CPUS} \
-            --job-name "${sample_ID}-distiller" \
+        sbatch                                                 \
+            --partition "${PARTITION}"                         \
+            --time "${TIME}"                                   \
+            --mem "${MEM}"                                     \
+            --cpus-per-task "${CPUS}"                          \
+            --ntasks-per-node "${NTASKS_PER_NODE}"             \
+            --job-name "${sample_ID}-distiller"                \
             --output   "${LOG_DIR}/${sample_ID}-distiller.out" \
             --error    "${LOG_DIR}/${sample_ID}-distiller.err" \
             --wrap="${cmd}"
     done
 }
 # Default args
-PARTITION="normal"
-TIME="4-23:59:59"
-MEM="10G"
-NTASKS_PER_NODE=8
-CPUS=4
-WORK_DIR="${BASE_DIR}/work"
 CONFIG_DIR="${DISTILLER_DIR}/nextflow.config"
+WORK_DIR="${BASE_DIR}/work"
+CONDA_DIR="$(conda info --base)"
+LOG_DIR="${BASE_DIR}/slurm.logs"
+MEM="40G"
+NTASKS_PER_NODE=8
+CPUS=8
+PARTITION="bigmem"
+TIME="4-23:59:59"
 # Handle CLI args
-[[ $? -ne 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ht:c:p:m:w:a:n: --long help,mem,partition,cpus,ntasks_per_node,work-dir,anaconda-dir,nextflow-config -- "$@")
-eval set -- "$VALID_ARGS"
-while [ : ]; do
-    case "$1" in
-        -n|--nextflow-config)
-            CONFIG_DIR="${2}"
-            shift 2
-            ;;
-        -a|--anaconda-dir)
-            CONDA_DIR="${2}"
-            shift 2
-            ;;
-        -w|--work-dir)
-            WORK_DIR="${2}"
-            shift 2
-            ;;
-        -m|--mem)
-            MEM="${2}G" 
-            shift 2
-            ;;
-        -t|--ntasks-per-node)
-            NTASKS_PER_NODE="${2}" 
-            shift 2
-            ;;
-        -c|--cpus)
-            CPUS="${2}" 
-            shift 2
-            ;;
-        -p|--partition)
-            PARTITION="${2}" 
-            shift 2
-            ;;
-        -h|--help) 
-            help 
-            exit 0 
-            ;;
-        --)
-            shift 
-            break
-            ;;
+[[ $# -eq 0 ]] && echo "No Args" && exit 1
+while getopts "d:w:a:l:m:n:c:p:h" flag; do
+    case ${flag} in 
+        d) CONFIG_DIR="${OPTARG}" ;;
+        w) WORK_DIR="${OPTARG}" ;;
+        a) CONDA_DIR="${OPTARG}" ;;
+        l) LOG_DIR="${OPTARG}" ;;
+        m) MEM="${OPTARG}G" ;;
+        n) NTASKS_PER_NODE="${OPTARG}" ;;
+        c) CPUS="${OPTARG}" ;;
+        p) PARTITION="${OPTARG}" ;;
+        h) help && exit 0 ;;
+        *) echo "Invalid flag ${flag}" && help && exit 1 ;;
     esac
 done
+shift $(( OPTIND-1 ))
 case $PARTITION in
     short)  TIME="2:59:59"     ;;
     normal) TIME="4-23:59:59"  ;;
