@@ -9,7 +9,9 @@ library(tictoc)
 ###################################################
 # Load resutls
 ###################################################
-load_all_hicrep_results <- function(sample_metadata=NULL){
+load_all_hicrep_results <- function(
+    sample_metadata=NULL,
+    samples_to_keep=NULL){
     # Load all files generated from ./scripts/run.hicrep.sh
     # sample_metadata=sample.metadata %>% select( SampleID, Batch)
     parse_results_filelist(
@@ -36,24 +38,25 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
         sample_ID_col='SampleInfo.P1.SampleID',
         col_prefix='SampleInfo.P1.',
         nest_col=NA
+
     ) %>% 
     # Add extra sample metadata as paired columns 
-    # NOTE: using right_join to filter samples only present in the metadata table
-    {
-        if (!is.null(sample_metadata)) {
-            inner_join(
-                .,
-                sample_metadata %>% 
-                rename_with(
-                    .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
-                    .cols=-c(SampleID)
-                ),
-                by=join_by(SampleInfo.P2.SampleID == SampleID)
-            )
-        } else {
-            .
-        }
-    } %>% 
+    # # NOTE: using right_join to filter samples only present in the metadata table
+    # {
+    #     if (!is.null(sample_metadata)) {
+    #         right_join(
+    #             .,
+    #             sample_metadata %>% 
+    #             rename_with(
+    #                 .fn=~ str_replace(.x, '^', 'SampleInfo.P1.'),
+    #                 .cols=-c(SampleID)
+    #             ),
+    #             by=join_by(SampleInfo.P1.SampleID == SampleID)
+    #         )
+    #     } else {
+    #         .
+    #     }
+    # } %>% 
     # Repeat for the other sample in each pair
     get_info_from_MatrixIDs(
         matrix_ID_col='MatrixID.P2',
@@ -62,23 +65,40 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
         col_prefix='SampleInfo.P2.',
         nest_col=NA
     ) %>% 
-    # NOTE: using right_join to filter samples only present in the metadata table
+    # Add extra sample metadata as paired columns 
+    # # NOTE: using right_join to filter samples only present in the metadata table
+    # {
+    #     if (!is.null(sample_metadata)) {
+    #         right_join(
+    #             .,
+    #             sample_metadata %>% 
+    #             rename_with(
+    #                 .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
+    #                 .cols=-c(SampleID)
+    #             ),
+    #             by=join_by(SampleInfo.P2.SampleID == SampleID)
+    #         )
+    #     } else {
+    #         .
+    #     }
+    # } %>% 
+    # keep only specified samples
     {
-        if (!is.null(sample_metadata)) {
-            inner_join(
-                .,
-                sample_metadata %>% 
-                rename_with(
-                    .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
-                    .cols=-c(SampleID)
-                ),
-                by=join_by(SampleInfo.P2.SampleID == SampleID)
-            )
+        if (!is.null(samples_to_keep)) {
+            filter(., SampleInfo.P1.SampleID %in% samples_to_keep) %>% 
+            filter(SampleInfo.P2.SampleID %in% samples_to_keep)
         } else {
             .
         }
     } %>% 
     # Now format sample metadata per pair for easy grouping+plotting
+    mutate(
+        across(
+            ends_with('.isMerged'), 
+            ~ ifelse(.x, 'Merged', 'Individual') %>% factor(levels=c('Merged', 'Individual'))
+        )
+            
+    ) %>% 
     nest(
         SampleInfo.P1=starts_with('SampleInfo.P1.'),
         SampleInfo.P2=starts_with('SampleInfo.P2.')
@@ -97,14 +117,6 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
     ungroup() %>% 
     select(-c(starts_with('SampleInfo'))) %>% 
     unnest(SamplePairInfo) %>% 
-    # Annotate which resolution is the minimum viable for each SampleID
-    # get_min_resolution_per_matrix(filter_res=FALSE) %>% 
-    # # look if resolution is "ideal" according to original HiCRep authors
-    # left_join(
-    #     RESOLUTION_IDEAL_H,
-    #     relationship='many-to-many',
-    #     by=join_by(resolution)
-    # ) %>% 
    # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
@@ -125,6 +137,26 @@ load_all_hicrep_results <- function(sample_metadata=NULL){
             )
     ) %>%
     unnest(hicrep.results)
+}
+
+post_proces_hicrep_results <- function(results.df){
+    results.df %>% 
+    rename_with(~ str_replace(.x, '^SampleInfo.', '')) %>% 
+    filter(isMerged != 'Individual vs Merged') %>%
+    filter(ReadFilter == 'mapq_30 vs mapq_30') %>%
+    mutate(
+        is.downsampled.fct=
+            ifelse(is.downsampled, 'Downsampled', 'Original') %>%
+            factor(levels=c('Downsampled', 'Original'))
+    ) %>%
+    # mutate(
+    #     withinGenotype=
+    #         case_when(
+    #             Genotype %in% c('DEL vs DEL', 'DUP vs DUP', 'WT vs WT') ~ 'Same Genotype',
+    #             TRUE ~ 'Different Genotype'
+    #         )
+    # ) %>% 
+    select(-c(ReadFilter, filepath))
 }
 
 make_heatmap_plotdf <- function(

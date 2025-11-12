@@ -65,7 +65,7 @@ for resolution in ${RESOLUTIONS[@]}; do
         mkdir -p "${OUTPUT_DIR}/${comparison_dir}"
         # echo $output_file
         cmd="hicrep ${downsample_arg}--dBPMax ${max_window_size} --binSize ${resolution} --h ${h} ${sample_file_i} ${sample_file_j} ${output_file}"
-        # echo ${cmd}
+        echo "${cmd}"
         ${cmd}
         # hicrep "${downsample_arg}"
         #     --h "${h}" 
