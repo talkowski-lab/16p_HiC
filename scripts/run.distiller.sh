@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 # Locations
+NEXTFLOW_22_EXE="/PHShome/sr1068/miniforge3/envs/dist2/bin/nextflow"
 DISTILLER_DIR="/data/talkowski/Samples/16p_HiC/distiller-nf"
-DISTILLER_FILE="${DISTILLER_DIR}/distiller.nf"
-BASE_DIR="$(pwd)"
-CONDA_ENV="dist2"
+DISTILLER_EXE="${DISTILLER_DIR}/distiller.nf"
+DISTILLER_CONFIG_DIR="${DISTILLER_DIR}/nextflow.config"
 
 # Functions
 help() {
@@ -16,9 +16,18 @@ main() {
         sample_ID="$(basename "${yml_file}")"
         sample_ID="${sample_ID%%.distiller.yml}"
         echo "${sample_ID}"
-        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; source "${CONDA_DIR}/etc/profile.d/conda.sh"; ${CONDA_DIR}/envs/${CONDA_ENV}/bin/nextflow run ${DISTILLER_FILE} -params-file ${yml_file} -w ${WORK_DIR} -c ${CONFIG_DIR}"
-        echo "${cmd}"
-        # continue 
+        cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; source "${CONDA_DIR}/etc/profile.d/conda.sh"; ${NEXTFLOW_22_EXE} run ${DISTILLER_EXE} -params-file ${yml_file} -w ${DISTILLER_WORK_DIR} -c ${DISTILLER_CONFIG_DIR}"
+        # echo "${cmd}"
+echo "sbatch
+    --partition ${PARTITION}
+    --time ${TIME}
+    --mem ${MEM}
+    --cpus-per-task ${CPUS}
+    --ntasks-per-node ${NTASKS_PER_NODE}
+    --job-name ${sample_ID}-distiller
+    --output   ${LOG_DIR}/${sample_ID}-distiller.out
+    --error    ${LOG_DIR}/${sample_ID}-distiller.err
+    --wrap=${cmd}"
         sbatch                                                 \
             --partition "${PARTITION}"                         \
             --time "${TIME}"                                   \
@@ -32,9 +41,10 @@ main() {
     done
 }
 # Default args
-CONFIG_DIR="${DISTILLER_DIR}/nextflow.config"
-WORK_DIR="${BASE_DIR}/work"
-CONDA_DIR="$(conda info --base)"
+BASE_DIR="$(pwd)"
+# CONDA_DIR="$(conda info --base)"
+DISTILLER_WORK_DIR="${BASE_DIR}/work"
+CONDA_DIR="${HOME}/miniforge3"
 LOG_DIR="${BASE_DIR}/slurm.logs"
 MEM="40G"
 NTASKS_PER_NODE=8
@@ -45,8 +55,8 @@ TIME="4-23:59:59"
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
 while getopts "d:w:a:l:m:n:c:p:h" flag; do
     case ${flag} in 
-        d) CONFIG_DIR="${OPTARG}" ;;
-        w) WORK_DIR="${OPTARG}" ;;
+        d) DISTILLER_CONFIG_DIR="${OPTARG}" ;;
+        w) DISTILLER_WORK_DIR="${OPTARG}" ;;
         a) CONDA_DIR="${OPTARG}" ;;
         l) LOG_DIR="${OPTARG}" ;;
         m) MEM="${OPTARG}G" ;;
@@ -68,12 +78,12 @@ case $PARTITION in
 esac
 # Print args
 echo "Args to launch each job with:
-PARTITION:       ${PARTITION}
-TIME:            ${TIME}
-MEM:             ${MEM}
-NTASKS_PER_NODE: ${NTASKS_PER_NODE} 
-CPUS:            ${CPUS} 
-WORK_DIR:        ${WORK_DIR}"
+PARTITION:          ${PARTITION}
+TIME:               ${TIME}
+MEM:                ${MEM}
+NTASKS_PER_NODE:    ${NTASKS_PER_NODE} 
+CPUS:               ${CPUS} 
+DISTILLER_WORK_DIR: ${DISTILLER_WORK_DIR}"
 # All args are assumed to be distiller compatible yml files
 # module unload java; module load wget singularity/3.7.0 source "${CONDA_DIR}/etc/profile.d/conda.sh"; conda activate dist2
 main ${@}

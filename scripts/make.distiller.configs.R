@@ -19,6 +19,7 @@ suppressPackageStartupMessages({
 # Template config file
 DISTILLER_SAMPLE_CONFIGS_DIR <- file.path(BASE_DIR, 'sample.configs')
 DISTILLER_TEMPLATE_FILE      <- file.path(DISTILLER_SAMPLE_CONFIGS_DIR, 'template.distiller.yml') 
+# DISTILLER_TEMPLATE_FILE
 distiller.template.txt <- 
     readLines(DISTILLER_TEMPLATE_FILE) %>%
     paste(collapse='\n')
