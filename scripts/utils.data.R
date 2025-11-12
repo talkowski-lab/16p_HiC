@@ -325,12 +325,23 @@ rename_chrs <- function(chrs){
     factor(levels=CHROMOSOMES)
 }
 
-standardize_data_cols <- function(results.df){
-    # results.df <- HITAD_DI_RESULTS_FILE %>% read_tsv(show_col_types=FALSE)
-    # results.df %>% group_by(resolution, weight, SampleID, chr) %>% slice_head(n=1)
+standardize_data_cols <- function(
+    results.df,
+    skip.isGenome=FALSE,
+    skip.isMerged=FALSE,
+    skip.resolution=FALSE,
+    skip.window.size=FALSE,
+    skip.chr=FALSE){
     results.df %>% 
     {
-        if ('isMerged' %in% colnames(.)) {
+        if ('isGenome' %in% colnames(.) & !skip.isGenome) {
+            mutate(., isGenome=factor(isGenome, levels=c('Per.Chr', 'Genome.Wide')))
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('isMerged' %in% colnames(.) & !skip.isMerged) {
             if (is.logical(results.df$isMerged)) {
                 mutate(
                     .,
@@ -346,7 +357,7 @@ standardize_data_cols <- function(results.df){
         }
     } %>% 
     {
-        if ('resolution' %in% colnames(.)) {
+        if ('resolution' %in% colnames(.) & !skip.resolution) {
             mutate(
                 .,
                 resolution=
@@ -359,8 +370,30 @@ standardize_data_cols <- function(results.df){
         }
     } %>% 
     {
-        if ('chr' %in% colnames(.)) {
-            mutate(., chr=factor(chr, levels=CHROMOSOMES))
+        if ('window.size' %in% colnames(.) & !skip.window.size) {
+            mutate(
+                .,
+                window.size=
+                    window.size %>%
+                    scale_numbers(force_numeric=TRUE) %>%
+                    scale_numbers(),
+            )
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('chr' %in% colnames(.) & !skip.chr) {
+            if ('Genome.Wide' %in% .$chr) {
+                mutate(., chr=factor(chr, levels=c(CHROMOSOMES, 'Genome.Wide'))) %>% 
+                mutate(
+                    isGenome=
+                        ifelse(chr == 'Genome.Wide', 'Genome.Wide', 'Per.Chr') %>% 
+                        factor(levels=c('Genome.Wide', 'Per.Chr'))
+                )
+            } else {
+                mutate(., chr=factor(chr, levels=CHROMOSOMES))
+            }
         } else {
             .
         }
