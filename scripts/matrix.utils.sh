@@ -29,50 +29,22 @@ help() {
     if [[ $# -eq 0 ]]; then
         echo "Usage: ${0} \${MODE}
 modes: 
-    coverage 
-    digest_genome 
-    restrict 
     merge_NIBPLWAPL 
     merge_16p 
     coverage 
     qc3C 
     multiqcs"
-    else
-        case ${1} in 
-            dump)
-                args="TODO"
-                ;;
-            plot_triangle)
-                args="TODO"
-                ;;
-            digest_genome)
-                args=""
-                ;;
-            restrict)
-                args="\${OUTPUT_DIR} sample1.hg38.nodups.pairs.gz sample{2..N}.hg38.nodups.pairs.gz"
-                ;;
-            merge_NIBPLWAPL) 
-                args="\${COOLER_DIR}"
-                ;;
-            merge_16p)
-                args="\${COOLER_DIR}"
-                ;;
-            coverage)
-                args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool"
-                ;;
-            qc3C)
-                args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam"
-                ;;
-            multiqcs)
-                args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}"
-                ;;
-            *) 
-                echo "Invalid mode: $mode" && exit 1 
-                ;;
-        esac
-        echo "Usage: ${0} ${1} ${args}"
+        exit 0
     fi
-    exit 0 
+    case ${1} in 
+        merge_NIBPLWAPL) args="\${COOLER_DIR}" ;;
+        merge_16p) args="\${COOLER_DIR}" ;;
+        coverage) args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
+        qc3C) args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam" ;;
+        multiqcs) args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
+        *) echo "Invalid mode: $mode" && exit 1 ;;
+    esac
+    echo "Usage: ${0} ${1} ${args}"
 }
 
 activate_conda() {
@@ -212,91 +184,6 @@ merge_NIPBLWAPL_matrices() {
 ###################################################
 # QC Stats
 ###################################################
-matrix_balance() {
-    hic_matrices=${*}
-    activate_conda 'cooltools'
-    for sample_file in ${hic_matrices[*]}; do
-        [[ ${sample_file} == *.mcool ]] || continue
-        sample_file="$(readlink -e "${sample_file}")"
-        for uri in $(cooler ls "${sample_file}"); do 
-            cooler balance           \
-                --nproc "${THREADS}" \
-                "${uri}"
-        done
-    done
-}
-
-matrix_coverage() {
-    mkdir -p "${1}"
-    output_dir="$(readlink -e "${1}")"
-    hic_matrices=${@:2}
-    activate_conda 'cooltools'
-    for sample_file in ${hic_matrices[*]}; do
-        [[ ${sample_file} == *.mcool ]] || continue
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.mcool}"
-        sample_file="$(readlink -e "${sample_file}")"
-        for uri in $(cooler ls "${sample_file}"); do 
-            resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
-            raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
-            mkdir -p "${raw_output_dir}"
-            raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
-            if [[ -e ${raw_output_file} ]]; then
-                echo "Raw coveragae already computed"
-            else
-                echo "Computing raw coverage for ${sample_ID}..."
-                cooltools coverage                \
-                    --nproc "${THREADS}"          \
-                    --output "${raw_output_file}" \
-                    "${uri}"
-            fi
-            balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
-            mkdir -p "${balanced_output_dir}"
-            balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
-            if [[ -e ${balanced_output_file} ]]; then
-                echo "Balanced coveragae already computed"
-            else
-                echo "Computing balanced coverage for ${sample_ID}..."
-                cooltools coverage                     \
-                    --nproc "${THREADS}"               \
-                    --clr_weight_name 'weight'         \
-                    --output "${balanced_output_file}" \
-                    "${uri}"
-            fi
-        done
-    done
-}
-
-pairtools_stats() {
-    mkdir -p "${1}"
-    output_dir="$(readlink -e "${1}")"
-    pairs_files=${@:2}
-    activate_conda 'pairtools'
-    for sample_file in ${pairs_files[@]}; do
-        [[ ${sample_file} == *.nodups.pairs.gz ]] || continue
-        sample_file="$(readlink -e "${sample_file}")"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.hg38.nodups.pairs.gz}"
-        echo ${sample_ID}
-        # calculate dist/freq scaling
-        scale_file="${output_dir}/${sample_ID}.scaling.tsv"
-        if ! [[ -f ${scale_file} ]]; then
-            pairtools scaling            \
-                --output "${scale_file}" \
-                "${sample_file}"
-        fi
-        # # calculate pair stats
-        # stats_file="${output_dir}/${sample_ID}.stats.tsv"
-        # if ! [[ -f ${scale_file} ]]; then
-        #     pairtools stats              \
-        #         --bytile-dups            \
-        #         --with-chromsizes        \
-        #         --output "${stats_file}" \
-        #         "${sample_file}"
-        # fi
-    done
-}
-
 run_qc3c() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
@@ -388,18 +275,83 @@ make_multiqc_reports() {
 ###################################################
 # Compute intermediate results
 ###################################################
+matrix_balance() {
+    hic_matrices=${*}
+    activate_conda 'cooltools'
+    for sample_file in ${hic_matrices[*]}; do
+        [[ ${sample_file} == *.mcool ]] || continue
+        sample_file="$(readlink -e "${sample_file}")"
+        for uri in $(cooler ls "${sample_file}"); do 
+            cooler balance           \
+                --nproc "${THREADS}" \
+                "${uri}"
+        done
+    done
+}
+
+matrix_coverage() {
+    mkdir -p "${1}"
+    output_dir="$(readlink -e "${1}")"
+    hic_matrices=${@:2}
+    activate_conda 'cooltools'
+    for sample_file in ${hic_matrices[*]}; do
+        [[ ${sample_file} == *.mcool ]] || continue
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.mcool}"
+        sample_file="$(readlink -e "${sample_file}")"
+        for uri in $(cooler ls "${sample_file}"); do 
+            resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
+            raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
+            mkdir -p "${raw_output_dir}"
+            raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
+            if [[ -e ${raw_output_file} ]]; then
+                echo "Raw coveragae already computed"
+            else
+                echo "Computing raw coverage for ${sample_ID}..."
+                cooltools coverage                \
+                    --nproc "${THREADS}"          \
+                    --output "${raw_output_file}" \
+                    "${uri}"
+            fi
+            balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
+            mkdir -p "${balanced_output_dir}"
+            balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
+            if [[ -e ${balanced_output_file} ]]; then
+                echo "Balanced coveragae already computed"
+            else
+                echo "Computing balanced coverage for ${sample_ID}..."
+                cooltools coverage                     \
+                    --nproc "${THREADS}"               \
+                    --clr_weight_name 'weight'         \
+                    --output "${balanced_output_file}" \
+                    "${uri}"
+            fi
+        done
+    done
+}
+
 compute_expected_cis() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
     hic_samples=${@:2}
     activate_conda 'cooler'
     for sample_file in ${hic_samples[@]}; do
+        # Extract SampleID
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
+        # name output file directory with params
         param_dir="${output_dir}/resolution_${resolution}"
         output_file="${param_dir}/${sample_ID}-expected.cis.tsv"
         [[ -f "$output_file" ]] && continue
+        # For each possible valid combination of parameters
+        if [[ $downsample -eq 0 ]]; then
+            downsample_arg="" 
+            downsample_str="FALSE" 
+        else
+            downsample_arg="--bDownSample "
+            downsample_str="TRUE"
+        fi
         cooltools expected-cis         \
             --nproc "${THREADS}"       \
             --smooth                   \
@@ -416,17 +368,17 @@ main() {
     mode="$1"
     echo "${mode}"
     case ${mode} in 
-        merge_NIPBLWAPL_stats) 
-            merge_NIPBLWAPL_stats "${2}"
-            ;;
         merge_NIPBLWAPL_matrices) 
             merge_NIPBLWAPL_matrices "${2}"
             ;;
-        merge_16p_stats) 
-            merge_16p_stats "${2}"
-            ;;
         merge_16p_matrices) 
             merge_16p_matrices "${2}"
+            ;;
+        qc3C) 
+            run_qc3c "${@:2}"
+            ;;
+        multiqcs)
+            make_multiqc_reports "${@:2}"
             ;;
         dump)
             dump_all_regions "${@:2}"
@@ -437,11 +389,8 @@ main() {
         coverage) 
             matrix_coverage "${@:2}"
             ;;
-        qc3C) 
-            run_qc3c "${@:2}"
-            ;;
-        multiqcs)
-            make_multiqc_reports "${@:2}"
+        compute_expected)
+            compute_expected_cis "${@:2}"
             ;;
         *) 
             echo "Invalid mode: $mode" && exit 1 
