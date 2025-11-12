@@ -404,6 +404,7 @@ compute_all_coverage_summaries <- function(
             )
     ) %>%
     unnest(coverage.summary) %>%
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
     filter(count.type == 'cis') %>% 
     select(-c(filepath))
 }
