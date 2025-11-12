@@ -663,36 +663,41 @@ load_mcool_file <- function(
         range1=range1,
         range2=range2,
         normalization=normalization,
+        type=type,
         join=TRUE,
-        query_type='UCSC',
-        type=type
+        query_type='UCSC'
     ) %>% 
-    as_tibble() %>%
     # format column names
     {
-        if (cis) {
-            filter(., chrom1 == chrom2) %>% 
-            select(
-                -c(
-                    chrom2,
-                    end1,
-                    end2
+        if (type == 'df') {
+            if (cis) {
+                as_tibble(.) %>%
+                filter(chrom1 == chrom2) %>% 
+                select(
+                    -c(
+                        chrom2,
+                        end1,
+                        end2
+                    )
+                ) %>% 
+                rename(
+                    'chr'=chrom1,
+                    'range1'=start1,
+                    'range2'=start2,
+                    'IF'=count
                 )
-            ) %>% 
-            rename(
-                'chr'=chrom1,
-                'range1'=start1,
-                'range2'=start2,
-                'IF'=count
-            )
+            } else {
+                as_tibble(.) %>%
+                rename(
+                    'chr1'=chrom1,
+                    'chr2'=chrom2,
+                    'range1'=start1,
+                    'range2'=start2,
+                    'IF'=count
+                )
+            }
         } else {
-            rename(
-                'chr1'=chrom1,
-                'chr2'=chrom2,
-                'range1'=start1,
-                'range2'=start2,
-                'IF'=count
-            )
+            as.matrix(.)
         }
     }
 }
