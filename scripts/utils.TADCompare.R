@@ -1,7 +1,7 @@
 library(TADCompare)
 
 ###################################################
-# TADCompare
+# Generate ConsensusTADs
 ###################################################
 set_up_sample_groups <- function(sample.groups){
     list_mcool_files() %>%
@@ -175,6 +175,9 @@ run_all_ConsensusTADs <- function(
     )
 }
 
+###################################################
+# Generate TADCompare results
+###################################################
 run_TADCompare <- function(
     filepath.Numerator,
     filepath.Denominator,
@@ -187,10 +190,11 @@ run_TADCompare <- function(
     z_thresh,
     window_size,
     gap_thresh,
+    pre_tads,
     ...){
-    # row_index=1; filepath.Numerator=tmp$filepath.Numerator[[row_index]]; filepath.Denominator=tmp$filepath.Denominator[[row_index]]; Sample.Group.Numerator=tmp$Sample.Group.Numerator[[row_index]]; Sample.Group.Denominator=tmp$Sample.Group.Denominator[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; z_thresh=tmp$z_thresh[[row_index]]; window_size=tmp$window_size[[row_index]]; gap_thresh=tmp$gap_thresh[[row_index]];
-
+    # row_index=1; filepath.Numerator=tmp$filepath.Numerator[[row_index]]; filepath.Denominator=tmp$filepath.Denominator[[row_index]]; Sample.Group.Numerator=tmp$Sample.Group.Numerator[[row_index]]; Sample.Group.Denominator=tmp$Sample.Group.Denominator[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; z_thresh=tmp$z_thresh[[row_index]]; window_size=tmp$window_size[[row_index]]; gap_thresh=tmp$gap_thresh[[row_index]]; pre_tads=tmp$pre_tads[[row_index]];
     # chr1 @ 10Kb -> 24896x24896 matrix -> 40Gb is enough
+    # Run TADCompare on the 2 matrices being compared
     matrix.numerator <-
         TADCompare_load_matrix(
             filepath.Numerator,
@@ -214,39 +218,70 @@ run_TADCompare <- function(
             resolution=resolution,
             z_thresh=z_thresh,
             window_size=window_size,
-            gap_thresh=gap_thresh
+            gap_thresh=gap_thresh,
+            pre_tads=pre_tads
         )
-
-
+    # Format results to include boundary+gap scores for all bins + differential annotations
     tad.compare.results$Boundary_Scores %>% 
     as_tibble() %>%
     left_join(
         tad.compare.results$TAD_Frame %>%
         as_tibble() %>% 
-        # select(Boundary) %>% 
         add_column(isTADBoundary=TRUE),
         suffix=c('.All', '.TADs'),
         by=join_by(Boundary)
     ) %>% 
-    mutate(isTADBoundary=ifelse(is.na(isTADBoundary), FALSE, isTADBoundary)) %>% 
-    dplyr::count(isTADBoundary, Type.All, Type.TADs)
-    dplyr::count(isTADBoundary, Differential.All, Differential.TADs)
-    {.}
+
     mutate(
-        Enriched_Condition=
+        isTADBoundary=ifelse(is.na(isTADBoundary), FALSE, isTADBoundary),
+        Enriched.Condition=
             case_when(
-                Enriched_In == 'Matrix 1' ~ Sample.Group.Numerator,
-                Enriched_In == 'Matrix 2' ~ Sample.Group.Denominator,
+                Enriched_In.TADs == 'Matrix 1' ~ Sample.Group.Numerator,
+                Enriched_In.TADs == 'Matrix 2' ~ Sample.Group.Denominator,
+                Enriched_In.All  == 'Matrix 1' ~ Sample.Group.Numerator,
+                Enriched_In.All  == 'Matrix 2' ~ Sample.Group.Denominator,
                 TRUE                      ~ NA
+            ),
+        Differential=
+            case_when(
+                is.na(Differential.TADs) ~ Differential.All,
+                TRUE                     ~ Differential.TADs
+            ),
+        Differential=
+            ifelse(
+                Differential %in% c('Differential', 'Non-Differential'),
+                Differential, 
+                'Differential'
+            ),
+        Type=
+            case_when(
+                is.na(Type.TADs) ~ Type.All,
+                TRUE             ~ Type.TADs
+            ),
+        TAD_Score1=
+            case_when(
+                is.na(TAD_Score1.TADs) ~ TAD_Score1.All,
+                TRUE                   ~ TAD_Score1.TADs
+            ),
+        TAD_Score2=
+            case_when(
+                is.na(TAD_Score2.TADs) ~ TAD_Score2.All,
+                TRUE                   ~ TAD_Score2.TADs
+            ),
+        Gap_Score=
+            case_when(
+                is.na(Gap_Score.TADs) ~ Gap_Score.All,
+                TRUE                  ~ Gap_Score.TADs
             )
     ) %>%
     rename(
-        'TAD.Numerator.Score'=TAD_Score1,
-        'TAD.Denominator.Score'=TAD_Score2,
+        'TAD.Score.Numerator'=TAD_Score1,
+        'TAD.Score.Denominator'=TAD_Score2,
         'TAD.isDifferential'=Differential,
         'TAD.Difference.Type'=Type
     ) %>% 
-    rename_with(~ gsub(.x, '_', '.'))
+    rename_with(~ str_replace_all(.x, '_', '.')) %>% 
+    select(-c(ends_with('.All'), ends_with('.TADs')))
 }
 
 run_all_TADCompare <- function(
@@ -269,6 +304,7 @@ run_all_TADCompare <- function(
                 TAD_DIR,
                 'results_TADCompare',
                 glue('merged_{isMerged}'),
+                glue('method_{TAD.method}'),
                 glue('z.thresh_{z_thresh}'),
                 glue('window.size_{window_size}'),
                 glue('gap.thresh_{gap_thresh}'),
@@ -283,7 +319,7 @@ run_all_TADCompare <- function(
             )
     ) %>% 
     arrange(resolution) %>% 
-        {.} -> tmp
+        # {.} -> tmp
     # future_pmap(
     pmap(
         .l=.,
