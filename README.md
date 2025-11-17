@@ -200,7 +200,7 @@ Generate `.mcool` files from `.fastq` files using the `distiller-nf` pipeline
 Rscript ./scripts/make.distiller.configs.R ./sample.configs/template.distiller.yml
 # Run the distiller-nf pipeline by submitting each sample config as an individual SLURM job
 module load wget; module unload java; module load singularity/3.7.0; conda activate dist2;
-./scripts/run.distiller.sh $(find ./sample.configs -type f -name '*.distiller.yml')
+./scripts/run.distiller.sh -a ~/miniforge3 $(find ./sample.configs -type f -name '*.distiller.yml')
 # List all unmergeed matrices produced by the pipeline
 find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | 
     grep -v 'Merged' | 
@@ -209,11 +209,15 @@ find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" |
 Generate various QC results from `distiller-nf` output files
 ```bash
 # Generate qc3C report for each bam file
-./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam
+./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam  # for 16p project
+./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DdeI DpnII results/mapped_parsed_sorted_chunks/**/*.bam # for Cohesin project
 # Generate multiQC reprots from fastqc and pairtools resutls
 ./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
 # Generated merged matrices for each condition
-./scripts/matrix.utils.sh merge_16p_matrices ./results/coolers_library
+./scripts/matrix.utils.sh merge_16p ./results/coolers_library
+./scripts/matrix.utils.sh merge_Cohesin ./results/coolers_library
+# Balance matrices
+./scripts/matrix.utils.sh balance ./results/coolers_library/**/*.mapq_30.1000.mcool
 # Calculate total bin-wise coverage 
 ./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
 ```
@@ -223,7 +227,7 @@ Generate HiCRep results
 ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
 # Generate HiCRep results for all pairs of merged matrices
 ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
-# Do these commands separately, dont bother with the merged vs unmerged matrix comparisons
+# Do these commands separately, dont bother with merged vs unmerged matrix comparisons
 ```
 Generate TAD and insulation annotations
 ```bash
