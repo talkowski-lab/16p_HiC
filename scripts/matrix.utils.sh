@@ -5,20 +5,24 @@ set -uo pipefail
 ###################################################
 # Fixed variables/lists 
 ###################################################
-# MAPQ_FITERS=("mapq_30" "no_filter")
-MAPQ_FITERS=("mapq_30")
 # 16p Information
-GENOTYPES_16P=("WT" "DEL" "DUP")
-CELLTYPES_16P=("iN" "NSC")
+GENOTYPES_16P=('WT' 'DEL' 'DUP')
+CELLTYPES_16P=('iN' 'NSC')
+# CLONEIDS_16P=('A12' 'A3' 'B8' 'C5' 'D12' 'D9' 'FACS1' 'G7' 'H10' 'p44' 'p46' 'p49')
 # Edit information
-PROJECT_EDITS=("NIPBL" "WAPL")
-GENOTYPES_EDITS=("WT" "DEL")
-CELLTYPES_EDITS=("iN")
+PROJECT_EDITS=('NIPBL' 'WAPL' 'RAD21')
+GENOTYPES_EDITS=('WT' 'DEL')
+CELLTYPES_EDITS=('iN')
 # Technical Args
-RESOLUTIONS="10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
 SEED=9  # Random seed for qc3C
+MAPQ_FITERS=('mapq_30')
+# RESOLUTIONS='10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000'
+RESOLUTIONS=(10000000 5000000 2500000 1000000 500000 250000 100000 50000 25000 10000 5000)
+CONTACT_TYPES=('cis' 'trans')
+WEIGHT_NAMES=('raw' 'balanced')
+declare -rA WEIGHTS=([raw]='' [balanced]='weight')
 # Genomic reference files
-REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
+REF_DIR='/data/talkowski/tools/ref/Hi_c_noalt'
 # GENOME_CHR_SIZES="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
 GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 
@@ -27,21 +31,23 @@ GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 ###################################################
 help() {
     if [[ $# -eq 0 ]]; then
-        echo "Usage: ${0} \${MODE}
+echo "Usage: ${0} \${MODE}
 modes: 
-    merge_NIBPLWAPL 
+    merge_Cohesin 
     merge_16p 
-    coverage 
     qc3C 
-    multiqcs"
+    multiqcs
+    coverage 
+    expected"
         exit 0
     fi
     case ${1} in 
-        merge_NIBPLWAPL) args="\${COOLER_DIR}" ;;
-        merge_16p) args="\${COOLER_DIR}" ;;
-        coverage) args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
-        qc3C) args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam" ;;
-        multiqcs) args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
+        merge_Cohesin) args="\${COOLER_DIR}" ;;
+        merge_16p)     args="\${COOLER_DIR}" ;;
+        qc3C)          args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam" ;;
+        multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
+        coverage)      args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
+        expected)      args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
         *) echo "Invalid mode: $mode" && exit 1 ;;
     esac
     echo "Usage: ${0} ${1} ${args}"
@@ -65,19 +71,22 @@ activate_conda() {
 dump_all_regions() {
     mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
-    hic_samples=${@:2}
     activate_conda 'cooler'
-    for sample_file in ${hic_samples[@]}; do
+    # hic_samples=${@:2}
+    # for sample_file in ${hic_samples[@]}; do
+    for sample_file in "${@:2}"; do
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
-        for uri in $(cooler ls ${sample_file}); do
-        for chr in ${CHROMOSOMES[@]}; do
-            output_file="${output_dir}/${sample_ID}.${resolution}.${region}.txt"
+        for uri in $(cooler ls "${sample_file}"); do
+        for chr in "${CHROMOSOMES[@]}"; do
+            param_dir="${output_dir}/weight_${weight_name}/resolution_${resolution}/chr_${chr}"
+            mkdir -p "${param_dir}"
+            output_file="${param_dir}/${sample_ID}.matrix.txt.gz"
             [[ -f "$output_file" ]] && continue
             basename "${output_file}"
             cooler dump                \
-                --nproc $THREADS       \
+                --nproc "${THREADS}"   \
                 --range "${chr}"       \
                 --table pixels         \
                 --join                 \
@@ -90,98 +99,6 @@ dump_all_regions() {
 }
 
 ###################################################
-# Merging matrices 
-###################################################
-merge_matrices() {
-    # Arg list
-    cooler_dir="${1}"
-    sample_group="${2}"
-    read_filter="${3}"
-    # ignore any existing merged files
-    hic_matrices=$(find "${@:4}" | grep -vi 'merge')
-    # echo "Samples being merged:"
-    # echo "${hic_matrices[@]}"
-    # process args
-    output_dir="${cooler_dir}/${sample_group}"
-    mkdir -p "${output_dir}"
-    # Merge contacts
-    merged_cool_file="${output_dir}/${sample_group}.hg38.${read_filter}.1000.cool"
-    if [[ -e ${merged_cool_file} ]]; then
-        echo 'Skipping merge, merged file exists'
-    else 
-        echo "Merging ${sample_group}.* samples..."
-        cooler merge              \
-            "${merged_cool_file}" \
-            ${hic_matrices[@]}
-    fi
-    # Bin + balance merged matrix at all specified resolutions
-    merged_mcool_file="${merged_cool_file%%.cool}.mcool"
-    if [[ -e ${merged_mcool_file} ]]; then
-        echo 'Skipping balancing, galanced merged file exists'
-    else 
-        echo "Balancing ${sample_group} matrix..."
-        cooler zoomify                     \
-            --nproc "${THREADS}"           \
-            --resolutions "${RESOLUTIONS}" \
-            --balance                      \
-            --out "${merged_mcool_file}"   \
-            "${merged_cool_file}"
-    fi
-}
-
-merge_16p_matrices() {
-    cooler_dir="$(readlink -e "${1}")"
-    activate_conda 'cooler'
-    # echo ${cooler_dir}
-    # Merge matrices with and without MAPQ filtering
-    for read_filter in ${MAPQ_FITERS[@]}; do 
-        for celltype in ${CELLTYPES_16P[@]}; do 
-            for genotype in ${GENOTYPES_16P[@]}; do 
-                # merge across all biological + technical replicates
-                sample_group="16p.${celltype}.${genotype}"
-                echo '---------------'
-                # ls ${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool
-                merge_matrices         \
-                    "${cooler_dir}"    \
-                    "${sample_group}"  \
-                    "${read_filter}"   \
-                    "${cooler_dir}/${sample_group}.*.*/*.${read_filter}.1000.cool"
-            done
-        done
-    done
-}
-
-merge_NIPBLWAPL_matrices() {
-    activate_conda 'cooler'
-    cooler_dir="$(readlink -e "${1}")"
-    # For all groups of matrices
-    for read_filter in "${MAPQ_FITERS[@]}"; do 
-        for celltype in "${CELLTYPES_EDITS[@]}"; do 
-            for genotype in "${GENOTYPES_EDITS[@]}"; do 
-                for edit in "${PROJECT_EDITS[@]}"; do 
-                    # merge across all biological + technical replicates
-                    sample_group="${edit}.${celltype}.${genotype}"
-                    echo "${sample_group}"
-                    merge_matrices                      \
-                        "${cooler_dir}"                 \
-                        "${sample_group}.Merged.Merged" \
-                        "${read_filter}"                \
-                        $(find "${cooler_dir}" -type f -name "${sample_group}.*.${read_filter}.1000.cool" | paste -sd" ")
-                done
-            # Merge across edits per genotype & celltype
-            # all_edits="$(echo "${PROJECT_EDITS[@]}" | paste -sd',' )"
-            sample_group="${celltype}.${genotype}"
-            merge_matrices                      \
-                "${cooler_dir}"                 \
-                "All.${sample_group}.Merged.Merged" \
-                "${read_filter}"                \
-                $(find "${cooler_dir}" -type f -name "*.${celltype}.${genotype}.*.${read_filter}.1000.cool")
-            done
-        done
-    done
-}
-
-###################################################
 # QC Stats
 ###################################################
 run_qc3c() {
@@ -189,36 +106,33 @@ run_qc3c() {
     output_dir="$(readlink -e "${1}")"
     enzyme1=${2}
     enzyme2=${3}
-    hic_bams=${@:4}
     activate_conda 'qc3C'
-    for sample_file in ${hic_bams[@]}; do 
-        echo $sample_file
+    for sample_file in "${@:4}"; do 
         sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.lane1.hg38.0.bam}"
-        echo $sample_ID
+        # echo "${sample_ID}" && continue
         # Sort bamfile if not already sorted
-        if ! $(samtools view -H "${sample_file}" | grep -q "SO:queryname"); then
+        if ! samtools view -H "${sample_file}" | grep -q "SO:queryname"; then
             echo "Sorting bam file..."
-            samtools sort            \
-                --threads ${THREADS} \
-                -n                   \
-                -o "${sample_file}"  \
+            samtools sort              \
+                --threads "${THREADS}" \
+                -n                     \
+                -o "${sample_file}"    \
                 "${sample_file}"
         fi
         # Skip if qc3C result already exists
         output_files_path="${output_dir}/${sample_ID}"
-        echo $output_files_path
-        # if [[ -e "${output_files_path}/report.qc3C.json" ]]; then
-        #     echo "Skipping, cached results here: ${output_files_path}"
-        #     continue
-        # fi
+        if [[ -f "${output_files_path}/report.qc3C.json" ]]; then
+            echo "Skipping ${sample_ID} cuz results exist"
+            continue
+        fi
         # Run QC on 200,000 subsampled reads, all mapq > 30
         qc3C bam                        \
-            --threads ${THREADS}        \
+            --threads "${THREADS}"      \
             --fasta ${GENOME_REFERENCE} \
-            --enzyme ${enzyme1}         \
-            --enzyme ${enzyme2}         \
+            --enzyme "${enzyme1}"       \
+            --enzyme "${enzyme2}"       \
             --min-mapq 30               \
             --seed ${SEED}              \
             --max-obs 200000            \
@@ -273,91 +187,209 @@ make_multiqc_reports() {
 }
 
 ###################################################
-# Compute intermediate results
+# Merging matrices 
+###################################################
+merge_matrices() {
+    # Arg list
+    output_dir="$(readlink -e "${1}")"
+    mkdir -p "${output_dir}"
+    sample_group="${2}"
+    read_filter="${3}"
+    merged_sample_name="${4}"
+    # list all samples to merge, ignore existing merged matrices
+    matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
+    hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}"  | grep -vi 'merge'| paste -sd" ")
+    # Merge contacts
+    sample_group_dir="${output_dir}/${merged_sample_name}"
+    mkdir -p "${sample_group_dir}"
+    merged_cool_file="${sample_group_dir}/${merged_sample_name}.hg38.${read_filter}.1000.cool"
+    if [[ -e ${merged_cool_file} ]]; then
+        echo 'Skipping merge, merged file exists'
+    else 
+        echo "Merging ${sample_group} samples into ${merged_cool_file}"
+        cooler merge              \
+            "${merged_cool_file}" \
+            ${hic_matrices[@]}
+    fi
+    # Bin + balance merged matrix at all specified resolutions
+    merged_mcool_file="${merged_cool_file%%.cool}.mcool"
+    if [[ -e ${merged_mcool_file} ]]; then
+        echo "Skipping balancing, balanced merged file exists: ${merged_mcool_file}"
+    else 
+        echo "Balancing ${merged_cool_file} ..."
+        cooler zoomify                     \
+            --nproc "${THREADS}"           \
+            --resolutions "$(echo "${RESOLUTIONS[@]}" | paste -sd',')" \
+            --balance                      \
+            --out "${merged_mcool_file}"   \
+            "${merged_cool_file}"
+    fi
+}
+
+merge_16p_matrices() {
+    cooler_dir="$(readlink -e "${1}")"
+    activate_conda 'cooler'
+    # echo ${cooler_dir}
+    # Merge matrices with and without MAPQ filtering
+    for read_filter in "${MAPQ_FITERS[@]}"; do 
+    for celltype in "${CELLTYPES_16P[@]}"; do 
+    for genotype in "${GENOTYPES_16P[@]}"; do 
+        # # merge across all technical replicates
+        # for cloneID in ${CLONEIDS_16P[@]}; do 
+        #     sample_group="16p.${celltype}.${genotype}.${cloneID}"
+        #     echo "${sample_group}"
+        #     echo '---------------'
+        #     merge_matrices        \
+        #         "${cooler_dir}"   \
+        #         "${sample_group}" \
+        #         "${read_filter}"  \
+        #         "${sample_group}.Merged"
+        # done
+        # merge across all biological + technical replicates
+        sample_group="16p.${celltype}.${genotype}"
+        echo "${sample_group}"
+        echo '--------------------------------------------------------------------'
+        merge_matrices        \
+            "${cooler_dir}"   \
+            "${sample_group}" \
+            "${read_filter}"  \
+            "${sample_group}.Merged.Merged"
+        echo '===================================================================='
+    done
+    done
+    done
+}
+
+merge_Cohesin_matrices() {
+    activate_conda 'cooler'
+    cooler_dir="$(readlink -e "${1}")"
+    # For all groups of matrices
+    for read_filter in "${MAPQ_FITERS[@]}"; do 
+    for celltype in "${CELLTYPES_EDITS[@]}"; do 
+    for genotype in "${GENOTYPES_EDITS[@]}"; do 
+        # merge across all biological + technical replicates PER Edit
+        for edit in "${PROJECT_EDITS[@]}"; do 
+            sample_group="${edit}.${celltype}.${genotype}"
+            matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
+            echo "${sample_group}"
+            echo '---------------------------------------------'
+            merge_matrices        \
+                "${cooler_dir}"   \
+                "${sample_group}" \
+                "${read_filter}"  \
+                "${sample_group}.Merged.Merged"
+            echo '============================================='
+        done
+        # Merge across edits per genotype & celltype ACROSS Edits
+        sample_group="${celltype}.${genotype}"
+        echo "${sample_group}"
+        echo '---------------'
+        merge_matrices        \
+            "${cooler_dir}"   \
+            "*.${sample_group}" \
+            "${read_filter}"  \
+            "All.${sample_group}.Merged.Merged"
+    done
+    done
+    done
+}
+
+###################################################
+# Compute stuff
 ###################################################
 matrix_balance() {
-    hic_matrices=${*}
     activate_conda 'cooltools'
-    for sample_file in ${hic_matrices[*]}; do
-        [[ ${sample_file} == *.mcool ]] || continue
+    for sample_file in "${@}"; do
+        # Extract SampleID
+        sample_ID="$(basename "$sample_file")"
+        sample_ID="${sample_ID%%.mcool}"
         sample_file="$(readlink -e "${sample_file}")"
-        for uri in $(cooler ls "${sample_file}"); do 
+        # for uri in $(cooler ls "${sample_file}"); do 
+        for resolution in "${RESOLUTIONS[@]}"; do
+            uri="${sample_file}::resolutions/${resolution}"
+            echo "${uri}"
+            # Caculate balancing weights
             cooler balance           \
                 --nproc "${THREADS}" \
                 "${uri}"
-        done
+            done
     done
 }
 
 matrix_coverage() {
-    mkdir -p "${1}"
     output_dir="$(readlink -e "${1}")"
-    hic_matrices=${@:2}
+    mkdir -p "${1}"
     activate_conda 'cooltools'
-    for sample_file in ${hic_matrices[*]}; do
-        [[ ${sample_file} == *.mcool ]] || continue
+    for sample_file in "${@:2}"; do
+        # Extract SampleID
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
         sample_file="$(readlink -e "${sample_file}")"
-        for uri in $(cooler ls "${sample_file}"); do 
-            resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
-            raw_output_dir="${output_dir}/weight_raw/resolution_${resolution}"
-            mkdir -p "${raw_output_dir}"
-            raw_output_file="${raw_output_dir}/${sample_ID}-coverage.tsv"
-            if [[ -e ${raw_output_file} ]]; then
-                echo "Raw coveragae already computed"
-            else
-                echo "Computing raw coverage for ${sample_ID}..."
-                cooltools coverage                \
-                    --nproc "${THREADS}"          \
-                    --output "${raw_output_file}" \
+        # loop over all resolutions + normalizations
+        for resolution in "${RESOLUTIONS[@]}"; do
+            uri="${sample_file}::resolutions/${resolution}"
+        # for uri in $(cooler ls "${sample_file}"); do 
+            # resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
+            for weight_name in "${WEIGHT_NAMES[@]}"; do
+                weight="${WEIGHTS[${weight_name}]}"
+                if [[ ${weight} != '' ]]; then
+                    weight_flag="--clr_weight_name ${weight} "
+                else 
+                    weight_flag=""
+                fi
+                # name output file directory with params
+                param_dir="${output_dir}/weight_${weight_name}/resolution_${resolution}"
+                mkdir -p "${param_dir}"
+                output_file="${param_dir}/${sample_ID}-coverage.tsv"
+                # echo "${output_file}"
+                [[ -f "${output_file}" ]] && continue # skip if output file exists
+                # Caculate total IF of each bin
+                echo "${output_file}"
+                cooltools coverage ${weight_flag}--nproc "${THREADS}" \
+                    --output "${output_file}" \
                     "${uri}"
-            fi
-            balanced_output_dir="${output_dir}/weight_balanced/resolution_${resolution}"
-            mkdir -p "${balanced_output_dir}"
-            balanced_output_file="${balanced_output_dir}/${sample_ID}-coverage.tsv"
-            if [[ -e ${balanced_output_file} ]]; then
-                echo "Balanced coveragae already computed"
-            else
-                echo "Computing balanced coverage for ${sample_ID}..."
-                cooltools coverage                     \
-                    --nproc "${THREADS}"               \
-                    --clr_weight_name 'weight'         \
-                    --output "${balanced_output_file}" \
-                    "${uri}"
-            fi
+            done
         done
     done
 }
 
-compute_expected_cis() {
-    mkdir -p "${1}"
+matrix_expected() {
     output_dir="$(readlink -e "${1}")"
-    hic_samples=${@:2}
+    mkdir -p "${1}"
     activate_conda 'cooler'
-    for sample_file in ${hic_samples[@]}; do
+    for sample_file in "${@:2}"; do
         # Extract SampleID
-        sample_file="$(readlink -e ${sample_file})"
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
-        # name output file directory with params
-        param_dir="${output_dir}/resolution_${resolution}"
-        output_file="${param_dir}/${sample_ID}-expected.cis.tsv"
-        [[ -f "$output_file" ]] && continue
-        # For each possible valid combination of parameters
-        if [[ $downsample -eq 0 ]]; then
-            downsample_arg="" 
-            downsample_str="FALSE" 
-        else
-            downsample_arg="--bDownSample "
-            downsample_str="TRUE"
-        fi
-        cooltools expected-cis         \
-            --nproc "${THREADS}"       \
-            --smooth                   \
-            --clr_weight_name 'weight' \
-            --output "${output_file}"  \
-            "${sample_ID}"
+        sample_file="$(readlink -e ${sample_file})"
+        # loop over all resolutions + normalizations + {cis,trans}
+        # for uri in $(cooler ls "${sample_file}"); do 
+            # resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
+        for resolution in "${RESOLUTIONS[@]}"; do
+            uri="${sample_file}::resolutions/${resolution}"
+            for weight_name in "${WEIGHT_NAMES[@]}"; do
+            for contact_type in "${CONTACT_TYPES[@]}"; do
+                weight="${WEIGHTS[${weight_name}]}"
+                if [[ ${weight} != '' ]]; then
+                    weight_flag="--clr_weight_name ${weight} "
+                else 
+                    weight_flag=""
+                fi
+                # name output file directory with params
+                param_dir="${output_dir}/type_${contact_type}/weight_${weight_name}/resolution_${resolution}"
+                mkdir -p "${param_dir}"
+                output_file="${param_dir}/${sample_ID}-expected.tsv"
+                [[ -f "${output_file}" ]] && continue
+                echo "${output_file}"
+                # Caculate expected IF of each position
+                cooltools "expected-${contact_type}" ${weight_flag}--nproc "${THREADS}" \
+                    --smooth                  \
+                    --aggregate-smoothed      \
+                    --output "${output_file}" \
+                    "${uri}"
+            done
+            done
+        done
     done
 }
 
@@ -368,30 +400,14 @@ main() {
     mode="$1"
     echo "${mode}"
     case ${mode} in 
-        merge_NIPBLWAPL_matrices) 
-            merge_NIPBLWAPL_matrices "${2}"
-            ;;
-        merge_16p_matrices) 
-            merge_16p_matrices "${2}"
-            ;;
-        qc3C) 
-            run_qc3c "${@:2}"
-            ;;
-        multiqcs)
-            make_multiqc_reports "${@:2}"
-            ;;
-        dump)
-            dump_all_regions "${@:2}"
-            ;;
-        balance) 
-            matrix_balance "${@:2}"
-            ;;
-        coverage) 
-            matrix_coverage "${@:2}"
-            ;;
-        compute_expected)
-            compute_expected_cis "${@:2}"
-            ;;
+        merge_Cohesin) merge_Cohesin_matrices "${2}" ;;
+        merge_16p)     merge_16p_matrices "${2}" ;;
+        qc3C)          run_qc3c "${@:2}" ;;
+        multiqcs)      make_multiqc_reports "${@:2}" ;;
+        dump)          dump_all_regions "${@:2}" ;;
+        balance)       matrix_balance "${@:2}" ;;
+        coverage)      matrix_coverage "${@:2}" ;;
+        expected)      matrix_expected "${@:2}" ;;
         *) 
             echo "Invalid mode: $mode" && exit 1 
             ;;
@@ -401,30 +417,18 @@ main() {
 ###################################################
 # Handle Arguments
 ###################################################
-CONDA_DIR="$(conda info --base)"
+CONDA_DIR="${HOME}/miniforge3"
 THREADS="8" 
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
-VALID_ARGS=$(getopt -o ha:t: --long help,anaconda-dir,threads -- "$@")
-eval set -- "$VALID_ARGS"
-while [ : ]; do
-    case "$1" in
-        -a|--anaconda-dir)
-            CONDA_DIR="${2}"
-            shift 2
-            ;;
-        -t|--threads)
-            THREADS="${2}"
-            shift 2
-            ;;
-        -h|--help) 
-            shift 1 && help
-            ;;
-        --)
-            shift 
-            break
-            ;;
+while getopts "a:t:h" flag; do
+    case ${flag} in 
+        a) CONDA_DIR="${OPTARG}" ;;
+        t) THREADS="${OPTARG}" ;;
+        h) help && exit 0 ;;
+        *) echo "Invalid flag ${flag}" && help && exit 1 ;;
     esac
 done
+shift $(( OPTIND-1 ))
 [[ $# -eq 1 ]] && (help "${1}" && exit 1)
 main "${@}"
