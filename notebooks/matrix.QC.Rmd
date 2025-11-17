@@ -12,7 +12,7 @@ date: "`r Sys.Date()`"
 }
 </style>
 
-# Set Up
+# Dependencies
 
 ```{r knitr}
 library(knitr)
@@ -40,12 +40,10 @@ library(ggplot2)
 library(ggh4x)
 library(purrr)
 ```
-Load output of `pairtools stats` 
-```{r load_stats, rows.print=5}
-pair.stats.list <- load_pairtools_stats()
-# pair.stats.list$general.stats
-# pair.stats.list$distance.stats
-# pair.stats.list$chr.stats
+Load sample metadata
+```{r load_metadata}
+sample.metadata.df <- 
+    load_sample_metadata()
 ```
 
 # Bin-wise coverage of contacts {.tabset}
@@ -64,10 +62,16 @@ coverage.summary <-
         results_fnc=compute_all_coverage_summaries,
         resolutions=c(100, 50, 25, 10, 5) * 1e3   # Kbs
     ) %>%
-    standardize_data_cols()
+    standardize_data_cols() %>% 
+    inner_join(
+        sample.metadata.df %>%
+        select(SampleID, FlowcellID),
+        by=join_by(SampleID)
+    ) %>%
+    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 ```
 Now print all resolutions which are usable according to the Rao et al. 2014 definition
-```{r print_valid_resolutions, results=TRUE, paged.print=TRUE, max.print=10000}
+```{r print_valid_resolutions, paged.print=TRUE, max.print=10000}
 min.resolutions <- 
     coverage.summary %>% 
     pivot_wider(
@@ -83,16 +87,13 @@ min.resolutions <-
     ) %>% 
     # Pick smallest resolution with sufficient coverage
     group_by(SampleID) %>% 
-    slice_min(
-        resolution, 
-        n=1
-    ) %>% 
+    slice_min(resolution, n=1) %>% 
     ungroup() %>% 
     # format results for human readability
     mutate(bins.pct.covered=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
     arrange(SampleID) %T>%
     write_tsv(MIN_SAMPLE_RESOLUTION_FILE) %>% 
-    mutate(resolution=scale_numbers(resolution)) %>% 
+    # mutate(resolution=scale_numbers(resolution)) %>% 
     rename(
         'Min. Viable Resolution'=resolution, 
         '# Total Bins'=bins.n.total,
@@ -118,6 +119,7 @@ min.resolutions %>%
 coverage.summary %>% 
     filter(
         weight == 'raw',
+        isGenome == 'Per.Chr',
         count.type == 'cis'
     ) %>% 
     filter(metric %in% 
@@ -139,7 +141,8 @@ coverage.summary %>%
     ) %>% 
     make_nested_plot_tabs(
         plot.fnc=plot_heatmap,
-        group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
+        # group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
+        group.cols=c('isMerged', 'metric', 'resolution'),
         max.header.lvl=3,
         x.var='chr',
         y.var='SampleID',
@@ -171,13 +174,19 @@ pair.stats.list <-
 pairs.plot.df <- 
     pair.stats.list %>%
     make_pair_qc_df() %>% 
-    get_info_from_SampleIDs()
+    get_info_from_SampleIDs() %>%
+    inner_join(
+        sample.metadata.df %>%
+        select(SampleID, FlowcellID),
+        by=join_by(SampleID)
+    ) %>%
+    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 barplot.ggtheme <- 
     make_ggtheme(
         legend.position='right',
         legend.text=element_text(size=7),
         legend.key.size=unit(10, "pt"),
-        axis.text.x=element_text(angle=35, hjust=1),
+        axis.text.x=element_text(size=4.5, angle=35, hjust=1),
         axis.title.x=element_blank()
     )
 ```
@@ -228,44 +237,32 @@ pairs.plot.df %>%
     )
 ```
 
-# Plot read orientation frequency over distance {.tabset}
+## % of pairs  (by batch)
 
-Recreating Figure 1 from the [ENCODE HiC Guidelines](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/).
-First format all the orientation data
-```{r pair_orientation_df}
-pair.orientation.df <- 
-    pair.stats.list$distance.stats %>% 
-    mutate(
-        range.end=
-            ifelse(
-                is.na(range.end), 
-                range.start+1,
-                range.end
-            )
-    ) %>% 
-    mutate(
-        orientation=
-            orientation %>%
-            str_replace_all(fixed('+'), '>') %>% 
-            str_replace_all(fixed('-'), '<')
-    ) %>% 
-    get_info_from_SampleIDs()
-```
-Now plot distance vs # of pairs for each pair orientation
-```{r plot_pair_orientation, results='asis', fig.dim=c(12,6)}
-pair.orientation.df %>% 
-    filter(interaction == 'cis') %>% select(-c(interaction)) %>%
-    filter(value > 0) %>% 
+```{r plot_pct_pairs_batch, fig.dim=c(10, 6)}
+pairs.plot.df %>% 
+    rename('Unique Pairs'=frac) %>% 
     make_nested_plot_tabs(
-        plot.fnc=plot_pair.orientation_lineplot,
-        group.cols=c('isMerged', 'Genotype'),
-        facet.group='SampleID',
-        legend.position='inside',
-        legend.position.inside=c(0.15, 0.70), # c(0,0) bottom left, c(1,1) top-right.
-        scales='fixed',
-        x.scale.mode='log10',
-        y.scale.mode='log10',
-        facet.ncol=3
+        plot.fnc=plot_barplot_with_threshold_lines,
+        group.cols=c('isMerged'),
+        max.header.lvl=3,
+        # normal barplot arguments
+        x.var='Category',
+        y.var='Unique Pairs',
+        fill.var='SampleID',
+        facet.col='FlowcellID',
+        facet.row='Celltype',
+        x.scale.mode='discrete',
+        y.scale.mode='pct',
+        theme.obj=barplot.ggtheme,
+        legend.cols=1,
+        # where to draw lines
+        scales='free_y',
+        lines.df=
+            tribble(
+                ~Category, ~y_lower, ~y_upper,
+                'Long Range  >  20Kb', 0.15, 0.40
+            )
     )
 ```
 
@@ -316,7 +313,7 @@ plot.df  <-
     )
 ```
 Plot all contacts between all chromosomes as heatmaps
-```{r plot_cis_trans, results='asis', fig.dim=c(8,6)}
+```{r plot_cis_trans, results='asis', fig.dim=c(10,10)}
 plot.df %>% 
     make_nested_plot_tabs(
         plot.fnc=plot_heatmap,
@@ -343,6 +340,47 @@ plot.df %>%
             )
     )
                     
+```
+
+# Plot read orientation frequency over distance {.tabset}
+
+Recreating Figure 1 from the [ENCODE HiC Guidelines](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/).
+First format all the orientation data
+```{r pair_orientation_df}
+pair.orientation.df <- 
+    pair.stats.list$distance.stats %>% 
+    mutate(
+        range.end=
+            ifelse(
+                is.na(range.end), 
+                range.start+1,
+                range.end
+            )
+    ) %>% 
+    mutate(
+        orientation=
+            orientation %>%
+            str_replace_all(fixed('+'), '>') %>% 
+            str_replace_all(fixed('-'), '<')
+    ) %>% 
+    get_info_from_SampleIDs()
+```
+Now plot distance vs # of pairs for each pair orientation
+```{r plot_pair_orientation, results='asis', fig.dim=c(11,10)}
+pair.orientation.df %>% 
+    filter(interaction == 'cis') %>% select(-c(interaction)) %>%
+    filter(value > 0) %>% 
+    make_nested_plot_tabs(
+        plot.fnc=plot_pair.orientation_lineplot,
+        group.cols=c('isMerged', 'Genotype'),
+        facet.group='SampleID',
+        facet.ncol=3,
+        x.scale.mode='log10',
+        y.scale.mode='log10',
+        # legend.position='inside',
+        # legend.position.inside=c(0.85, 0.20),
+        scales='fixed'
+    )
 ```
 
 # Download Sample Stats
