@@ -4,19 +4,28 @@
 
 - [ ] multiHiCCompare results with new samples
   - [ ] 16p Samples
-  - [ ] NIPBL+WAPL Samples
+  - [x] NIPBL+WAPL Samples
 - [x] finish running HiC samples
-- [ ] write code to compare cooltools insulation TAD boundary annotations
-- [ ] write code to load cooltools and HiTAD annotations separtely
+- [x] write code to compare cooltools insulation TAD boundary annotations
+- [x] write code to load cooltools and HiTAD annotations separtely
+- [x] validate FC direction
+- [ ] fix manhattan lines locations
+- [ ] NIPBL,WAPL LFC vs LFC off diagonals -> find loations
+- [ ] plot insulation scores correlations 
+  - [ ] between biological replicates ?
+  - [ ] between conditions per chr, 
+  - [ ] comapre vs MHC hits
+- [ ] compare significant bin-paris with insulation scores
+- [ ] RBFOX1 location signals
 - [ ] redo stuff with new 16p HiC samples
-  - [ ] create multiQC reports
+  - [x] create multiQC reports
   - [ ] merge matrices
   - [ ] compute coverage for minimum resolution
   - [ ] redo QC notebook
-  - [ ] run HiCRep on new matrix pairs
-  - [ ] redo HiCRep notebook
+  - [x] run HiCRep on new matrix pairs
+  - [x] redo HiCRep notebook
   - [ ] redo Weiner et al. 2022 notebook
-  - [ ] generate TAD annotations for new samples
+  - [x] generate TAD annotations for new samples
   - [ ] redo TAD analysis notebook
 - [ ] read loop callers review paper
 - [ ] pick and install loop calling tools
@@ -31,6 +40,7 @@
 - [x] barplot Pair Category bar plot per Sample
 - [x] lineplot Pair Orientation and Frequency by Distance per Sample
 - [x] heatmap Contacts between all chromosomes per Sample
+- [x] contacts summary stats per samples per chr 
 - [ ] lineplot plot comparing bin-wise coverage of balanced vs raw IFs
 
 ### HiCRep
@@ -42,13 +52,10 @@
 ### TADs
 
 - [ ] hiTAD 
-  - [ ] boxplot number of TADs per Genotype per Chromosome
-  - [ ] boxplot TAD lengths per Genotype per Chromosome
-  - [ ] boxplot of MoCs between Genotypes
-  - [ ] heatmap mean MoC across pairs per Genotype per Chromosome
-- [ ] cooltools
-  - [ ] boxplot number of TAD Boundaries per Genotype per Chromosome
-  - [ ] relative position of Boundaries? 
+  - [x] boxplot number of TADs per Genotype per Chromosome
+  - [x] boxplot TAD lengths per Genotype per Chromosome
+  - [x] boxplot of MoCs between Genotypes
+  - [x] heatmap mean MoC across pairs per Genotype per Chromosome
 
 - [ ] cooltools 
   - [ ] boxplot number of boundaries per Genotype per Chromosome
@@ -60,18 +67,20 @@
   - [ ] boxplot pairwise boundary concordance??? per Genotype per Chromosome
   - [ ] boxplot pairwise boundary strengths per Parameter Set
 
+- [ ] TADCompare
+
 ### multiHiCCompare 
 
-- [ ] volcanco plots
-  - [ ] 16p11.2 Samples
-  - [ ] NIPBL+WAPL
+- [x] volcanco plots
+  - [x] 16p11.2 Samples
+  - [x] NIPBL+WAPL
 
 - [ ] manhattan plots
   - [ ] 16p11.2 Samples
     - [ ] chr16p11.2
     - [ ] chr16p
     - [ ] chr16
-  - [ ] NIPBL+WAPL
+  - [x] NIPBL+WAPL
     - [ ] chr10q23.1 (WAPL)
     - [ ] chr10q (WAPL)
     - [ ] chr10 (WAPL)
@@ -81,6 +90,11 @@
 
 ### Loops
 
+- [ ] cooltools dots results
+  - [ ] number of loops per Param Set
+  - [ ] number of loops per Genotype per Chromosome
+  - [ ] APA plots of loops
+  - [ ] distribution of loops/significance across each chr
 - [ ] mustache loop results
   - [ ] number of loops per Param Set
   - [ ] number of loops per Genotype per Chromosome
@@ -90,7 +104,7 @@
 ## Read Papers
 
 - [x] Original Rao et al 2014 paper [link](https://www.sciencedirect.com/science/article/pii/S0092867414014974?via%3Dihub#app1)
-- [x] ENCODE guidelinkes [link](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/)
+- [x] ENCODE guidelines [link](https://www.encodeproject.org/documents/75926e4b-77aa-4959-8ca7-87efcba39d79/)
 - [ ] Bimal's paper
 - [ ] Rachita's CC paper [link](https://www.biorxiv.org/content/10.1101/2023.04.04.535480v1.full)
 - [ ] CHESS paper [link](https://www.nature.com/articles/s41588-020-00712-y)
@@ -205,3 +219,4 @@
 ### Loop Calling
 
 - ENCODE says >= 2B unique paired-end reads to be "loop resolution"
+
