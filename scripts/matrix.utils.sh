@@ -198,7 +198,8 @@ merge_matrices() {
     merged_sample_name="${4}"
     # list all samples to merge, ignore existing merged matrices
     matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
-    hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}"  | grep -vi 'merge'| paste -sd" ")
+    hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | paste -sd" ")
+    # hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1' | paste -sd" ")
     # Merge contacts
     sample_group_dir="${output_dir}/${merged_sample_name}"
     mkdir -p "${sample_group_dir}"
@@ -209,7 +210,7 @@ merge_matrices() {
         echo "Merging ${sample_group} samples into ${merged_cool_file}"
         cooler merge              \
             "${merged_cool_file}" \
-            ${hic_matrices[@]}
+            "${hic_matrices[@]}"
     fi
     # Bin + balance merged matrix at all specified resolutions
     merged_mcool_file="${merged_cool_file%%.cool}.mcool"
