@@ -4,9 +4,8 @@
 library(here)
 here::i_am('scripts/run.multiHiCCompare.R')
 BASE_DIR <- here()
-SCRIPT_DIR <- here('scripts')
 suppressPackageStartupMessages({
-    source(file.path(SCRIPT_DIR, 'locations.R'))
+    source(file.path(BASE_DIR, 'scripts/locations.R'))
     source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
@@ -21,7 +20,7 @@ suppressPackageStartupMessages({
 ###################################################
 # Individual sample metadata
 sample.metadata.df <- 
-    load_sample_metadata(filter=FALSE)
+    load_sample_metadata(filter=TRUE)
 # All combinations of multiHiCCompare hyper-params to test
 hyper.params.df <- 
     expand_grid(
@@ -31,12 +30,17 @@ hyper.params.df <-
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     tribble(
-        ~Sample.Group.P1, ~Sample.Group.P2,
-        '16p.iN.DUP',     '16p.iN.WT',
-        '16p.iN.DEL',     '16p.iN.WT',
-        '16p.NSC.WT',     '16p.iN.WT',
-        '16p.NSC.DUP',    '16p.NSC.WT',
-        '16p.NSC.DEL',    '16p.NSC.WT'
+        ~Sample.Group.Left, ~Sample.Group.Right,
+        # ~Sample.Group.Numerator, ~Sample.Group.Denominator,
+        '16p.iN.DUP',       '16p.iN.WT',  
+        '16p.iN.DEL',       '16p.iN.WT',  
+        # '16p.iN.DUP',       '16p.iN.DEL', 
+        '16p.NSC.DUP',      '16p.NSC.WT',
+        '16p.NSC.DEL',      '16p.NSC.WT',
+        # '16p.NSC.DUP',      '16p.NSC.DEL',
+        # '16p.iN.DUP',       '16p.NSC.DUP',
+        # '16p.iN.DEL',       '16p.NSC.DEL',
+        '16p.NSC.WT',       '16p.iN.WT'
     ) %>% 
     mutate(
         across(
@@ -55,7 +59,8 @@ comparisons.df <-
 data('hg38_cyto') 
 # parallelizing params
 library(BiocParallel)
-numCores <- length(availableWorkers()); numCores
+# numCores <- length(availableWorkers()); numCores
+numCores <- 2
 # register(MulticoreParam(workers=numCores), default=TRUE)
 register(MulticoreParam(workers=numCores * 2 / 4), default=TRUE)
 plan(multisession,      workers=numCores * 2 / 4)

@@ -437,7 +437,6 @@ make_nested_plot_tabs <- function(
     plot.fnc,
     max.header.lvl=2,
     add.top.layer=FALSE,
-    # tabset.format="{.tabset .tabset-pills}",
     tabset.format="{.tabset}",
     nl.delim="\n\n\n",
     return.figure=FALSE,

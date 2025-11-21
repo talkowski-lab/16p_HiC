@@ -25,10 +25,12 @@ sample.metadata.df <-
     load_sample_metadata()
 # TADCompare parameters
 hyper.params.df <- 
-    tibble(normalization=c('weight', 'NONE')) %>% 
-    cross_join(tibble(z_thresh=c(3))) %>%
-    cross_join(tibble(window_size=c(15))) %>% 
-    cross_join(tibble(gap_thresh=c(0.2)))
+    expand_grid(
+        normalization=c('weight', 'NONE'),
+        z_thresh=c(3),
+        window_size=c(15),
+        gap_thresh=c(0.2)
+    )
 
 ###################################################
 # Generate Consensus TAD calls
@@ -108,5 +110,4 @@ comparisons.df %>%
         # force_redo=TRUE,
         chromosomes=CHROMOSOMES
     )
-
 

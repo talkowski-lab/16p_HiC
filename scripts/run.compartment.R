@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
 ###################################################
 # Load data + Set up comparisons to compute 
 ###################################################
-# hic.matrix.files <- 
+individual.matrix.files <- 
     list_mcool_files(pattern='.hg38.mapq_30.1000.mcool') %>%
     filter(!isMerged) %>% 
     mutate(condition=glue('{Edit}.{Celltype}.{Genotype}')) %>% 
@@ -27,3 +27,6 @@ suppressPackageStartupMessages({
     cross_join(tibble(resolution=c(10, 25, 50, 100) * 1e3)) %>% 
     nest(data=-c(condition, resolution))
 
+###################################################
+# Generate differential compartment results
+###################################################

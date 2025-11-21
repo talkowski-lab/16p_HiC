@@ -3,18 +3,21 @@ library(tidyverse)
 library(magrittr)
 library(glue)
 # Factor levels for variaous metadata categories
-EDITS <- 
+COHESIN.DEL.GROUPS <- 
     c(
-      '16p',
-      'WAPL',
-      'NIBPL',
-      'RAD21'
+         'CTCF.iN.DEL',
+        'RAD21.iN.DEL',
+         'WAPL.iN.DEL',
+        'NIPBL.iN.DEL',
+          'All.iN.DEL'
     )
-GENOTYPES <- 
+COHESIN.WT.GROUPS <- 
     c(
-      'WT',
-      'DEL',
-      'DUP'
+         'CTCF.iN.WT',
+        'RAD21.iN.WT',
+         'WAPL.iN.WT',
+        'NIPBL.iN.WT',
+          'All.iN.WT'
     )
 # have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
@@ -22,11 +25,6 @@ GENOTYPE_COLORS <-
         'WT'='#b3b3ff',
         'DEL'='#ff0000',
         'DUP'='#0000ff'
-    )
-CELLTYPES <- 
-    c(
-      'NSC',
-      'iN'
     )
 CHROMOSOMES <- 
     c(

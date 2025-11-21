@@ -64,10 +64,10 @@ set_up_sample_comparisons <- function(comparison.groups){
 sample_group_priority_fnc_16p <- function(Sample.Group){
     case_when(
         Sample.Group == '16p.NSC.DUP' ~ 1,  # always numerator in FCs
-        Sample.Group == '16p.NSC.DEL' ~ 2,
-        Sample.Group == '16p.NSC.WT'  ~ 3,
-        Sample.Group == '16p.iN.DUP'  ~ 4,
-        Sample.Group == '16p.iN.DEL'  ~ 5,
+        Sample.Group == '16p.iN.DUP'  ~ 2,
+        Sample.Group == '16p.NSC.DEL' ~ 3,
+        Sample.Group == '16p.iN.DEL'  ~ 4,
+        Sample.Group == '16p.NSC.WT'  ~ 5,
         Sample.Group == '16p.iN.WT'   ~ 6,
         TRUE                          ~ Inf
     )
@@ -92,9 +92,13 @@ sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
 
     case_when(
         grepl(  'All.iN.DEL', Sample.Group) ~ 1, # always numerator since always last factor level
+        grepl( 'CTCF.iN.DEL', Sample.Group) ~ 2,
+        grepl('RAD21.iN.DEL', Sample.Group) ~ 2,
         grepl( 'WAPL.iN.DEL', Sample.Group) ~ 2,
         grepl('NIPBL.iN.DEL', Sample.Group) ~ 3,
         grepl(  'All.iN.WT',  Sample.Group) ~ 4,
+        grepl( 'CTCF.iN.WT',  Sample.Group) ~ 2,
+        grepl('RAD21.iN.WT',  Sample.Group) ~ 2,
         grepl( 'WAPL.iN.WT',  Sample.Group) ~ 5,
         grepl('NIPBL.iN.WT',  Sample.Group) ~ 6,
         TRUE                                ~ Inf
