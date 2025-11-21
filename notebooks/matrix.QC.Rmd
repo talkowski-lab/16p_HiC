@@ -39,6 +39,7 @@ library(magrittr)
 library(ggplot2)
 library(ggh4x)
 library(purrr)
+library(kableExtra)
 ```
 Load sample metadata
 ```{r load_metadata}
@@ -63,7 +64,7 @@ coverage.summary <-
         resolutions=c(100, 50, 25, 10, 5) * 1e3   # Kbs
     ) %>%
     standardize_data_cols() %>% 
-    inner_join(
+    left_join(
         sample.metadata.df %>%
         select(SampleID, FlowcellID),
         by=join_by(SampleID)
@@ -71,7 +72,7 @@ coverage.summary <-
     mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 ```
 Now print all resolutions which are usable according to the Rao et al. 2014 definition
-```{r print_valid_resolutions, paged.print=TRUE, max.print=10000}
+```{r print_valid_resolutions, results=TRUE, paged.print=TRUE, max.print=10000}
 min.resolutions <- 
     coverage.summary %>% 
     pivot_wider(
@@ -110,7 +111,9 @@ min.resolutions %>%
         `% Bins >= 1K`,
         `# Bins >= 1K`,
         `# Total Bins`
-    )
+    ) #%>% 
+    # kbl() %>% 
+    # kable_styling(bootstrap_options=c("striped", "hover"))
 ```
 
 ## Summary Stats {.tabset}
@@ -169,22 +172,26 @@ coverage.summary %>%
 # Plot pairs by distance {.tabset}
 
 ```{r pair_plot_df, include=FALSE}
+sample.metadata.df <- 
+    load_sample_metadata(filter=FALSE)
 pair.stats.list <- 
     load_pairtools_stats()
 pairs.plot.df <- 
     pair.stats.list %>%
     make_pair_qc_df() %>% 
     get_info_from_SampleIDs() %>%
-    inner_join(
+    left_join(
         sample.metadata.df %>%
-        select(SampleID, FlowcellID),
+        select(SampleID, FlowcellID, Included),
         by=join_by(SampleID)
     ) %>%
+    # filter(Included | isMerged == 'Merged') %>% select(-c(Included)) %>% 
+    # filter(isMerged == 'Merged') %>% select(-c(Included)) %>% 
     mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 barplot.ggtheme <- 
     make_ggtheme(
         legend.position='right',
-        legend.text=element_text(size=7),
+        legend.text=element_text(size=5),
         legend.key.size=unit(10, "pt"),
         axis.text.x=element_text(size=4.5, angle=35, hjust=1),
         axis.title.x=element_blank()
@@ -193,8 +200,9 @@ barplot.ggtheme <-
 
 ## Number of pairs 
 
-```{r plot_n_pairs, fig.dim=c(6,4)}
+```{r plot_n_pairs, fig.dim=c(7,5)}
 pairs.plot.df %>% 
+    filter(Included | isMerged == 'Merged') %>% 
     rename('Unique Pairs'=value) %>% 
     plot_barplot(
         x.var='Category',
@@ -204,7 +212,7 @@ pairs.plot.df %>%
         facet.row='isMerged',
         x.scale.mode='discrete',
         y.scale.mode='log10',
-        legend.cols=1,
+        legend.cols=2,
         scales='free_y',
         y.limits=c(1e6, NA),
         theme.obj=barplot.ggtheme
@@ -213,8 +221,9 @@ pairs.plot.df %>%
 
 ## % of pairs 
 
-```{r plot_pct_pairs, fig.dim=c(6,4)}
+```{r plot_pct_pairs, fig.dim=c(7,5)}
 pairs.plot.df %>% 
+    filter(Included | isMerged == 'Merged') %>% 
     rename('Unique Pairs'=frac) %>% 
     plot_barplot_with_threshold_lines(
         # normal barplot arguments
@@ -226,7 +235,7 @@ pairs.plot.df %>%
         x.scale.mode='discrete',
         y.scale.mode='pct',
         theme.obj=barplot.ggtheme,
-        legend.cols=1,
+        legend.cols=2,
         # where to draw lines
         scales='free_y',
         lines.df=
@@ -237,11 +246,13 @@ pairs.plot.df %>%
     )
 ```
 
-## % of pairs  (by batch)
+## % of pairs  (by batch) {.tabset}
 
-```{r plot_pct_pairs_batch, fig.dim=c(10, 6)}
+```{r plot_pct_pairs_batch, results='asis', fig.dim=c(10, 6)}
 pairs.plot.df %>% 
     rename('Unique Pairs'=frac) %>% 
+    # filter(FlowcellID == 'Merged', isMerged == 'Individual') %>% 
+    # dplyr::count(FlowcellID, isMerged)
     make_nested_plot_tabs(
         plot.fnc=plot_barplot_with_threshold_lines,
         group.cols=c('isMerged'),
