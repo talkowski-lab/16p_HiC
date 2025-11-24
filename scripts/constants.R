@@ -3,21 +3,14 @@ library(tidyverse)
 library(magrittr)
 library(glue)
 # Factor levels for variaous metadata categories
-COHESIN.DEL.GROUPS <- 
+CNV.GROUPS <- 
     c(
-         'CTCF.iN.DEL',
-        'RAD21.iN.DEL',
-         'WAPL.iN.DEL',
-        'NIPBL.iN.DEL',
-          'All.iN.DEL'
-    )
-COHESIN.WT.GROUPS <- 
-    c(
-         'CTCF.iN.WT',
-        'RAD21.iN.WT',
-         'WAPL.iN.WT',
-        'NIPBL.iN.WT',
-          'All.iN.WT'
+        '16p.NSC.DUP',
+        '16p.NSC.DEL',
+        '16p.NSC.WT',
+        '16p.iN.DUP',
+        '16p.iN.DEL',
+        '16p.iN.WT'
     )
 # have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
@@ -25,6 +18,11 @@ GENOTYPE_COLORS <-
         'WT'='#b3b3ff',
         'DEL'='#ff0000',
         'DUP'='#0000ff'
+    )
+CELLTYPE_COLORS <- 
+    c(
+        'NSC'='#b3b3ff',
+        'iN'='#ff0000'
     )
 CHROMOSOMES <- 
     c(
@@ -73,15 +71,6 @@ GENOMIC_REGIONS <-
     "16p",         "chr16p",                   "chr16",                 0,    36800000,
     "16p",         "chr16q",                   "chr16",          36800001,    90338345,
     "16p",         "chr16",                    "chr16",                 0,    90338345,
-    "NIPBL",       "NIPBL",                    "chr5",           36876769,    37066413,
-    "NIPBL",       "chr5p13.2",                "chr5",           33800001,    38400000,
-    "NIPBL",       "chr5p",                    "chr5",                  0,    48800000,
-    "NIPBL",       "chr5",                     "chr5",                  0,    81538259,
-    "WAPL",        "16p13.13",                 "chr16",          10400001,	  12500000,
-    "WAPL",        "WAPL",                     "chr10",          86435256,    86521792,
-    "WAPL",        "chr10q23.2",               "chr10",          86100001,    87700000,
-    "WAPL",        "chr10q",                   "chr10",          39800001,    33797422,
-    "WAPL",        "chr10",                    "chr10",                 0,    33797422,
     "RGDs",        "1q21",                     "chr1",          146081967,   148779515,
     "RGDs",        "7q11.23_WBS",              "chr7",           73174795,    74833380,
     "RGDs",        "8p23.1",                   "chr8",             523442,     5539949,
@@ -101,8 +90,6 @@ LAB_MEETING_REGIONS <-
     tribble(
     ~region.group, ~region,           ~region.chr, ~region.start, ~region.end,
     "16p",         "16p11.2 CNV",         "chr16",      29488679,    30188679,
-    "WAPL",        "chr10q23.1-23.2",     "chr10",      79788887,    87316288,
-    "NIPBL",       "chr5p13.2",           "chr5",       33800001,    38400000,
     ) %>% 
     mutate(
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
