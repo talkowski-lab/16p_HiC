@@ -2,14 +2,14 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/run.TADCompare.R')
+here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
     source(file.path(BASE_DIR, 'scripts', 'locations.R'))
     source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-    source(file.path(SCRIPT_DIR, 'utils.TADs.R'))
+    source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADs.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)

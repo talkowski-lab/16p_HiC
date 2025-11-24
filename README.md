@@ -216,7 +216,7 @@ Generate various QC results from `distiller-nf` output files
 # Generated merged matrices for each condition
 ./scripts/matrix.utils.sh merge_16p ./results/coolers_library
 ./scripts/matrix.utils.sh merge_Cohesin ./results/coolers_library
-# Balance matrices
+# Balance matrices 
 ./scripts/matrix.utils.sh balance ./results/coolers_library/**/*.mapq_30.1000.mcool
 # Calculate total bin-wise coverage 
 ./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
@@ -232,17 +232,17 @@ Generate HiCRep results
 Generate TAD and insulation annotations
 ```bash
 # Generate TAD annotations with hiTAD for merged matrices
-./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD     $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD     $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
 # Generate TAD boundary annotations with cooltools insulation for
-./scripts/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
 # ./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ hiTAD $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
-# Run TADCompare to generated differential TAD results
-Rscript ./scripts/run.TADCompare.R 
 ```
 Generate TADCompare results
 ```bash
-Rscript ./scripts/run.TADCompare.R Consensus
-Rscript ./scripts/run.TADCompare.R Compare
+# Generate Consensus TAD results from set of individual matrices
+Rscript ./scripts/TADs/run.TADCompare.R Consensus
+# Run TADCompare to generated differential TAD results
+Rscript ./scripts/TADs/run.TADCompare.R Compare
 ```
 Generate multiHiCCompare results
 ```bash
@@ -252,6 +252,10 @@ watch -n60 "find results/multiHiCCompare/results/ -type f -name '*.tsv' | cut -d
 ```
 Generate Compartment annotations
 ```bash
-Rscript ./scripts/run.compartments.R
+Rscript ./scripts/compartments/run.compartments.R
+```
+Generate Loop Annotations
+```bash
+./scripts/loops/run.Loop.Callers.sh ./results/Loops cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
 ```
 
