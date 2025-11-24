@@ -314,15 +314,27 @@ scale_numbers <- function(
     }
 }
 
-rename_chrs <- function(chrs){
-    case_when(
-        chrs == 23           ~ 'X',
-        chrs == 24           ~ 'Y',
-        chrs > 0 & chrs < 23 ~ as.character(chrs),
-        TRUE ~ NA
-    ) %>% 
-    paste0('chr', .) %>% 
-    factor(levels=CHROMOSOMES)
+rename_chrs <- function(
+    chrs, 
+    to_numeric=FALSE){
+    if (is.character(chrs) | to_numeric){
+        case_when(
+            chrs == 'chrX'     ~ 23,
+            chrs == 'chrY'     ~ 24,
+            grepl(chrs, 'chr') ~ str_remove(chrs, 'chr'),
+            TRUE               ~ NA
+        ) %>%
+        as.integer()
+    } else {
+        case_when(
+            chrs == 23             ~ 'X',
+            chrs == 24             ~ 'Y',
+            chrs  >  0 & chrs < 23 ~ as.character(chrs),
+            TRUE                   ~ NA
+        ) %>% 
+        paste0('chr', .) %>% 
+        factor(levels=CHROMOSOMES)
+    }
 }
 
 standardize_data_cols <- function(
@@ -480,7 +492,7 @@ load_genome_coverage <- function(
         names_prefix='coverage.',
         values_to='coverage'
     ) %>%  
-    mutate(chr=factor(chr, levels=CHROMOSOMES))
+    standardize_data_cols()
 }
 
 load_mcool_file <- function(
@@ -646,15 +658,15 @@ load_mcool_files <- function(
 ###################################################
 set_up_sample_groups <- function(
     sample.groups,
-    keep_merged=FALSE){
+    use_merged=FALSE){
     list_mcool_files() %>%
     get_min_resolution_per_matrix() %>% 
     distinct() %>% 
     {
-        if (keep_merged) {
-            .
-        } else {
+        if (use_merged) {
             filter(., isMerged)
+        } else {
+            filter(., !isMerged)
         }
     } %>% 
     # Now group samples by condition, 
