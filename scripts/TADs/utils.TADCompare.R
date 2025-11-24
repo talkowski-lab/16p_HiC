@@ -3,55 +3,6 @@ library(TADCompare)
 ###################################################
 # Generate ConsensusTADs
 ###################################################
-set_up_sample_groups <- function(sample.groups){
-    list_mcool_files() %>%
-    get_min_resolution_per_matrix() %>% 
-    distinct() %>% 
-    # Now group samples by condition, 
-    filter(!isMerged) %>% 
-    nest(samples.df=-c(isMerged)) %>% 
-    cross_join(sample.groups) %>%
-    # subset relevant samples for each comparison
-    rowwise() %>% 
-    mutate(
-        samples.df=
-            samples.df %>%
-            mutate(
-                Sample.Group=
-                    case_when(
-                        str_detect(SampleID, Sample.Group.Pattern) ~ Sample.Group,
-                        TRUE ~ NA
-                    )
-            ) %>%
-            filter(!is.na(Sample.Group)) %>% 
-            list()
-    ) %>%
-    # minimum and max resoltion of all individual matrices per comparison
-    mutate(
-        resolution.min=min(samples.df$resolution),
-        resolution.max=max(samples.df$resolution)
-    ) %>% 
-    ungroup() %>%
-    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
-    unnest(resolution) %>% 
-    mutate(
-        resolution.type=
-            case_when(
-                resolution == resolution.max ~ 'max',
-                resolution == resolution.min ~ 'min',
-                TRUE                         ~ NA
-            )
-    ) %>% 
-    select(
-        -c(
-            resolution.min,
-            resolution.max,
-            ends_with('.Pattern')
-        )
-    )
-    
-}
-
 TADCompare_load_matrix <- function(
     filepath,
     ...){

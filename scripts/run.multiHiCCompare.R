@@ -5,7 +5,7 @@ library(here)
 here::i_am('scripts/run.multiHiCCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR, 'scripts/locations.R'))
+    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
     source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
@@ -42,15 +42,7 @@ comparisons.df <-
         # '16p.iN.DEL',       '16p.NSC.DEL',
         '16p.NSC.WT',       '16p.iN.WT'
     ) %>% 
-    mutate(
-        across(
-            starts_with('Sample.Group.'),
-            ~ str_replace_all(.x, 'All', '.*'),
-            .names='{.col}.Pattern'
-        )
-    ) %>% 
-    set_up_sample_comparisons() %>%
-    select(-c(ends_with('.Pattern')))
+    set_up_sample_comparisons()
 
 ###################################################
 # Generate DAC results for each comparison

@@ -401,138 +401,6 @@ standardize_data_cols <- function(
 }
 
 ###################################################
-# Handle pairs of samples
-###################################################
-join_all_rows <- function(
-    df1,
-    df2=NULL,
-    join_keys=c(),
-    ...){
-    if (is_tibble(df2)) {
-        full_join(
-            df1 %>% add_column(join_dummy=0),
-            df2 %>% add_column(join_dummy=0),
-            relationship='many-to-many',
-            by=c('join_dummy', join_keys),
-            ...
-        ) %>% 
-        select(-c(join_dummy))
-    } else {
-        full_join(
-            df1 %>% add_column(join_dummy=0),
-            df1 %>% add_column(join_dummy=0),
-            relationship='many-to-many',
-            by=c('join_dummy', join_keys),
-            ...
-        ) %>% 
-        select(-c(join_dummy))
-    }
-}
-
-get_all_row_combinations <- function(
-    df1,
-    df2=NULL,
-    cols_to_pair=c(),
-    suffixes=c('.P1', '.P2'),
-    keep_self=TRUE,
-    ...){
-    # Get all combinations of rows with matching attributes (cols_to_pair)
-    {
-        if (is_tibble(df2)) {
-            join_all_rows(
-                df1 %>% mutate(index=row_number()),
-                df2 %>% mutate(index=row_number()),
-                join_keys=cols_to_pair,
-                suffix=c('.A', '.B')
-            )
-        } else {
-            join_all_rows(
-                df1 %>% mutate(index=row_number()),
-                df1 %>% mutate(index=row_number()),
-                join_keys=cols_to_pair,
-                suffix=c('.A', '.B')
-            )
-        }
-    } %>% 
-    # Keep only distinct pairs of rows (order doesnt matter
-    mutate(
-        index.pair=
-            pmap_chr(
-                list(index.A, index.B),
-                ~ paste(sort(c(...)), collapse='~')
-            )
-    ) %>%
-    distinct(
-        index.pair,
-        .keep_all=TRUE
-    ) %>%
-    # keep/remove pairs of a row matched to itself
-    {
-        if (keep_self) {
-            .
-        } else {
-            filter(., index.A != index.B)
-        }
-    } %>% 
-    # rename with suffixes
-    select(-c(starts_with('index'))) %>%
-    rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
-    rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
-}
-
-merge_sample_info <- function(
-    SampleInfo.P1,
-    SampleInfo.P2,
-    suffix.P1='.P1',
-    suffix.P2='.P2',
-    ...){
-    # SampleInfo.P1=df$SampleInfo.P1[[1]]; prefix.P1='SampleInfo.P1.'; SampleInfo.P2=df$SampleInfo.P2[[1]]; prefix.P2='SampleInfo.P2.'
-    # Combine pair info
-    if (is.null(SampleInfo.P1)) {
-        return(NULL)
-    } else if (is.null(SampleInfo.P2)) {
-        return(NULL)
-    }
-    bind_rows(
-        SampleInfo.P1 %>% rename_with(~ str_remove(.x, suffix.P1)),
-        SampleInfo.P2 %>% rename_with(~ str_remove(.x, suffix.P2)),
-    ) %>% 
-    add_column(PairIndex=c('P1', 'P2')) %>% 
-    mutate(across(everything(), as.character)) %>% 
-    pivot_longer(
-        -PairIndex,
-        names_to='SampleAttribute',
-        values_to='SampleValue'
-    ) %>% 
-    pivot_wider(
-        names_from=PairIndex,
-        values_from=SampleValue
-    ) %>% 
-    rowwise() %>% 
-    # Now store both pair values for a single metadata field in 1 column
-    # and keep order consistent for grouping downstream
-    # NOTE this means that the metadata columns are not always P1 vs P2
-    # sometimes it will be P2 vs P1 based on alphabetical order of the values
-    # but thats fine since you can just looks at the SampleIDs themselves if 
-    # you care about that info
-    mutate(
-        PairValue=
-            case_when(
-                P1 == P2 ~ glue('{P1} vs {P2}'),
-                P1 != P2 ~ 
-                    c(P1, P2) %>% 
-                    sort() %>%  
-                    paste(collapse=" vs ")
-            )
-    ) %>%
-    select(SampleAttribute, PairValue) %>%
-    pivot_wider(
-        names_from=SampleAttribute,
-        values_from=PairValue
-    )
-}
-
-###################################################
 # Load Specific Data
 ###################################################
 load_sample_metadata <- function(filter=TRUE){
@@ -587,72 +455,6 @@ get_min_resolution_per_matrix <- function(
             .
         }
     }
-}
-
-fetch_regions <- function(
-    regions.df,
-    normalizations,
-    resolutions,
-    ...){
-    regions.df %>% 
-    join_all_rows(
-        expand_grid(
-            normalization=normalizations,
-            resolution=resolutions
-        )
-    ) %>% 
-    # add context of 1/2 the size (rounded to nearest bin) to each side of the region
-    mutate(
-        window.size=
-            round(
-                region.dist / 2,
-                digits=-log10(resolution)
-            ),
-        across(
-            c(
-              region.start,
-              region.end,
-              region.dist,
-              resolution,
-              window.size
-            ),
-            as.integer
-        )
-    ) %>% 
-    select(-c(region.group))
-}
-
-format_plot_params <- function(
-    regions.df,
-    title.prefix='RGD Region',
-    ...){
-    load_mcool_files(
-        return_metadata_only=TRUE,
-        pattern='*.mapq_30.1000.mcool',
-        regions.df=regions.df,
-        range1s=NULL,
-        range2s=NULL,
-        progress=TRUE
-    ) %>% 
-    # format querys for loading contacts via fetch()
-    rowwise() %>% 
-    mutate(
-        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
-        range2=range1
-    ) %>%
-    ungroup() %>% 
-    mutate(
-        cis=TRUE,
-        region.title=glue('{title.prefix} {region} {region.UCSC}'),
-        output_dir=
-            file.path(
-                PLOT_DIR, 
-                glue('region_{region}'),
-                glue('normalization_{normalization}'),
-                glue('resolution_{scale_numbers(resolution)}'),
-                glue('context_{scale_numbers(window.size)}')
-            )
-    )
 }
 
 ###################################################
@@ -837,5 +639,317 @@ load_mcool_files <- function(
             unnest(contacts)
         }
     }
+}
+
+###################################################
+# Group samples by condition
+###################################################
+set_up_sample_groups <- function(
+    sample.groups,
+    keep_merged=FALSE){
+    list_mcool_files() %>%
+    get_min_resolution_per_matrix() %>% 
+    distinct() %>% 
+    {
+        if (keep_merged) {
+            .
+        } else {
+            filter(., isMerged)
+        }
+    } %>% 
+    # Now group samples by condition, 
+    nest(samples.df=-c(isMerged)) %>% 
+    cross_join(
+        sample.groups %>% 
+        mutate(
+            across(
+                starts_with('Sample.Group'),
+                ~ str_replace_all(.x, 'All', '.*'),
+                .names='{.col}.Pattern'
+            )
+        )
+    ) %>%
+    # subset relevant samples for each comparison
+    rowwise() %>% 
+    mutate(
+        samples.df=
+            samples.df %>%
+            mutate(
+                Sample.Group=
+                    case_when(
+                        str_detect(SampleID, Sample.Group.Pattern) ~ Sample.Group,
+                        TRUE ~ NA
+                    )
+            ) %>%
+            filter(!is.na(Sample.Group)) %>% 
+            list()
+    ) %>%
+    # minimum and max resoltion of all individual matrices per comparison
+    mutate(
+        resolution.min=min(samples.df$resolution),
+        resolution.max=max(samples.df$resolution)
+    ) %>% 
+    ungroup() %>%
+    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
+    unnest(resolution) %>% 
+    mutate(
+        resolution.type=
+            case_when(
+                resolution == resolution.max ~ 'max',
+                resolution == resolution.min ~ 'min',
+                TRUE                         ~ NA
+            )
+    ) %>% 
+    select(
+        -c(
+            resolution.min,
+            resolution.max,
+            ends_with('.Pattern')
+        )
+    )
+    
+}
+
+set_up_sample_comparisons <- function(
+    comparison.groups,
+    keep_merged=FALSE){
+    # get info + filepaths for all contact matrices
+    list_mcool_files() %>%
+    get_min_resolution_per_matrix() %>% 
+    distinct() %>% 
+    {
+        if (keep_merged) {
+            .
+        } else {
+            filter(., isMerged)
+        }
+    } %>% 
+    # Now group samples by condition, 
+    nest(samples.df=-c(isMerged)) %>% 
+    cross_join(
+        comparison.groups %>% 
+        mutate(
+            across(
+                starts_with('Sample.Group.'),
+                ~ str_replace_all(.x, 'All', '.*'),
+                .names='{.col}.Pattern'
+            )
+        )
+    ) %>%
+    # subset relevant samples for each comparison
+    rowwise() %>% 
+    mutate(
+        samples.df=
+            samples.df %>%
+            mutate(
+                Sample.Group=
+                    case_when(
+                        str_detect(SampleID, Sample.Group.Left.Pattern) ~ Sample.Group.Left,
+                        str_detect(SampleID, Sample.Group.Right.Pattern) ~ Sample.Group.Right,
+                        TRUE ~ NA
+                    )
+            ) %>%
+            filter(!is.na(Sample.Group)) %>% 
+            list()
+    ) %>%
+    # minimum and max resoltion of all individual matrices per comparison
+    mutate(
+        resolution.min=min(samples.df$resolution),
+        resolution.max=max(samples.df$resolution)
+    ) %>% 
+    # Now list every comparison at every resolution that is either a min or max for 1 comparison
+    ungroup() %>%
+    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
+    unnest(resolution) %>% 
+    mutate(
+        resolution.type=
+            case_when(
+                resolution == resolution.max ~ 'max',
+                resolution == resolution.min ~ 'min',
+                TRUE                         ~ NA
+            )
+    ) %>% 
+    select(-c(resolution.min, resolution.max)) %>%
+    select(-c(ends_with('.Pattern')))
+}
+
+sample_group_priority_fnc_16p <- function(Sample.Group){
+    # FC is determined by the edger::exactTest() function called in multiHiCCompare
+    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
+    # According to the docs for exactTest()
+    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
+    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
+    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
+    # so for 16p.NSC.DEL vs 16p.NSC.WT we want to force 16p.NSC.DEL be numerator 
+    # therefore we make it the SECOND factor level i.e. have  a larger priority number 
+    # i.e. this works when the priority of 16p.NSC.DEL > 16p.NSC.WT
+
+    case_when(
+        Sample.Group == '16p.NSC.DUP' ~ 1,  # always numerator in FCs
+        Sample.Group == '16p.iN.DUP'  ~ 2,
+        Sample.Group == '16p.NSC.DEL' ~ 3,
+        Sample.Group == '16p.iN.DEL'  ~ 4,
+        Sample.Group == '16p.NSC.WT'  ~ 5,
+        Sample.Group == '16p.iN.WT'   ~ 6,
+        TRUE                          ~ Inf
+    )
+}
+
+sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
+    # FC is determined by the edger::exactTest() function called in multiHiCCompare
+    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
+    # According to the docs for exactTest()
+    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
+    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
+    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
+    # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
+    # the SECOND factor level i.e. have  a larger priority number 
+    # i.e. this works when the priority of NIPBL.DEL > NIPBL.WT 
+
+    case_when(
+        grepl( 'CTCF.iN.DEL', Sample.Group) ~ 1, # always numerator since always last factor level
+        grepl('RAD21.iN.DEL', Sample.Group) ~ 2,
+        grepl( 'WAPL.iN.DEL', Sample.Group) ~ 3,
+        grepl('NIPBL.iN.DEL', Sample.Group) ~ 4,
+        grepl(  'All.iN.DEL', Sample.Group) ~ 5, 
+        grepl( 'CTCF.iN.WT',  Sample.Group) ~ 11,
+        grepl('RAD21.iN.WT',  Sample.Group) ~ 12,
+        grepl( 'WAPL.iN.WT',  Sample.Group) ~ 13,
+        grepl('NIPBL.iN.WT',  Sample.Group) ~ 14,
+        grepl(  'All.iN.WT',  Sample.Group) ~ 15,
+        TRUE                                ~ Inf
+    )
+}
+
+###################################################
+# Handle pairs of samples
+###################################################
+join_all_rows <- function(
+    df1,
+    df2=NULL,
+    join_keys=c(),
+    ...){
+    if (is_tibble(df2)) {
+        full_join(
+            df1 %>% add_column(join_dummy=0),
+            df2 %>% add_column(join_dummy=0),
+            relationship='many-to-many',
+            by=c('join_dummy', join_keys),
+            ...
+        ) %>% 
+        select(-c(join_dummy))
+    } else {
+        full_join(
+            df1 %>% add_column(join_dummy=0),
+            df1 %>% add_column(join_dummy=0),
+            relationship='many-to-many',
+            by=c('join_dummy', join_keys),
+            ...
+        ) %>% 
+        select(-c(join_dummy))
+    }
+}
+
+get_all_row_combinations <- function(
+    df1,
+    df2=NULL,
+    cols_to_pair=c(),
+    suffixes=c('.P1', '.P2'),
+    keep_self=TRUE,
+    ...){
+    # Get all combinations of rows with matching attributes (cols_to_pair)
+    {
+        if (is_tibble(df2)) {
+            join_all_rows(
+                df1 %>% mutate(index=row_number()),
+                df2 %>% mutate(index=row_number()),
+                join_keys=cols_to_pair,
+                suffix=c('.A', '.B')
+            )
+        } else {
+            join_all_rows(
+                df1 %>% mutate(index=row_number()),
+                df1 %>% mutate(index=row_number()),
+                join_keys=cols_to_pair,
+                suffix=c('.A', '.B')
+            )
+        }
+    } %>% 
+    # Keep only distinct pairs of rows (order doesnt matter
+    mutate(
+        index.pair=
+            pmap_chr(
+                list(index.A, index.B),
+                ~ paste(sort(c(...)), collapse='~')
+            )
+    ) %>%
+    distinct(
+        index.pair,
+        .keep_all=TRUE
+    ) %>%
+    # keep/remove pairs of a row matched to itself
+    {
+        if (keep_self) {
+            .
+        } else {
+            filter(., index.A != index.B)
+        }
+    } %>% 
+    # rename with suffixes
+    select(-c(starts_with('index'))) %>%
+    rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
+    rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
+}
+
+merge_sample_info <- function(
+    SampleInfo.P1,
+    SampleInfo.P2,
+    suffix.P1='.P1',
+    suffix.P2='.P2',
+    ...){
+    # SampleInfo.P1=df$SampleInfo.P1[[1]]; prefix.P1='SampleInfo.P1.'; SampleInfo.P2=df$SampleInfo.P2[[1]]; prefix.P2='SampleInfo.P2.'
+    # Combine pair info
+    if (is.null(SampleInfo.P1)) {
+        return(NULL)
+    } else if (is.null(SampleInfo.P2)) {
+        return(NULL)
+    }
+    bind_rows(
+        SampleInfo.P1 %>% rename_with(~ str_remove(.x, suffix.P1)),
+        SampleInfo.P2 %>% rename_with(~ str_remove(.x, suffix.P2)),
+    ) %>% 
+    add_column(PairIndex=c('P1', 'P2')) %>% 
+    mutate(across(everything(), as.character)) %>% 
+    pivot_longer(
+        -PairIndex,
+        names_to='SampleAttribute',
+        values_to='SampleValue'
+    ) %>% 
+    pivot_wider(
+        names_from=PairIndex,
+        values_from=SampleValue
+    ) %>% 
+    rowwise() %>% 
+    # Now store both pair values for a single metadata field in 1 column
+    # and keep order consistent for grouping downstream
+    # NOTE this means that the metadata columns are not always P1 vs P2
+    # sometimes it will be P2 vs P1 based on alphabetical order of the values
+    # but thats fine since you can just looks at the SampleIDs themselves if 
+    # you care about that info
+    mutate(
+        PairValue=
+            case_when(
+                P1 == P2 ~ glue('{P1} vs {P2}'),
+                P1 != P2 ~ 
+                    c(P1, P2) %>% 
+                    sort() %>%  
+                    paste(collapse=" vs ")
+            )
+    ) %>%
+    select(SampleAttribute, PairValue) %>%
+    pivot_wider(
+        names_from=SampleAttribute,
+        values_from=PairValue
+    )
 }
 
