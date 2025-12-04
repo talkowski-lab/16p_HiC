@@ -26,10 +26,10 @@ input:
     raw_reads_paths:
         # substitute the location of your fastq files:
         # an example of a 1-lane library:
-        16p.iN.DEL.H10.TR4:
+        16p.iN.DEL.H10.TR5:
           lane1:
-            - /data/talkowski/Samples/16p_HiC/fastq/237HGMLT4_1_0454940177_16pDELH10iNHiCT4_S3_L001_R1_001.fastq.gz
-            - /data/talkowski/Samples/16p_HiC/fastq/237HGMLT4_1_0454940177_16pDELH10iNHiCT4_S3_L001_R2_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/237HGMLT4_2_0454940177_16pDELH10iNHiCT4_S13_L002_R1_001.fastq.gz
+            - /data/talkowski/Samples/16p_HiC/fastq/237HGMLT4_2_0454940177_16pDELH10iNHiCT4_S13_L002_R2_001.fastq.gz
     # Truncate input fastqs to a small number of reads (e.g. 10000) for
     # semi-dry test runs.
     # NOTE: when the inputs are specified as an SRA number, only this number of
@@ -172,10 +172,10 @@ bin:
 ########################################
 output:
     dirs:
-        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.iN.DEL.H10.TR4'
-        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.iN.DEL.H10.TR4'
-        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.iN.DEL.H10.TR4'
-        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.iN.DEL.H10.TR4'
-        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.iN.DEL.H10.TR4'
-        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.iN.DEL.H10.TR4'
-        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.iN.DEL.H10.TR4'
+        processed_fastqs: '/data/talkowski/Samples/16p_HiC/results/processed_fastqs/16p.iN.DEL.H10.TR5'
+        mapped_parsed_sorted_chunks: '/data/talkowski/Samples/16p_HiC/results/mapped_parsed_sorted_chunks/16p.iN.DEL.H10.TR5'
+        fastqc: '/data/talkowski/Samples/16p_HiC/results/fastqc/16p.iN.DEL.H10.TR5'
+        pairs_library: '/data/talkowski/Samples/16p_HiC/results/pairs_library/16p.iN.DEL.H10.TR5'
+        coolers_library: '/data/talkowski/Samples/16p_HiC/results/coolers_library/16p.iN.DEL.H10.TR5'
+        coolers_library_group: '/data/talkowski/Samples/16p_HiC/results/coolers_library_group/16p.iN.DEL.H10.TR5'
+        stats_library_group: '/data/talkowski/Samples/16p_HiC/results/stats_library_group/16p.iN.DEL.H10.TR5'
