@@ -13,11 +13,14 @@ suppressPackageStartupMessages({
     library(tidyverse)
     library(magrittr)
     library(purrr)
+    library(optparse)
+    library(BiocParallel)
 })
 
 ###################################################
 # Set up all comparisons
 ###################################################
+options(scipen=999)
 # Individual sample metadata
 sample.metadata.df <- 
     load_sample_metadata(filter=TRUE)
@@ -27,44 +30,76 @@ hyper.params.df <-
         zero.p=c(0.8),
         A.min=c(5)
     )
-# List all separate sample sets + parameters to run multiHiCComapre for
-comparisons.df <- 
-    tribble(
-        ~Sample.Group.Left, ~Sample.Group.Right,
-        # ~Sample.Group.Numerator, ~Sample.Group.Denominator,
-        '16p.iN.DUP',       '16p.iN.WT',  
-        '16p.iN.DEL',       '16p.iN.WT',  
-        # '16p.iN.DUP',       '16p.iN.DEL', 
-        '16p.NSC.DUP',      '16p.NSC.WT',
-        '16p.NSC.DEL',      '16p.NSC.WT',
-        # '16p.NSC.DUP',      '16p.NSC.DEL',
-        # '16p.iN.DUP',       '16p.NSC.DUP',
-        # '16p.iN.DEL',       '16p.NSC.DEL',
-        '16p.NSC.WT',       '16p.iN.WT'
+
+###################################################
+# Arguments
+###################################################
+# Parse Arguments
+parsed.args <- 
+    OptionParser() %>%
+    add_option(
+        c('-t', '--threads'),
+        type='integer',
+        default=length(availableWorkers()),
+        dest='num.cores'
     ) %>% 
-    set_up_sample_comparisons()
+    add_option(
+        c('-f', '--force'),
+        action='store_true',
+        default=FALSE,
+        dest='force.redo'
+    ) %>%
+    add_option(
+        c('-r', '--resolutions'),
+        type='character',
+        default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
+        dest='resolutions'
+    ) %>%
+    parse_args(positional_arguments=TRUE) %>%
+    {.$options}
+parsed.args$resolutions <- 
+    parsed.args$resolutions %>%
+    str_split(',') %>%
+    lapply(as.integer) %>%
+    unlist()
 
 ###################################################
 # Generate DAC results for each comparison
 ###################################################
 # GRanges object with Centro/Telomere regions to filter
 data('hg38_cyto') 
-# parallelizing params
-library(BiocParallel)
-# numCores <- length(availableWorkers()); numCores
-numCores <- 2
-# register(MulticoreParam(workers=numCores), default=TRUE)
-register(MulticoreParam(workers=numCores * 2 / 4), default=TRUE)
-plan(multisession,      workers=numCores * 2 / 4)
-# Run multiHiCComapre on all comparisons
 # 2 group comparison + no covariates -> use exact test
+message(glue('using {parsed.args$num.cores} core to parallelize'))
+register(MulticoreParam(workers=parsed.args$num.cores * 2 / 4), default=TRUE)
+plan(multisession,      workers=parsed.args$num.cores * 2 / 4)
+# List all separate sample sets + parameters to run multiHiCComapre for
+comparisons.df <- 
+tribble(
+    ~Sample.Group.Left, ~Sample.Group.Right,
+    # ~Sample.Group.Numerator, ~Sample.Group.Denominator,
+    # '16p.iN.DUP',       '16p.iN.WT',  
+    # '16p.iN.DEL',       '16p.iN.WT',  
+    # '16p.iN.DUP',       '16p.iN.DEL', 
+    # '16p.NSC.DUP',      '16p.NSC.DEL',
+    # '16p.iN.DUP',       '16p.NSC.DUP',
+    # '16p.iN.DEL',       '16p.NSC.DEL',
+    # '16p.NSC.WT',       '16p.iN.WT',
+    '16p.NSC.DUP',      '16p.NSC.DEL',
+    '16p.NSC.DUP',      '16p.NSC.WT',
+    '16p.NSC.DEL',      '16p.NSC.WT'
+    ) %>% 
+    set_up_sample_comparisons(
+        resolutions=parsed.args$resolutions,
+        merging='individual'
+    )
+comparisons.df
 comparisons.df %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
         remove.regions=hg38_cyto,
-        # covariates.df=NULL,
+        covariates.df=NULL,
         # chromosomes=CHROMOSOMES,
-        # force_redo=TRUE,
+        force_redo=parsed.args$force.redo,
         sample_group_priority_fnc=sample_group_priority_fnc_16p
     )
 

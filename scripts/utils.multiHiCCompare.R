@@ -258,7 +258,7 @@ run_all_multiHiCCompare <- function(
                 glue('merged_{isMerged}'),
                 glue('zero.p_{zero.p}'),
                 glue('A.min_{A.min}'),
-                glue('resolution_{scale_numbers(resolution)}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
                 glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
