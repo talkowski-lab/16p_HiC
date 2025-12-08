@@ -301,63 +301,6 @@ annotate_DI_with_TADs <- function(
 }
 
 ###################################################
-# Data loading wrappers
-###################################################
-list_all_dataset_pairs <- function(
-    pair_grouping_cols,
-    ...){
-    # pair_grouping_cols=c('isMerged', 'resolution')
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-DI.tsv'
-    ) %>%
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
-    filter(
-        (method == 'hiTAD' & weight == 'ICE') |
-        (method == 'cooltools')
-    ) %>%
-    standardize_data_cols() %>% 
-    nest(
-        SampleInfo=
-            c(
-                # weight,
-                SampleID,
-                Edit,
-                Genotype,
-                Celltype,
-                CloneID,
-                TechRepID
-            )
-    ) %>% 
-    # List all pairs of annotations (SampleID + chr) that also have matching parameter values listed
-    get_all_row_combinations(
-        cols_to_pair=c(pair_grouping_cols, 'method'),
-        keep_self=FALSE
-    ) %>% 
-    rowwise() %>% 
-    mutate(
-        SamplePairInfo=
-            merge_sample_info(
-                SampleInfo.P1,
-                SampleInfo.P2
-            ) %>%
-            list()
-    ) %>% 
-    ungroup() %>% 
-    select(
-        all_of(
-            c(
-                pair_grouping_cols,
-                'SamplePairInfo',
-                'filepath.P1',
-                'filepath.P2'
-            )
-        )
-    ) %>% 
-    unnest(SamplePairInfo)
-}
-
-###################################################
 # Compute Similarities
 ###################################################
 define_TAD_pairs <- function(

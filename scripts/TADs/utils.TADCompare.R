@@ -91,12 +91,12 @@ run_all_ConsensusTADs <- function(
         output_dir=
             file.path(
                 TAD_DIR,
-                'results_ConsensusTADs',
+                'method_ConsensusTAD',
                 glue('merged_{isMerged}'),
                 glue('z.thresh_{z_thresh}'),
                 glue('window.size_{window_size}'),
                 glue('gap.thresh_{gap_thresh}'),
-                glue('resolution_{scale_numbers(resolution)}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
                 glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
@@ -107,8 +107,8 @@ run_all_ConsensusTADs <- function(
             )
     ) %>% 
     arrange(resolution) %>% 
-    # future_pmap(
-    pmap(
+    future_pmap(
+    # pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_ConsensusTAD
             function(results_file, ...){ 
@@ -124,6 +124,33 @@ run_all_ConsensusTADs <- function(
         ...,  # passed from the call to this function
         .progress=TRUE
     )
+}
+
+load_CosensusTADs <- function(
+    filepath,
+    ...){
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE,
+    )
+}
+
+load_all_CosensusTADs <- function(...){
+    file.path(TAD_DIR, 'results_TADCompare') %>%
+    parse_results_filelist() %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    mutate(
+        TADs=
+            # pmap(
+            future_pmap(
+                .,
+                load_CosensusTADs,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(TADs) %>% 
+    select(-c(filepath))
 }
 
 ###################################################
@@ -182,7 +209,6 @@ run_TADCompare <- function(
         suffix=c('.All', '.TADs'),
         by=join_by(Boundary)
     ) %>% 
-
     mutate(
         isTADBoundary=ifelse(is.na(isTADBoundary), FALSE, isTADBoundary),
         Enriched.Condition=
@@ -238,6 +264,7 @@ run_TADCompare <- function(
 run_all_TADCompare <- function(
     comparisons.df,
     hyper.params.df,
+    TADs.df,
     chromosomes=CHROMOSOMES,
     force_redo=TRUE,
     ...){
@@ -246,6 +273,10 @@ run_all_TADCompare <- function(
     # for each comparison list all paramter combinations
     cross_join(hyper.params.df) %>% 
     cross_join(tibble(chr=chromosomes)) %>% 
+    left_join(
+        TADs.df,
+        by=join_by(isMerged, resolution, chr)
+    ) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -270,9 +301,9 @@ run_all_TADCompare <- function(
             )
     ) %>% 
     arrange(resolution) %>% 
-        # {.} -> tmp
-    # future_pmap(
-    pmap(
+        {.}
+    future_pmap(
+    # pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
             function(results_file, ...){ 
@@ -300,8 +331,7 @@ load_TADCompare_results <- function(
     )
 }
 
-load_all_TADCompare_results <- function(
-    ...){
+load_all_TADCompare_results <- function(...){
     file.path(TAD_DIR, 'results_TADCompare') %>%
     parse_results_filelist() %>% 
     get_info_from_MatrixIDs(keep_id=FALSE) %>% 

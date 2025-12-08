@@ -1,4 +1,4 @@
-# #!/bin/bash
+#!/bin/bash
 # set -euo pipefail
 
 ###################################################
@@ -167,7 +167,8 @@ main() {
     for resolution in ${RESOLUTIONS[@]}; do
         for sample_file in ${HIC_SAMPLES[@]}; do
             sample_ID="$(get_sample_ID "${sample_file}")"
-            echo "${sample_ID}"
+            echo "${sample_ID} @ ${resolution}"
+            echo "================================"
             case ${METHOD} in
                 hiTAD)     run_hitad "${sample_file}" "${resolution}" ;;
                 cooltools) run_cooltools_insulation "${sample_file}" "${resolution}" ;;
@@ -222,3 +223,4 @@ CONDA_ENV_CMD="$(activate_conda "${METHOD}")"
 OUTPUT_DIR="$(readlink -e "${OUTPUT_DIR}")"
 mkdir -p "${OUTPUT_DIR}"
 main 
+
