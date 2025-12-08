@@ -272,7 +272,7 @@ scale_numbers <- function(
     numbers,
     accuracy=2,
     force_numeric=FALSE){
-    if (is.character(numbers) | is.factor(numbers)) {
+    if ((is.character(numbers) | is.factor(numbers)) | force_numeric) {
         numbers %>%
         as.character() %>% 
         tibble(resolution.str=.) %>%
@@ -291,7 +291,7 @@ scale_numbers <- function(
                 as.integer() %>%
                 multiply_by(magnitude)
         ) %>% 
-        pull(resolution)
+        pull(resolution) #%>% format(scientific=FALSE) %>% as.numeric()
     } else if (is.numeric(numbers) & !force_numeric) {
         numbers %>%
         tibble(resolution=.) %>%
@@ -443,17 +443,7 @@ get_min_resolution_per_matrix <- function(
     MIN_SAMPLE_RESOLUTION_FILE %>%
     read_tsv(show_col_types=FALSE) %>%
     select(SampleID, resolution) %>% 
-    {
-        if (as_int && !is.numeric(.$resolution)) {
-            mutate(., resolution=scale_numbers(resolution))
-        } else if (!as_int && is.numeric(.$resolution)) {
-            mutate(., resolution=scale_numbers(resolution))
-        } else if ( as_int &&  is.numeric(.$resolution)) {
-            .
-        } else if (!as_int && !is.numeric(.$resolution)) {
-            .
-        }
-    } %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=as_int)) %>% 
     add_column(is.smallest.resolution=TRUE) %>% 
     left_join(
         df,
@@ -658,6 +648,7 @@ load_mcool_files <- function(
 ###################################################
 set_up_sample_groups <- function(
     sample.groups,
+    resolutions=c(),
     use_merged=FALSE){
     list_mcool_files() %>%
     get_min_resolution_per_matrix() %>% 
@@ -702,7 +693,7 @@ set_up_sample_groups <- function(
         resolution.max=max(samples.df$resolution)
     ) %>% 
     ungroup() %>%
-    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
+    mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
     unnest(resolution) %>% 
     mutate(
         resolution.type=
@@ -724,16 +715,19 @@ set_up_sample_groups <- function(
 
 set_up_sample_comparisons <- function(
     comparison.groups,
-    keep_merged=FALSE){
+    resolutions=c(),
+    merging='individual'){
     # get info + filepaths for all contact matrices
     list_mcool_files() %>%
     get_min_resolution_per_matrix() %>% 
     distinct() %>% 
     {
-        if (keep_merged) {
-            .
-        } else {
+        if (merging == 'individual' ) {
+            filter(., !isMerged)
+        } else if (merging == 'merged' ) {
             filter(., isMerged)
+        } else {
+            .
         }
     } %>% 
     # Now group samples by condition, 
@@ -771,7 +765,7 @@ set_up_sample_comparisons <- function(
     ) %>% 
     # Now list every comparison at every resolution that is either a min or max for 1 comparison
     ungroup() %>%
-    mutate(resolution=list(unique(c(resolution.min, resolution.max)))) %>%
+    mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
     unnest(resolution) %>% 
     mutate(
         resolution.type=
