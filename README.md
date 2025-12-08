@@ -199,8 +199,8 @@ Generate `.mcool` files from `.fastq` files using the `distiller-nf` pipeline
 # Variables in the template are defined in locations.R or in make.distiller.configs.R
 Rscript ./scripts/make.distiller.configs.R ./sample.configs/template.distiller.yml
 # Run the distiller-nf pipeline by submitting each sample config as an individual SLURM job
-module load wget; module unload java; module load singularity/3.7.0; conda activate dist2;
-./scripts/run.distiller.sh -a ~/miniforge3 $(find ./sample.configs -type f -name '*.distiller.yml')
+module load wget; module unload java; module load singularity/3.7.0; conda activate dist2
+./scripts/run.distiller.sh -w "./work_${USER}" -a ~/miniforge3 ./sample.configs/16p.*.yml
 # List all unmergeed matrices produced by the pipeline
 find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | 
     grep -v 'Merged' | 
@@ -231,24 +231,23 @@ Generate HiCRep results
 ```
 Generate TAD and insulation annotations
 ```bash
-# Generate TAD annotations with hiTAD for merged matrices
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD     $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
-# Generate TAD boundary annotations with cooltools insulation for
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
-# ./scripts/annotate.TADs.sh -t 12 -o ./results/TADs/ hiTAD $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+# Generate TAD annotations with hiTAD 
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t 8 -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+# ./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.mapq_30.1000.mcool
+# Generate TAD boundary annotations with cooltools insulation
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t 8 -o ./results/TADs/ cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+# ./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools ./results/coolers_library/**/*.mapq_30.1000.mcool
+# Generate Consensus TAD results from set of individual matrices with spectralTAD
+Rscript ./scripts/TADs/run.ConsensusTADs.R
 ```
 Generate TADCompare results
 ```bash
-# Generate Consensus TAD results from set of individual matrices
-Rscript ./scripts/TADs/run.TADCompare.R Consensus
 # Run TADCompare to generated differential TAD results
-Rscript ./scripts/TADs/run.TADCompare.R Compare
+Rscript ./scripts/TADs/run.TADCompare.R
 ```
 Generate multiHiCCompare results
 ```bash
 Rscript ./scripts/run.multiHiCCompare.R
-# List summary of all generated multiHiCCompare results 
-watch -n60 "find results/multiHiCCompare/results/ -type f -name '*.tsv' | cut -d'/' -f4-7,10 | cut -d'-' -f1 | sort -k4,3 | uniq -c | column -s'/' -t"
 ```
 Generate Compartment annotations
 ```bash
@@ -256,6 +255,26 @@ Rscript ./scripts/compartments/run.compartments.R
 ```
 Generate Loop Annotations
 ```bash
-./scripts/loops/run.Loop.Callers.sh ./results/Loops cooltools $(find ./results/coolers_library -type f -name "*.Merged.Merged*.mapq_30.1000.mcool")
+./scripts/loops/run.LoopCallers.sh ./results/Loops cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 ```
 
+## File Summary One-liners
+
+```bash
+# List all matrices
+find results/coolers_library/ -type f -name '*mapq_30.1000.mcool' | rev | cut -d'/' -f1 | rev  | cut -d'.' -f-3,7 | sort | uniq -c | column -s'\.' -t
+# List the marginal coverage results for all samples
+find results/sample.QC/coverage/ -type f  | sed -e 's/-coverage.tsv//' | cut -d'/' -f4-5 | sort | uniq -c | column -s'/' -t
+# List all HiCRep results
+find results/hicrep/ -type f -name '*.txt' | sed -e 's/-hicrep.txt//' | cut -d'/' -f3-6 | sort | uniq -c | column -s'/' -t
+# List all cooltools insulations results
+# List all hiTAD results
+find results/TADs/method_hiTAD/ -type f -name '*-TAD.tsv' | cut -d'/' -f4- | sed -e 's/-TAD.tsv//' | sort | uniq -c | column -s'/' -t
+# List all ConsensusTAD results
+find results/TADs/method_ConsensusTAD/ -type f  | cut -d'/' -f4-8,11- | sed -e 's/-ConsensusTADs.tsv//' | sort | uniq -c | column -s'/' -t
+# List all TADComapre results
+# List all multiHiCCompare results
+find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-7,10 | sort | uniq -c | column -s'/' -t
+# List all dcHiC results
+# List all loop results
+```
