@@ -1,15 +1,21 @@
 #!/bin/bash
 set -euo pipefail
-# Locations
+
+###################################################
+# Paths
+###################################################
 NEXTFLOW_22_EXE="/PHShome/sr1068/miniforge3/envs/dist2/bin/nextflow"
 DISTILLER_DIR="/data/talkowski/Samples/16p_HiC/distiller-nf"
 DISTILLER_EXE="${DISTILLER_DIR}/distiller.nf"
 DISTILLER_CONFIG_DIR="${DISTILLER_DIR}/nextflow.config"
 
+###################################################
 # Functions
+###################################################
 help() {
     echo TODO
 }
+
 main() {
     mkdir -p "${LOG_DIR}"
     for yml_file in ${@}; do
@@ -18,6 +24,11 @@ main() {
         echo "${sample_ID}"
         cmd="bash -l -c module load wget; module unload java; module load singularity/3.7.0; source "${CONDA_DIR}/etc/profile.d/conda.sh"; ${NEXTFLOW_22_EXE} run ${DISTILLER_EXE} -params-file ${yml_file} -w ${DISTILLER_WORK_DIR} -c ${DISTILLER_CONFIG_DIR}"
         # echo "${cmd}"
+        final_output_file="${BASE_DIR}/results/coolers_library/${sample_ID}/${sample_ID}.hg38.mapq_30.1000.mcool"
+        if [ -f "${final_output_file}" ]; then
+            echo "Matrix for sample ${sample_ID} exists, not resubmitting job"
+            continue 
+        fi
 echo "sbatch
     --partition ${PARTITION}
     --time ${TIME}
@@ -40,7 +51,10 @@ echo "sbatch
             --wrap="${cmd}"
     done
 }
+
+###################################################
 # Default args
+###################################################
 BASE_DIR="$(pwd)"
 # CONDA_DIR="$(conda info --base)"
 DISTILLER_WORK_DIR="${BASE_DIR}/work"
@@ -51,7 +65,10 @@ NTASKS_PER_NODE=8
 CPUS=8
 PARTITION="bigmem"
 TIME="4-23:59:59"
+
+###################################################
 # Handle CLI args
+###################################################
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
 while getopts "d:w:a:l:m:n:c:p:h" flag; do
     case ${flag} in 
@@ -84,6 +101,10 @@ MEM:                ${MEM}
 NTASKS_PER_NODE:    ${NTASKS_PER_NODE} 
 CPUS:               ${CPUS} 
 DISTILLER_WORK_DIR: ${DISTILLER_WORK_DIR}"
+
+###################################################
+# Run 
+###################################################
 # All args are assumed to be distiller compatible yml files
 # module unload java; module load wget singularity/3.7.0 source "${CONDA_DIR}/etc/profile.d/conda.sh"; conda activate dist2
 main ${@}
