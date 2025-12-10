@@ -9,6 +9,19 @@ library(tictoc)
 ###################################################
 # Load resutls
 ###################################################
+get_smoothing_param <- function(resolution){
+    case_when(
+        resolution == 1000000 ~  0,
+        resolution == 500000  ~  1,
+        resolution == 100000  ~  3,
+        resolution == 50000   ~  4,
+        resolution == 40000   ~  5,
+        resolution == 25000   ~ 10,
+        resolution == 10000   ~ 20,
+        resolution == 5000    ~ 40
+    )
+}
+
 load_all_hicrep_results <- function(
     sample_metadata=NULL,
     samples_to_keep=NULL){

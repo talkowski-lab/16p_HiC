@@ -223,11 +223,13 @@ Generate various QC results from `distiller-nf` output files
 ```
 Generate HiCRep results
 ```bash
-# Generate HiCRep results for all pairs of unmerged matrices
-./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
-# Generate HiCRep results for all pairs of merged matrices
-./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
 # Do these commands separately, dont bother with merged vs unmerged matrix comparisons
+# Generate HiCRep results for all pairs of unmerged matrices
+# ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep -v 'Merged' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1')
+# Generate HiCRep results for all pairs of merged matrices
+# ./scripts/run.hicrep.sh ./results/hicrep/ $(find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | grep 'Merged')
+# Generate list of commands to run for all pairs of matrices + all hyper-param combos
+Rscript ./scripts/run.hicrep.R && parallel -j 0  --eta :::: ./results/hicrep/all.hicrep.cmds.txt
 ```
 Generate TAD and insulation annotations
 ```bash

@@ -4,7 +4,7 @@ set -euo pipefail
 ###################################################
 # Fixed params
 ###################################################
-RESOLUTIONS=(500000 100000 50000 25000 10000)
+RESOLUTIONS=(100000 50000 25000 10000)
 get_smooting_param() {
     # get relevant smoothing param for each resolution
     # https://github.com/TaoYang-dev/hicrep
@@ -31,34 +31,35 @@ HIC_SAMPLES=${@:2}
 ###################################################
 # All combos of hicrep params
 ###################################################
-for downsample in ${DOWNSAMPLE[@]}; do
-for max_window_size in ${MAX_WINDOW_SIZE[@]}; do
-for resolution in ${RESOLUTIONS[@]}; do
-    h="$(get_smooting_param "${resolution}")"
-    # For each possible valid combination of parameters
-    if [[ $downsample -eq 0 ]]; then
-        downsample_arg="" 
-        downsample_str="FALSE" 
-    else
-        downsample_arg="--bDownSample "
-        downsample_str="TRUE"
-    fi
-    [[ $max_window_size -lt $resolution ]] && continue
-    # For all combinations of samples
-    for sample_file_i in ${HIC_SAMPLES[@]}; do
-    for sample_file_j in ${HIC_SAMPLES[@]}; do
-        # sample 1 info
-        sample_file_i="$(readlink -e ${sample_file_i})"
-        sample_ID_i="$(basename "${sample_file_i}")"
-        sample_ID_i="${sample_ID_i%%.mcool}"
-        # sample 2 info
-        sample_file_j="$(readlink -e ${sample_file_j})"
-        sample_ID_j="$(basename "${sample_file_j}")"
-        sample_ID_j="${sample_ID_j%%.mcool}"
+# For all combinations of samples
+for sample_file_i in ${HIC_SAMPLES[@]}; do
+for sample_file_j in ${HIC_SAMPLES[@]}; do
+    # sample 1 info
+    sample_file_i="$(readlink -e ${sample_file_i})"
+    sample_ID_i="$(basename "${sample_file_i}")"
+    sample_ID_i="${sample_ID_i%%.mcool}"
+    # sample 2 info
+    sample_file_j="$(readlink -e ${sample_file_j})"
+    sample_ID_j="$(basename "${sample_file_j}")"
+    sample_ID_j="${sample_ID_j%%.mcool}"
+    for downsample in ${DOWNSAMPLE[@]}; do
+    for max_window_size in ${MAX_WINDOW_SIZE[@]}; do
+    for resolution in ${RESOLUTIONS[@]}; do
+        h="$(get_smooting_param "${resolution}")"
+        # For each possible valid combination of parameters
+        if [[ $downsample -eq 0 ]]; then
+            downsample_arg="" 
+            downsample_str="FALSE" 
+        else
+            downsample_arg="--bDownSample "
+            downsample_str="TRUE"
+        fi
+        [[ $max_window_size -lt $resolution ]] && continue
         # Check if results are redundant or already exist
         comparison_dir="resolution_${resolution}/h_${h}/is.downsampled_${downsample_str}/window.size_${max_window_size}"
         output_file="${OUTPUT_DIR}/${comparison_dir}/${sample_ID_i}-${sample_ID_j}-hicrep.txt"
         redundant_file="${OUTPUT_DIR}/${comparison_dir}/${sample_ID_j}-${sample_ID_i}-hicrep.txt"
+        # [[ -e ${output_file} || -e ${redundant_file} ]] && echo "skiped..." && continue 
         [[ -e ${output_file} || -e ${redundant_file} ]] && continue 
         [[ ${sample_ID_i} == "${sample_ID_j}" ]] && continue
         # Run hicrep
@@ -66,7 +67,7 @@ for resolution in ${RESOLUTIONS[@]}; do
         # echo $output_file
         cmd="hicrep ${downsample_arg}--dBPMax ${max_window_size} --binSize ${resolution} --h ${h} ${sample_file_i} ${sample_file_j} ${output_file}"
         echo "${cmd}"
-        ${cmd}
+        # ${cmd}
         # hicrep "${downsample_arg}"
         #     --h "${h}" 
         #     --dBPMax ${max_window_size} 
