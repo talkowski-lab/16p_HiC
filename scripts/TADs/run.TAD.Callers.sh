@@ -4,6 +4,7 @@
 ###################################################
 # TAD Calling params
 ###################################################
+RESOLUTIONS=(100000 50000 25000 10000)
 # hiTAD params
 declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
 # cooltools insulation params
@@ -186,7 +187,6 @@ main() {
 BASE_DIR="./"
 OUTPUT_DIR="${BASE_DIR}/results/TADs"
 EVAL_METHOD='txt'
-RESOLUTIONS=(100000 50000 25000 10000)
 # Default SLURM params
 QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; THREADS=2; LOG_DIR="${BASE_DIR}/slurm.logs"
 CONDA_DIR="$(conda info --base)"

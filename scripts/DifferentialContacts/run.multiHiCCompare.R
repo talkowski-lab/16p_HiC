@@ -74,17 +74,15 @@ register(MulticoreParam(workers=parsed.args$num.cores * 2 / 4), default=TRUE)
 plan(multisession,      workers=parsed.args$num.cores * 2 / 4)
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
-tribble(
+    tribble(
     ~Sample.Group.Left, ~Sample.Group.Right,
-    # ~Sample.Group.Numerator, ~Sample.Group.Denominator,
-    # '16p.iN.DUP',       '16p.iN.WT',  
-    # '16p.iN.DEL',       '16p.iN.WT',  
     # '16p.iN.DUP',       '16p.iN.DEL', 
     # '16p.NSC.DUP',      '16p.NSC.DEL',
-    # '16p.iN.DUP',       '16p.NSC.DUP',
-    # '16p.iN.DEL',       '16p.NSC.DEL',
+    # '16p.NSC.DUP',      '16p.iN.DUP',
+    # '16p.NSC.DEL',      '16p.iN.DEL',
     # '16p.NSC.WT',       '16p.iN.WT',
-    '16p.NSC.DUP',      '16p.NSC.DEL',
+    # '16p.iN.DUP',       '16p.iN.WT',  
+    # '16p.iN.DEL',       '16p.iN.WT',  
     '16p.NSC.DUP',      '16p.NSC.WT',
     '16p.NSC.DEL',      '16p.NSC.WT'
     ) %>% 
