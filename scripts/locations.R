@@ -12,9 +12,9 @@ if (grepl('/home/', BASE_DIR)) {
 ###################################################
 # distiller-nf 
 ###################################################
-# input
-SAMPLE_METADATA_FILE           <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
-GENOME_REF_DIR          <- '/data/talkowski/tools/ref/Hi_c_noalt'
+SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
+# GENOME_REF_DIR          <- '/data/talkowski/tools/ref/Hi_c_noalt'
+GENOME_REF_DIR          <- file.path(BASE_DIR, 'reference.files', 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
 BWA_INDEX_WILDCARD_PATH <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.fasta.*'))
