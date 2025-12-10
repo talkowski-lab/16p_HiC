@@ -16,14 +16,41 @@ suppressPackageStartupMessages({
 })
 
 ###################################################
-# Set Up
+# Arguments
 ###################################################
-# numCores <- length(availableWorkers()); numCores
-# plan(multisession, workers=numCores)
-# Individual sample metadata
-sample.metadata.df <- 
-    load_sample_metadata()
-# TADCompare parameters
+# Parse Arguments
+parsed.args <- 
+    OptionParser() %>%
+    add_option(
+        c('-t', '--threads'),
+        type='integer',
+        default=length(availableWorkers()),
+        dest='num.cores'
+    ) %>% 
+    add_option(
+        c('-f', '--force'),
+        action='store_true',
+        default=FALSE,
+        dest='force.redo'
+    ) %>%
+    add_option(
+        c('-r', '--resolutions'),
+        type='character',
+        default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
+        dest='resolutions'
+    ) %>%
+    parse_args(positional_arguments=TRUE) %>%
+    {.$options}
+parsed.args$resolutions <- 
+    parsed.args$resolutions %>%
+    str_split(',') %>%
+    lapply(as.integer) %>%
+    unlist()
+
+###################################################
+# Generate TADCompare results from merged matrices
+###################################################
+# TADCompare hypper-parameters
 hyper.params.df <- 
     expand_grid(
         normalization=c('weight', 'NONE'),
@@ -31,40 +58,6 @@ hyper.params.df <-
         window_size=c(15),
         gap_thresh=c(0.2)
     )
-
-###################################################
-# Generate Consensus TAD calls
-###################################################
-# List all groups of libraries to call ConsensusTADs() from
-sample.groups.df <- 
-    tribble(
-        ~Sample.Group,
-        '16p.iN.WT',
-        '16p.iN.DEL',
-        '16p.iN.DUP',
-        '16p.NSC.WT',
-        '16p.NSC.DEL',
-        '16p.NSC.DUP'
-    ) %>% 
-    mutate(
-        across(
-            starts_with('Sample.Group'),
-            ~ str_replace_all(.x, 'All', '.*'),
-            .names='{.col}.Pattern'
-        )
-    ) %>% 
-    set_up_sample_groups()
-# Call Consensus TADs from individual groups of libraries
-sample.groups.df %>%
-    run_all_ConsensusTADs(
-        hyper.params.df=hyper.params.df,
-        # force_redo=TRUE,
-        chromosomes=CHROMOSOMES
-    )
-
-###################################################
-# Generate TADCompare results from merged matrices
-###################################################
 # List of pairs of merged matrices to compare
 merged.matrices.df <- 
     list_mcool_files() %>%
@@ -72,8 +65,6 @@ merged.matrices.df <-
     filter(isMerged) %>% 
     mutate(Sample.Group=glue('{Edit}.{Celltype}.{Genotype}')) %>% 
     select(isMerged, resolution, Sample.Group, filepath)
-merged.matrices.df
-    # nest(data=-c(isMerged, resolution, Sample.Group))
 # get all relevant pairs of merged matrices
 comparisons.df <- 
     tribble(
@@ -99,15 +90,14 @@ comparisons.df <-
         suffix=c('.Numerator', '.Denominator'),
         by=join_by(isMerged, Sample.Group.Denominator == Sample.Group)
     ) %>% 
-    cross_join(tibble(resolution=c(10, 25, 50, 100) * 1e3))
-    # cross_join(tibble(resolution=unique(merged.matrices.df$resolution)))
-comparisons.df
-
-# merged.matrices.df %>% 
+    cross_join(tibble(resolution=parsed.args$resolutions))
+# Run TADCompare on everything
+message(glue('using {parsed.args$num.cores} core to parallelize'))
+plan(multisession, workers=parsed.args$num.cores)
 comparisons.df %>% 
     run_all_TADCompare(    
         hyper.params.df=hyper.params.df,
-        # force_redo=TRUE,
+        force_redo=parsed.args$force.redo,
         chromosomes=CHROMOSOMES
     )
 

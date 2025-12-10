@@ -50,11 +50,8 @@ parsed.args$resolutions <-
     unlist()
 
 ###################################################
-# Set Up
+# Generate ConsensusTAD results
 ###################################################
-# Individual sample metadata
-sample.metadata.df <- 
-    load_sample_metadata()
 # TADCompare parameters
 hyper.params.df <- 
     expand_grid(
@@ -63,10 +60,6 @@ hyper.params.df <-
         window_size=c(15),
         gap_thresh=c(0.2)
     )
-
-###################################################
-# Generate ConsensusTAD results
-###################################################
 # used by calls to future_pmap() in functions below
 message(glue('using {parsed.args$num.cores} core to parallelize'))
 plan(multisession, workers=parsed.args$num.cores)
