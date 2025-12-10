@@ -2,14 +2,14 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/run.multiHiCCompare.R')
+here::i_am('scripts/DifferentialContacts/run.multiHiCCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
+    source(file.path(BASE_DIR,   'scripts/locations.R'))
     source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-    source(file.path(SCRIPT_DIR, 'utils.multiHiCCompare.R'))
+    source(file.path(SCRIPT_DIR, 'DifferentialContacts/utils.multiHiCCompare.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)

@@ -2,13 +2,13 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/run.hicrep.R')
+here::i_am('scripts/hicrep/run.hicrep.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
     source(file.path(BASE_DIR,   'scripts', 'locations.R'))
     source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(SCRIPT_DIR, 'utils.hicrep.R'))
+    source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)
