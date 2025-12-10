@@ -53,7 +53,7 @@ if results.input == "cool":
 
     # Set output names
 
-    outname = results.prefix + "_" + results.res + ".matrix"
+    outname = results.prefix + ".matrix"
     extension = os.path.splitext(results.file)[1]
     filename = ""
     tmpfile = "tmp"
@@ -79,7 +79,7 @@ if results.input == "cool":
         cooler.wait()
         if cooler.returncode != 0:
             raise RuntimeError(f"cooler dump failed with exit code {cooler.returncode}")
-    name = results.prefix + "_" + str(results.res) + "_abs.bed" #data_200000_abs.bed
+    name = results.prefix + ".abs.bed" #data_200000_abs.bed
     iterator = 1 # one-based
 
     # Make bed files
@@ -137,7 +137,7 @@ else:
 
     # Make bed files
 
-    name = results.prefix + "_" + str(results.res) + "_abs.bed" #data_200000_abs.bed
+    name = results.prefix + ".abs.bed"
     iterator = 1 # one-based
     res = int(results.res)
 
@@ -163,7 +163,7 @@ else:
 
     # Sparse Matrix Dump
 
-    outname = results.prefix + "_" + results.res + ".matrix"
+    outname = results.prefix + ".matrix"
 
     chrList = []
     print(" - Processing These Chromosomes: ")
