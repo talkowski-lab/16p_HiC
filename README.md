@@ -277,3 +277,185 @@ find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | se
 # List all dcHiC results
 # List all loop results
 ```
+
+### Results Checklist
+
+- [ ] .mcool files	
+  - [x] 16p.iN.WT
+  - [x] 16p.iN.DEL
+  - [ ] 16p.iN.DUP
+  - [x] 16p.NSC.WT
+  - [x] 16p.NSC.DEL
+  - [x] 16p.NSC.DUP
+- [ ] multiQC Reports
+  - [ ] fastQC
+  - [ ] fastp
+  - [ ] qc3C
+  - [ ] pairtools
+- [ ] Marginal Coverage
+  - [ ] 100kb
+    - [0/11] 16p.iN.WT
+    - [0/9] 16p.iN.DEL
+    - [0/9] 16p.iN.DUP
+    - [6/6] 16p.NSC.WT
+    - [6/6] 16p.NSC.DEL
+    - [6/6] 16p.NSC.DUP
+  - [ ] 50kb
+    - [0/11] 16p.iN.WT
+    - [0/9] 16p.iN.DEL
+    - [0/9] 16p.iN.DUP
+    - [6/6] 16p.NSC.WT
+    - [6/6] 16p.NSC.DEL
+    - [6/6] 16p.NSC.DUP
+  - [ ] 25kb
+    - [0/11] 16p.iN.WT
+    - [0/9] 16p.iN.DEL
+    - [0/9] 16p.iN.DUP
+    - [6/6] 16p.NSC.WT
+    - [6/6] 16p.NSC.DEL
+    - [6/6] 16p.NSC.DUP
+  - [ ] 10kb
+    - [0/11] 16p.iN.WT
+    - [0/9] 16p.iN.DEL
+    - [0/9] 16p.iN.DUP
+    - [6/6] 16p.NSC.WT
+    - [6/6] 16p.NSC.DEL
+    - [6/6] 16p.NSC.DUP
+- [ ] HiCRep
+  - [ ] 100kb
+  - [ ] 50kb
+  - [ ] 25kb
+  - [ ] 10kb
+- [ ] TADs + Insulation on Merged Matrices
+  - [ ] hiTAD
+    - [ ] 100kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 50kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 25kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 10kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+  - [ ] cooltools
+    - [ ] 100kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 50kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 25kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+    - [ ] 10kb
+      - [x] 16p.NSC.WT
+      - [x] 16p.NSC.DEL
+      - [x] 16p.NSC.DUP
+  - [ ] Consensus TADs
+    - [ ] 100kb
+      - [ ] 16p.NSC.WT
+      - [ ] 16p.NSC.DEL
+      - [ ] 16p.NSC.DUP
+    - [ ] 50kb
+      - [ ] 16p.NSC.WT
+      - [ ] 16p.NSC.DEL
+      - [ ] 16p.NSC.DUP
+    - [ ] 25kb
+      - [ ] 16p.NSC.WT
+      - [ ] 16p.NSC.DEL
+      - [ ] 16p.NSC.DUP
+    - [ ] 10kb
+      - [ ] 16p.NSC.WT
+      - [ ] 16p.NSC.DEL
+      - [ ] 16p.NSC.DUP
+- [ ] TADCompare	
+  - [ ] 100kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 50kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 25kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 10kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+- [ ] multiHiCCompare
+  - [x] 100kb
+    - [x] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [x] 16p.NSC.DUP vs 16p.NSC.WT
+    - [x] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 50kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [x] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 25kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 10kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+- [ ] compartments
+  - [ ] 100kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 50kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 25kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+  - [ ] 10kb
+    - [ ] 16p.NSC.DUP vs 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+- [ ] Loops
+
+### Misc
+
+    - [ ] 16p.NSC.DUP vs 16p.iN.DUP
+    - [ ] 16p.NSC.DEL vs 16p.iN.DEL
+    - [ ] 16p.iN.DUP  vs 16p.iN.DEL
+    - [ ] 16p.iN.DUP  vs 16p.iN.DEL
+
+    - [ ] 16p.iN.DUP  vs 16p.iN.WT
+    - [ ] 16p.iN.DEL  vs 16p.iN.WT
+    - [ ] 16p.NSC.WT  vs 16p.iN.WT
+    - [ ] 16p.NSC.DUP vs 16p.NSC.WT
+    - [ ] 16p.NSC.DEL vs 16p.NSC.WT
+    - [ ] 16p.iN.WT
+    - [ ] 16p.iN.DEL
+    - [ ] 16p.iN.DUP
+    - [ ] 16p.NSC.WT
+    - [ ] 16p.NSC.DEL
+    - [ ] 16p.NSC.DUP
+    - [0/11] 16p.iN.WT
+    - [0/9] 16p.iN.DEL
+    - [0/9] 16p.iN.DUP
+    - [6/6] 16p.NSC.WT
+    - [6/6] 16p.NSC.DEL
+    - [6/6] 16p.NSC.DUP
+  - [ ] 100kb
+  - [ ] 50kb
+  - [ ] 25kb
+  - [ ] 10kb
