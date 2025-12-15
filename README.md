@@ -276,7 +276,7 @@ find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 
 find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-7,10 | sort | uniq -c | column -s'/' -t
 # List all dcHiC results
 find results/compartments/pre.processed.input/ -type f | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
-find results/compartments/results/method_dcHiC/ -type f -name '*-dcHiC.input.tsv' | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
+find results/compartments/results/method_dcHiC/ -type f -name '*-dcHiC.input.tsv' | cut -d'/' -f4,5 | sort | uniq -c | sort -nr -k1,1 | column -s'/' -t
 # List all loop results
 ```
 

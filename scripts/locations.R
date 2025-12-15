@@ -13,8 +13,8 @@ if (grepl('/home/', BASE_DIR)) {
 # distiller-nf 
 ###################################################
 SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
-# GENOME_REF_DIR          <- '/data/talkowski/tools/ref/Hi_c_noalt'
-GENOME_REF_DIR          <- file.path(BASE_DIR, 'reference.files', 'genome.reference')
+REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
+GENOME_REF_DIR          <- file.path(REF_DIR, 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
 BWA_INDEX_WILDCARD_PATH <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.fasta.*'))
@@ -57,6 +57,18 @@ TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 HITAD_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.TAD.annotations.tsv')
 HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
+COOLTOOLS_TAD_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.annotations.tsv')
+COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
+CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConesensusTAD.TAD.annotations.tsv')
+TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
+TADCOMPARE_RESULTS_FILE        <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
+
+###################################################
+# Compartment Annotations
+###################################################
+COMPARTMENTS_DIR               <- file.path(RESULTS_DIR, 'compartments')
+COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
+COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
 
 ###################################################
 # Functional genome annotations
@@ -64,4 +76,3 @@ HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
 FUNCTIONAL_ANNOTATIONS_DIR     <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements'
 FUNCTIONAL_ANNOTATION_FILES    <- list.files(file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'encode3'))
 ABC_ANNOTATIONS_FILE           <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
-
