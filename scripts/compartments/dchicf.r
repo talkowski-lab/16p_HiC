@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# Taken from https://github.com/ay-lab/dcHiC/blob/144b4dfed665a8ddbd90ab3bff778736e8fde796/dchicf.r
 
 #libraries required
 library(bigstatsr)
@@ -12,6 +11,7 @@ library(Rcpp)
 #library(limma)
 #library(depmixS4)
 library(optparse)
+library(readr)
 
 ########################### PCA calculation ###########################
 #Generate FBM matrix
@@ -176,7 +176,7 @@ readfilesinter <- function(i, df, pcout, cthrd, pthrd, rmergeno = 10000, dirover
 	cat ("Generating chromosome-wise trans interactions files\n")
 	if (!dir.exists(paste0(df$prefix[i],"_pca/","inter_pca/",df$prefix[i],"_mat")) | diroverwrite == TRUE) {
 		dir.create(paste0(df$prefix[i],"_pca/","inter_pca/",df$prefix[i],"_mat"))
-		bed   <- read.table(normalizePath(df$bed[i]), h=F, as.is=T)
+		bed   <- read_tsv(normalizePath(df$bed[i]))
 		if (ncol(bed) == 4) {
 			colnames(bed) <- c("chr","start","end","index")
 		} else if (ncol(bed) == 5) {
@@ -213,7 +213,7 @@ expectedInteraction <- function(i, dist_param, bed_nrow, start_resolution) {
 ijk2matfunc_cis <- function(i, chr, path, pc_k = 3, pc_ncores) {
 
    	df  <- data.table::fread(paste0(path,"/",chr[i],".txt"), h=T)
-   	bed <- read.table(paste0(path,"/",chr[i],".bed"), h=T, as.is=T)
+   	bed <- read_tsv(paste0(path,"/",chr[i],".bed"))
    	mat <- functionsdchic::ijk2mat(as.matrix(df[,c("A","B","WeightOE")]), nrow(bed), nrow(bed))
    	if (ncol(bed) == 4) {
 		colnames(bed) <- c("chr","start","end","index")
@@ -334,7 +334,8 @@ readfilesintra <- function(i, df, pcout, ebackground, cthrd, pthrd, diroverwrite
 		cat ("Reading ",mat," Hi-C matrix file\n")
   		cat ("Reading ",bed," Hi-C bed file\n")
  		mat <- data.table::fread(mat, h=F)
- 		bed <- read.table(bed, h=F, as.is=T)
+ 		# bed <- read_tsv(bed, col_names=FALSE)
+ 		bed <- read_tsv(bed, col_names=FALSE)
  		colnames(mat) <- c("A","B","Weight")
  		if (ncol(bed) == 4) {
 			colnames(bed) <- c("chr","start","end","index")
@@ -516,9 +517,9 @@ pcselectioncore <- function(chr, sam, goldenpath, pc_k, sname, pc_type) {
 		count.vect <- list()
 		for(j in 1:length(sam)) {
 			cat ("Running ",pc_type," ",chr[i]," in ",sam[j]," sample\n")
-			pca <- read.table(paste0(sam[j],"_pca/",pc_type,"_pca/",sam[j],"_mat/",chr[i],".pc.txt"), h=T)
+			pca <- read_tsv(paste0(sam[j],"_pca/",pc_type,"_pca/",sam[j],"_mat/",chr[i],".pc.txt"))
 			pca <- pca[,1:(4+pc_k)]
-			gcc <- read.table(goldenpath, h=F)
+			gcc <- read_tsv(goldenpath, col_names=FALSE)
 			colnames(gcc) <- c("chr","start","end","gcc","tss")
 			rownames(gcc) <- paste0(gcc$chr,"_",gcc$start)
 			rownames(pca) <- paste0(pca$chr,"_",pca$start)
@@ -664,7 +665,7 @@ pcselect <- function(data, genome, pc, diroverwrite, folder=NA) {
 
 	pca_folders <- c("intra_pca","inter_pca")
 	
-	bed <- read.table(normalizePath(data$bed[1]), h=F, as.is=T)
+	bed <- read_tsv(normalizePath(data$bed[1]))
 	resolution <- bed$V3[1] - bed$V2[1]
 	chrom_uniq <- unique(bed$V1)
 
@@ -810,14 +811,14 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 
 	#Reformatting the data
 	if (!dir.exists("DifferentialResult") | diroverwrite == TRUE) {
-		if (!dir.exists("DifferentialResult")) {
-			dir.create("DifferentialResult")
-		}
-		if (!dir.exists(paste0("DifferentialResult/",diffolder))) {
-			dir.create(paste0("DifferentialResult/",diffolder))
-		}
-
-		diffolder    <- paste0("DifferentialResult/",diffolder)
+		diffolder    <- diffolder
+		# if (!dir.exists("DifferentialResult")) {
+		# 	dir.create("DifferentialResult")
+		# }
+		# if (!dir.exists(paste0("DifferentialResult/",diffolder))) {
+		# 	dir.create(paste0("DifferentialResult/",diffolder))
+		# }
+		# diffolder    <- paste0("DifferentialResult/",diffolder)
 		intra_bed_df <- list()
 		inter_bed_df <- list()
 		intra_counter<- 0
@@ -858,7 +859,7 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 					rnames  <- list()
 					namevec <- c()
 					for(u in 1:length(chrom_rep)) {
-						df <- read.table(chrom_rep[u], h=F, as.is=T)
+						df <- read_tsv(chrom_rep[u], col_names=FALSE)
 						colnames(df)<- c("chr","start","end","PC")
 						rownames(df)<- paste0(df$chr,"_",df$start,"_",df$end)
 						namevec[u]  <- strsplit(gsub("_intra"," ",basename(chrom_rep[u]))," ")[[1]][1]
@@ -893,7 +894,7 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 					rnames  <- list()
 					namevec <- c()
 					for(u in 1:length(chrom_rep)) {
-						df <- read.table(chrom_rep[u], h=F, as.is=T)
+						df <- read_tsv(chrom_rep[u], col_names=FALSE)
 						colnames(df)<- c("chr","start","end","PC")
 						rownames(df)<- paste0(df$chr,"_",df$start,"_",df$end)
 						namevec[u]  <- strsplit(gsub("_inter"," ",basename(chrom_rep[u]))," ")[[1]][1]
@@ -953,7 +954,7 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 				intra_bed_vec <- paste0(intra_bed_chr$chr,"_",intra_bed_chr$start,"_",intra_bed_chr$end) 
 				for(i in 1:length(prefix_master)) {
 					if (file.exists(paste0(diffolder,"/",prefix_master[i],"_data/intra_",chrom[k],"_combined.pcOri.bedGraph"))) {
-						df <- read.table(paste0(diffolder,"/",prefix_master[i],"_data/intra_",chrom[k],"_combined.pcOri.bedGraph"), h=T, as.is=T)
+						df <- read_tsv(paste0(diffolder,"/",prefix_master[i],"_data/intra_",chrom[k],"_combined.pcOri.bedGraph"))
 						rownames(df) <- paste0(df$chr,"_",df$start,"_",df$end)
 						if (i == 1) {
 							chrom_sample[[i]] <- df[as.character(intra_bed_vec),]
@@ -986,7 +987,7 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 				inter_bed_vec <- paste0(inter_bed_chr$chr,"_",inter_bed_chr$start,"_",inter_bed_chr$end) 
 				for(i in 1:length(prefix_master)) {
 					if (file.exists(paste0(diffolder,"/",prefix_master[i],"_data/inter_",chrom[k],"_combined.pcOri.bedGraph"))) {
-						df <- read.table(paste0(diffolder,"/",prefix_master[i],"_data/inter_",chrom[k],"_combined.pcOri.bedGraph"), h=T, as.is=T)
+						df <- read_tsv(paste0(diffolder,"/",prefix_master[i],"_data/inter_",chrom[k],"_combined.pcOri.bedGraph"))
 						rownames(df) <- paste0(df$chr,"_",df$start,"_",df$end)
 						if (i == 1) {
 							chrom_sample[[i]] <- df[as.character(inter_bed_vec),]
@@ -1025,8 +1026,8 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 				intra_grp <- list()
 				intra_grp_pcori <- list()
 				rep_count <- 0
-				df_intra  <- read.table(intra_bdg[j], h=T, as.is=T)
-				df_intra_pcori <- read.table(intra_bdg_pcori[j], h=T, as.is=T) 
+				df_intra  <- read_tsv(intra_bdg[j])
+				df_intra_pcori <- read_tsv(intra_bdg_pcori[j])
 				for(i in 1:length(prefix_master)) {
 					data_rep <- data[data$prefix.master == prefix_master[i],]
 					if (nrow(data_rep) > 1) {
@@ -1148,8 +1149,8 @@ pcanalyze <- function(data, diroverwrite, diffolder, rzscore, szscore, fdr.thr, 
 				inter_grp <- list()
 				inter_grp_pcori <- list()
 				rep_count <- 0
-				df_inter  <- read.table(inter_bdg[j], h=T, as.is=T)
-				df_inter_pcori <- read.table(inter_bdg_pcori[j], h=T, as.is=T) 
+				df_inter  <- read_tsv(inter_bdg[j])
+				df_inter_pcori <- read_tsv(inter_bdg_pcori[j])
 				for(i in 1:length(prefix_master)) {
 					data_rep <- data[data$prefix.master == prefix_master[i],]
 					if (nrow(data_rep) > 1) {
@@ -1397,7 +1398,7 @@ subcompartment <- function(data, diffdir, subnum) {
 	diffdir <- paste0("DifferentialResult/",diffdir)
 	prefix_master <- unique(data$prefix.master)
 	if (file.exists(paste0(diffdir,"/fdr_result/differential.intra_sample_group.pcQnm.bedGraph"))) {
-		compartment_file <- read.table(paste0(diffdir,"/fdr_result/differential.intra_sample_group.pcQnm.bedGraph"), h=T, as.is=T)
+		compartment_file <- read_tsv(paste0(diffdir,"/fdr_result/differential.intra_sample_group.pcQnm.bedGraph"))
 		hmm_comp <- hmmsegment(compartment_file, prefix_master, subnum)
 		hmm_comp <- data.frame(compartment_file[,c(1:3,(ncol(compartment_file)-1))],hmm_comp)
 		write.table(hmm_comp, file=paste0(diffdir,"/fdr_result/intra_sample_group.subcompartments.bedGraph"), row.names=F, col.names=T, sep="\t", quote=F)
@@ -1437,7 +1438,7 @@ subcompartment <- function(data, diffdir, subnum) {
 	}
 
 	if (file.exists(paste0(diffdir,"/fdr_result/differential.inter_sample_group.pcQnm.bedGraph"))) {
-		compartment_file <- read.table(paste0(diffdir,"/fdr_result/differential.inter_sample_group.pcQnm.bedGraph"), h=T, as.is=T)
+		compartment_file <- read_tsv(paste0(diffdir,"/fdr_result/differential.inter_sample_group.pcQnm.bedGraph"))
 		hmm_comp <- hmmsegment(compartment_file, prefix_master, subnum)
 		hmm_comp <- data.frame(compartment_file[,c(1:3,(ncol(compartment_file)-1))],hmm_comp, stringsAsFactors = F)
 		write.table(hmm_comp, file=paste0(diffdir,"/fdr_result/inter_sample_group.subcompartments.bedGraph"), row.names=F, col.names=T, sep="\t", quote=F)
@@ -1528,7 +1529,7 @@ formatconversion <- function(ijk_path, bed_path, prefix, diffdir, downsample=NA)
 	if (!file.exists(paste0(folder,"/fragments.txt.gz"))) {
 		cat ("Creating inputs for fithic run ",prefix,"\n")
 		cat ("Reading the bed and interaction matrix file\n")
-		bed_df <- read.table(bed_path, h=F)
+		bed_df <- read_tsv(bed_path, col_names=FALSE)
 		bed_df <- bed_df[,1:4]
 		ijk_df <- as.data.frame(suppressWarnings(data.table::fread(ijk_path, h=F)))
 		colnames(bed_df) <- c("chr","start","end","index")
@@ -1604,7 +1605,7 @@ fithicformat <- function(data, diffdir, fithicpath, pythonpath, fdr_thr, dist_th
 		formatconversion(normalizePath(data$mat[i]), normalizePath(data$bed[i]), as.character(data$prefix[i]), diffdir)
 	}
 	
-	resolution <- read.table(data$bed[1], h=F, as.is=T)
+	resolution <- read_tsv(data$bed[1], col_names=FALSE)
 	resolution <- resolution$V3[1] - resolution$V2[1]
 	resolution <- as.integer(resolution)
 
@@ -1677,10 +1678,10 @@ fithicformat <- function(data, diffdir, fithicpath, pythonpath, fdr_thr, dist_th
 compartmentLoop <- function(data, diffdir, fdr.thr, count.thr=5, loop.dist=2e6) {
 
 	prefix_master <- unique(data$prefix.master)
-	diff_res   <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.intra_sample_group.Filtered.pcQnm.bedGraph"), h=T, as.is=T)
+	diff_res   <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.intra_sample_group.Filtered.pcQnm.bedGraph"))
 	diff_hash  <- hashmap::hashmap(as.character(paste0(diff_res$chr,"_",diff_res$start)), rep(1, nrow(diff_res)))
 	chr_list   <- unique(diff_res$chr)
-	resolution <- read.table(data$bed[1], h=F, as.is=T)
+	resolution <- read_tsv(data$bed[1], col_names=FALSE)
 	resolution <- resolution$V3[1] - resolution$V2[1]
 	
 	mat_diff_loop <- list()
@@ -1745,7 +1746,7 @@ compartmentLoop <- function(data, diffdir, fdr.thr, count.thr=5, loop.dist=2e6) 
 	if (file.exists(paste0("DifferentialResult/",diffdir,"/fithic_run/FithicResult.txt"))) {
 		
 		cat ("Found fithic significant loop calling result. Using it to futher filter differential loops\n")
-		fithicresult  <- read.table(paste0("DifferentialResult/",diffdir,"/fithic_run/FithicResult.txt"), h=T, as.is=T)
+		fithicresult  <- read_tsv(paste0("DifferentialResult/",diffdir,"/fithic_run/FithicResult.txt"))
 		fithicresult  <- fithicresult[apply(fithicresult, 1, sum) < ncol(fithicresult),]
 		mat_diff_loop <- data.table::as.data.table(mat_diff_loop)
 		data.table::setkey(mat_diff_loop, id)
@@ -1840,7 +1841,8 @@ htmlbody <- function(file, folder, genome, fdr_thr, numberclust) {
 	for(i in 1:nrow(file)) {
     	if (file$group[i] == "compartment") {
 
-      		compbdg <- read.table(as.character(file$file[i]), h=T, as.is=T, comment.char = "")
+      		# compbdg <- read_tsv(as.character(file$file[i]))
+      		compbdg <- read_tsv(as.character(file$file[i]))
       		colnames(compbdg)[1] <- "chr"
 
       		color = "00,100,0"
@@ -1980,7 +1982,7 @@ track name=\"Distance cluster\" description=\"BedGraph format\" visibility=full 
 
     	} 	else if (file$group[i] == "bedGraph") {
 
-        	bdg <- read.table(as.character(file$file[i]),h=F)
+        	bdg <- read_tsv(as.character(file$file[i]))
         	trackname <- as.character(file$name[i])
 			color = "255,102,178"
      		altcolor = "102,102,255"
@@ -2061,7 +2063,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 	# Intra IGV html file generation
 	prefix_master <- unique(data$prefix.master)
 	if (file.exists(paste0(diffdir,"/fdr_result/differential.intra_sample_group.",pcgrp,".bedGraph"))) {
-		compartment_file <- read.table(paste0(diffdir,"/fdr_result/differential.intra_sample_group.",pcgrp,".bedGraph"), h=T, as.is=T)
+		compartment_file <- read_tsv(paste0(diffdir,"/fdr_result/differential.intra_sample_group.",pcgrp,".bedGraph"))
 		compartment_file <- compartment_file[order(compartment_file$chr, compartment_file$start),c("chr","start","end",prefix_master,"sample_maha","padj","dist_clust")]
 		print (head(compartment_file))
 		compartment_file$padj[compartment_file$padj == 0] <- min(compartment_file$padj[compartment_file$padj > 0])
@@ -2071,7 +2073,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 		intra_pcori <- list.files(paste0(diffdir,"/",pcgrp), pattern="intra_sample", full.names=T)
 		pcori_files <- list()
 		for(i in 1:length(intra_pcori)) {
-			pcori_files[[i]] <- read.table(intra_pcori[i], h=T, as.is=T)
+			pcori_files[[i]] <- read_tsv(intra_pcori[i])
 		}
 
 		pcori_files <- do.call(rbind, pcori_files)
@@ -2081,7 +2083,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 		}
 
 		if (file.exists(paste0(diffdir,"/fdr_result/intra_sample_group.subcompartments.bedGraph"))) {
-			subcomp <- read.table(paste0(diffdir,"/fdr_result/intra_sample_group.subcompartments.bedGraph"), h=T, as.is=T)
+			subcomp <- read_tsv(paste0(diffdir,"/fdr_result/intra_sample_group.subcompartments.bedGraph"))
 			for(j in 1:length(prefix_master)) {
 				subcomp_temp <- subcomp[,c("chr","start","end",paste0(prefix_master[j],".score"))]
 				colnames(subcomp_temp)  <- c("Chromosome","Start","End","Segment_Mean")
@@ -2094,7 +2096,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 
 		
 		if (file.exists(paste0(diffdir,"/fdr_result/differential.intra_compartmentLoops.bedpe"))) {
-			bedpe <- read.table(paste0(diffdir,"/fdr_result/differential.intra_compartmentLoops.bedpe"), h=T, as.is=T)
+			bedpe <- read_tsv(paste0(diffdir,"/fdr_result/differential.intra_compartmentLoops.bedpe"))
 			bigInt<- data.frame(
 					chrom=bedpe$chr1,
 					chromStart=bedpe$start1,
@@ -2171,7 +2173,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 
 
 		if (!is.na(bdgfile)) {
-			bdgfile <- read.table(bdgfile, h=F, as.is=T)
+			bdgfile <- read_tsv(bdgfile, col_names=FALSE)
 			colnames(bdgfile) <- c("file", "name", "type", "color")
 			for(b in 1:nrow(bdgfile)) {
 				if (bdgfile$type[b] == "bedGraph") {
@@ -2224,7 +2226,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 
 	# Inter IGV html file generation
 	if (file.exists(paste0(diffdir,"/fdr_result/differential.inter_sample_group.",pcgrp,".bedGraph"))) {
-		compartment_file <- read.table(paste0(diffdir,"/fdr_result/differential.inter_sample_group.",pcgrp,".bedGraph"), h=T, as.is=T)
+		compartment_file <- read_tsv(paste0(diffdir,"/fdr_result/differential.inter_sample_group.",pcgrp,".bedGraph"))
 		compartment_file <- compartment_file[order(compartment_file$chr, compartment_file$start),c("chr","start","end",prefix_master,"sample_maha","padj","dist_clust")]
 		print (head(compartment_file))
 		compartment_file$padj[compartment_file$padj == 0] <- min(compartment_file$padj[compartment_file$padj > 0])
@@ -2234,7 +2236,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 		inter_pcori <- list.files(paste0(diffdir,"/",pcgrp), pattern="inter_sample", full.names=T)
 		pcori_files <- list()
 		for(i in 1:length(inter_pcori)) {
-			pcori_files[[i]] <- read.table(inter_pcori[i], h=T, as.is=T)
+			pcori_files[[i]] <- read_tsv(inter_pcori[i])
 		}
 
 		pcori_files <- do.call(rbind, pcori_files)
@@ -2244,7 +2246,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 		}
 
 		if (file.exists(paste0(diffdir,"/fdr_result/inter_sample_group.subcompartments.bedGraph"))) {
-			subcomp <- read.table(paste0(diffdir,"/fdr_result/inter_sample_group.subcompartments.bedGraph"), h=T, as.is=T)
+			subcomp <- read_tsv(paste0(diffdir,"/fdr_result/inter_sample_group.subcompartments.bedGraph"))
 			for(j in 1:length(prefix_master)) {
 				subcomp_temp <- subcomp[,c("chr","start","end",paste0(prefix_master[j],".score"))]
 				colnames(subcomp_temp)  <- c("Chromosome","Start","End","Segment_Mean")
@@ -2307,7 +2309,7 @@ generateTrackfiles <- function(data, diffdir, genome, bdgfile, pcgrp="pcQnm", fd
 
 
 		if (!is.na(bdgfile)) {
-			bdgfile <- read.table(bdgfile, h=F, as.is=T)
+			bdgfile <- read_tsv(bdgfile, col_names=FALSE)
 			colnames(bdgfile) <- c("file", "name", "type", "color")
 			for(b in 1:nrow(bdgfile)) {
 				if (bdgfile$type[b] == "bedGraph") {
@@ -2386,8 +2388,8 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
 		pcgrp <- "pcOri"
 		cat ("exclA is set to False, changing pcgroup from pcQnm to pcOri\n")
 	}
-	compartment_score <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.",pcgrp,".bedGraph"), h=T, as.is=T)
-	diff_compartments <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.Filtered.",pcgrp,".bedGraph"), h=T, as.is=T)
+	compartment_score <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.",pcgrp,".bedGraph"))
+	diff_compartments <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.Filtered.",pcgrp,".bedGraph"))
 	rownames(compartment_score) <- paste0(compartment_score$chr,"_",compartment_score$start)
 	rownames(diff_compartments) <- paste0(diff_compartments$chr,"_",diff_compartments$start)
 	resolution <- compartment_score$end[1] - compartment_score$start[1]
@@ -2433,7 +2435,7 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
   		}
 
 	}
-	refgene <- read.table(paste0(genome,"_",resolution,"_goldenpathData/",genome,".refGene.gtf.gz"), h=F, sep="\t", fill=NA)
+	refgene <- read_tsv(paste0(genome,"_",resolution,"_goldenpathData/",genome,".refGene.gtf.gz"))
 	refgene_bed <- refgene[refgene$V3=="transcript",c(1,4,5)]
 	colnames(refgene_bed) <- c("chr","start","end")
 	refgene_bed[,"gene"]  <- gsub(";","",do.call(rbind,strsplit(as.character(refgene[refgene$V3=="transcript",]$V9)," "))[,2])
@@ -2443,8 +2445,8 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
 
 	if (region == "anchor" | region == "interactor" | region == "both") {
 		if (exclA == FALSE & pcgrp == "pcOri") {
-			compartment_score_pcOri <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.pcOri.bedGraph"), h=T, as.is=T)
-			diff_compartments_pcOri <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.Filtered.pcOri.bedGraph"), h=T, as.is=T)
+			compartment_score_pcOri <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.pcOri.bedGraph"))
+			diff_compartments_pcOri <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.",interaction,"_sample_group.Filtered.pcOri.bedGraph"))
 			rownames(compartment_score_pcOri) <- paste0(compartment_score_pcOri$chr,"_",compartment_score_pcOri$start)
 			rownames(diff_compartments_pcOri) <- paste0(diff_compartments_pcOri$chr,"_",diff_compartments_pcOri$start)
 			for(i in 1:length(prefix_master)) {
@@ -2533,14 +2535,14 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
 		if (interaction == "inter") {
 			stop ("Function enrichment of interactor region is not possible for inter compartments differential loops\n")
 		} else {
-			bedpe <- read.table(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.intra_compartmentLoops.bedpe"), h=T, as.is=T)
+			bedpe <- read_tsv(paste0("DifferentialResult/",diffdir,"/fdr_result/differential.intra_compartmentLoops.bedpe"))
 			bedpe <- bedpe[order(bedpe$chr1, bedpe$start1),]
 			bedpe[,"id1"] <- paste0(bedpe$chr1,"_",bedpe$start1)
 			bedpe[,"id2"] <- paste0(bedpe$chr2,"_",bedpe$start2)
 		
 			for(i in 1:length(prefix_master)) {
 				compartment_score_sample <- compartment_score[,c("chr","start","end",prefix_master[i],"padj")]
-				diff_compartments_sample <- read.table(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments.bedGraph"), h=F, as.is=T)
+				diff_compartments_sample <- read_tsv(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments.bedGraph"))
 				colnames(diff_compartments_sample) <- c("chr","start","end")
 				rownames(diff_compartments_sample) <- paste0(diff_compartments_sample$chr,"_",diff_compartments_sample$start)
 				
@@ -2627,8 +2629,8 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
 
 			if (region == "both") {
 				for(i in 1:length(prefix_master)) {
-					diff_compartment_sample <- read.table(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments.bedGraph"), h=F, as.is=T)
-					diff_interactors_sample <- read.table(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments_interactor.bedGraph"), h=F, as.is=T)
+					diff_compartment_sample <- read_tsv(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments.bedGraph"))
+					diff_interactors_sample <- read_tsv(paste0(folder,"/",prefix_master[i],"_geneEnrichment/",prefix_master[i],"_Diff_A_compartments_interactor.bedGraph"))
 					colnames(diff_compartment_sample) <- c("chr","start","end")
 					colnames(diff_interactors_sample) <- c("chr","start","end")
 					diff_both <- as.data.frame(rbind(diff_compartment_sample, diff_interactors_sample))
@@ -2885,9 +2887,17 @@ if (sthread > 1) {
 set.seed(as.integer(opt$seed))
 
 #Read input file
-data <- read.table(paste0(inputfile), h=F, as.is=T)
-colnames(data) <- c("mat","bed","prefix","prefix.master")
+# data <- read_tsv(paste0(inputfile))
+# colnames(data) <- c("mat","bed","prefix","prefix.master")
+options(readr.show_col_types = FALSE)
+data <- 
+    read_tsv(
+        inputfile, 
+        col_names=c("mat","bed","prefix","prefix.master")
+    )
+# print(data)
 prefix_master  <- unique(data$prefix.master)
+print(prefix_master)
 
 if (pcatype == "cis" | pcatype == "both") {
 	if (sthread > 1) {

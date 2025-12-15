@@ -8,7 +8,147 @@ library(furrr)
 library(HiCDOC)
 
 ###################################################
-# Generate Compartment Results
+# Generate dcHiC Results
+###################################################
+load_dcHiC_sample_groups <- function(){
+    COMPARTMENTS_PREPROCESSED_DIR %>%
+    parse_results_filelist(
+        suffix='.matrix',
+        filename.column.name='SampleID'
+    ) %>%
+    get_info_from_SampleIDs() %>% 
+    filter(isMerged == 'Individual') %>% 
+    dplyr::rename('preprocessed.matrix.filepath'=filepath) %>%
+    mutate(
+        preprocessed.region.filepath=
+            str_replace(
+                preprocessed.matrix.filepath,
+                '.matrix',
+                '.abs.bed'
+            )
+    ) %>% 
+    mutate(
+        Sample.Group=as.character(glue('{Edit}.{Celltype}.{Genotype}')),
+        Sample.Group.copy=str_replace_all(Sample.Group, fixed('.'), '#'),
+        SampleID=str_replace_all(SampleID, fixed('.'), '#')
+    ) %>% 
+    select(
+        Celltype,
+        contact.type,
+        resolution,
+        preprocessed.matrix.filepath,
+        preprocessed.region.filepath,
+        SampleID,
+        Sample.Group,
+        Sample.Group.copy
+    ) %>% 
+    nest(
+        input.file.contents=
+            c(
+                preprocessed.matrix.filepath,
+                preprocessed.region.filepath,
+                SampleID,
+                Sample.Group.copy
+            )
+    )
+}
+
+setup_dcHiC_group_comparisons <- function(
+    sample.groups.df,
+    comparisons.list,
+    cols_to_pair,
+    ...){
+    sample.groups.df %>% 
+    get_all_row_combinations(
+        df1=filter(., !str_detect(Sample.Group, '.WT')),
+        df2=filter(., str_detect(Sample.Group, '.WT')),
+        cols_to_pair=cols_to_pair,
+        suffixes=c('.Numerator', '.Denominator'),
+        keep_self=FALSE
+    ) %>% 
+    inner_join(
+        comparisons.list,
+        by=join_by(Sample.Group.Numerator, Sample.Group.Denominator)
+    ) %>% 
+    # make input file for dcHiC script
+    rowwise() %>% 
+    mutate(
+        total.input.file.contents=
+            list(
+                bind_rows(
+                    input.file.contents.Numerator,
+                    input.file.contents.Denominator
+                )
+            )
+    ) %>% 
+    select(-c(input.file.contents.Numerator, input.file.contents.Denominator))
+}
+
+make_cmd_list <- function(
+    resolution,
+    dchic.script.filepath,
+    genome_name,
+    force_redo,
+    input.filepath,
+    contact.type,
+    threads,
+    seed,
+    ...){
+    base.cmd <- 
+        c(
+            "Rscript {dchic.script.filepath}",
+            "--dirovwt {force_redo}",
+            "--seed {seed}",
+            "--file {input.filepath}",
+            "--output_dir {output_dir}"
+        )
+    # Generate PCA loadings using cis contacts only
+    make.pcs.cmd <- 
+        c(
+            base.cmd,
+            "--pcatype {contact.type}",
+            "--cthread {threads}",
+            "--pthread {threads}"
+        )
+        # Pick which PCs to use for compartment assignment
+    select.pcs.cmd <- 
+        c(
+            base.cmd,
+            "--pcatype select",
+            "--genome {genome_name}",
+            "--gfolder {hg38_{resolution}_goldenpathData}"
+        )
+    # Compute differential statistics between the 2 conditions
+    analyze.cmd <- 
+        c(
+            base.cmd,
+            "--pcatype analyze",
+            "--diffdir {output.dir}"
+        )
+    # Annotated subcompartments as well
+    subcomp.cmd <- 
+        c(
+            base.cmd,
+            "--pcatype subcomp",
+            "--diffdir {output.dir}",
+            collapse=" "
+        )
+    # paste commands together
+    list(
+        "cd {{output.dir}",
+        make.pcs.cmd,
+        select.pcs.cmd,
+        analyze.cmd,
+        subcomp.cmd,
+        "cd -"
+    ) %>%
+    lapply(paste, collapse=" ") %>% 
+    paste(collapse="; ") %>% 
+    glue()
+}
+
+###################################################
+# Generate HiCDOC Results
 ###################################################
 run_HiCDOC <- function(
     samples.df,
