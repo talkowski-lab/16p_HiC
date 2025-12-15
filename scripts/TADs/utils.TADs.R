@@ -14,7 +14,9 @@ library(cowplot)
 ###################################################
 load_cooltools_file <- function(
     filepath,
+    boundaries_only=FALSE,
     ...){
+    # filepath=tmp$filepath[[1]]; boundaries_only=TRUE
     filepath %>% 
     read_tsv(
         progress=FALSE,
@@ -45,22 +47,31 @@ load_cooltools_file <- function(
     pivot_wider(
         names_from=stat,
         values_from=value
-    )
+    ) %>%
+    rename('is.boundary'=is_boundary) %>% 
+    mutate(is.boundary=as.logical(is.boundary)) %>% 
+    {
+        if (boundaries_only){
+            filter(., is.boundary)
+        } else {
+            .
+        }
+    }
 }
 
-load_all_cooltools_results <- function(){
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-TAD.tsv'
-    ) %>%
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+load_all_cooltools_results <- function(boundaries_only=FALSE){
+    file.path(TAD_DIR) %>% 
+    parse_results_filelist(suffix='-TAD.tsv') %>%
     filter(method == 'cooltools') %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    # {.} -> tmp
     mutate(
         DIs=
             # pmap(
             future_pmap(
                 .,
                 load_cooltools_file,
+                boundaries_only=boundaries_only,
                 .progress=TRUE
             )
     ) %>%
@@ -71,15 +82,13 @@ load_all_cooltools_results <- function(){
 post_process_cooltools_results <- function(results.df){
     results.df %>% 
     filter(!is_bad_bin) %>% 
-    standardize_data_cols() %>% 
     rename(
         'chr'=chrom,
         'bin.start'=start
     ) %>% 
     mutate(
         window.size.bins=window.size / resolution,
-        window.size=scale_numbers(window.size),
-        is.boundary=as.logical(is.boundary)
+        window.size=scale_numbers(window.size, force_numeric=TRUE),
     ) %>% 
     unite(
         'cooltools.params',
@@ -89,20 +98,14 @@ post_process_cooltools_results <- function(results.df){
     ) %>% 
     select(
         -c(
-            method,
+            # method,
             end,
             is_bad_bin,
             sum_counts,           
             sum_balanced,         
+            n_valid_pixels,
             ReadFilter,
             region,               
-            n_valid_pixels       
-            # method               
-            # resolution           
-            # weight               
-            # threshold            
-            # mfvp                 
-            # window.size          
             # Edit                 
             # Celltype             
             # Genotype             
@@ -110,21 +113,25 @@ post_process_cooltools_results <- function(results.df){
             # TechRepID            
             # isMerged             
             # SampleID             
+            # resolution           
+            # weight               
+            # threshold            
+            # mfvp                 
+            # window.size          
             # chr                
             # bin.start                
-            # is.bad.bin
-            # log2.insulation.score
-            # boundary.strength    
-            # is.boundary          
         )
     ) %>% 
-    rename_with(
+    dplyr::rename_with(
+        ~ str_replace_all(.x, '_', '.'),
         c(
+            # is_bad_bin,
+            # n_valid_pixels,
+            # sum_counts,           
+            # sum_balanced,         
             log2_insulation_score,
-            boundary_strength,
-            is_boundary
-        ),
-        ~ str_replace_all(.x, '_', '.')
+            boundary_strength
+        )
     )
 }
 
@@ -188,12 +195,10 @@ load_hiTAD_TADs <- function(
 }
 
 load_all_hiTAD_TADs <- function(){
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-TAD.tsv'
-    ) %>%
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    TAD_DIR %>% 
+    parse_results_filelist(suffix='-TAD.tsv') %>%
     filter(method == 'hiTAD') %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
     mutate(
         TADs=
             # pmap(

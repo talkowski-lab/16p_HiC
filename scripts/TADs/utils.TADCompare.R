@@ -1,7 +1,7 @@
 library(TADCompare)
 
 ###################################################
-# Generate ConsensusTADs
+# Utilities
 ###################################################
 TADCompare_load_matrix <- function(
     filepath,
@@ -15,6 +15,129 @@ TADCompare_load_matrix <- function(
     select(c(range1, range2, IF))
 }
 
+load_hiTAD_results_for_TADCompare <- function(){
+    check_cached_results(
+        results_file=HITAD_TAD_RESULTS_FILE,
+        force_redo=FALSE,
+        results_fnc=load_all_hiTAD_TADs
+    ) %>% 
+    post_process_hiTAD_TAD_results() %>%
+    filter(isMerged == 'Merged') %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
+    select(SampleID, resolution, chr, TAD.start, TAD.end) %>% 
+    rename_with(~ str_replace(.x, 'TAD.', '')) %>% 
+    mutate(region=chr) %>% 
+    nest(TADs=c(chr, start, end)) %>% 
+    rename('chr'=region)
+}
+
+load_cooltools_results_for_TADCompare <- function(){
+    # Load boundary annotations
+    check_cached_results(
+        results_file=COOLTOOLS_TAD_RESULTS_FILE,
+        force_redo=FALSE,
+        results_fnc=load_all_cooltools_results,
+        boundaries_only=TRUE
+    ) %>% 
+    # clean up 
+    post_process_cooltools_results() %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
+    rename('TAD.params'=cooltools.params) %>% 
+    select(resolution, TAD.params, SampleID, chr, bin.start) %>% 
+    # remove entries with < 2 boundaries
+    nest(boundaries=c(bin.start)) %>% 
+    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(TADs=list(convert_boundaries_to_TADs(boundaries=boundaries))) %>% 
+    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
+    # Nest for downstream analysis
+    mutate(region=chr) %>% 
+    group_by(resolution, TAD.params, SampleID, region) %>% 
+    nest(TADs=c(chr, start, end)) %>% 
+    ungroup() %>% 
+    rename('chr'=region) %>% 
+    select(resolution, TAD.params, SampleID, chr, TADs)
+}
+
+load_ConsensusTAD_results_for_TADCompare <- function(){
+    check_cached_results(
+        results_file=CONSENSUSTAD_TAD_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_ConsensusTAD_TADs
+    ) %>% 
+    # Only keep boundaries
+    filter(isConsensusBoundary) %>% 
+    # Clean up 
+    post_process_ConsensusTAD_TAD_results() %>% 
+    mutate(SampleID=glue('{Sample.Group}.Merged.Merged')) %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
+    select(resolution, TAD.params, SampleID, chr, bin.start) %>% 
+    # remove entries with < 2 boundaries
+    nest(boundaries=c(bin.start)) %>% 
+    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(TADs=list(convert_boundaries_to_TADs(boundaries=boundaries))) %>% 
+    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
+    # Nest for downstream analysis
+    mutate(region=chr) %>% 
+    group_by(resolution, TAD.params, SampleID, region) %>% 
+    nest(TADs=c(chr, start, end)) %>% 
+    ungroup() %>% 
+    rename('chr'=region) %>% 
+    select(resolution, TAD.params, SampleID, chr, TADs)
+}
+
+load_all_TAD_results_for_TADCompare <- function(){
+    # hiTAD TAD results
+    hiTAD.TADs.df <- 
+        load_hiTAD_results_for_TADCompare() %>% 
+        add_column(
+            TAD.params=NULL,
+            TAD.method='hiTAD'
+        )
+    # cooltools boundary results
+    cooltools.TADs.df <- 
+        load_cooltools_results_for_TADCompare() %>% 
+        add_column(TAD.method='cooltools')
+    # ConsensusTAD TAD results 
+    consensusTAD.TADs.df <- 
+        load_ConsensusTAD_results_for_TADCompare() %>% 
+        add_column(TAD.method='ConsensusTAD')
+    # default TADCompare method estimates TADs itself, include nothing
+    spectralTAD.TADs.df <- 
+        expand_grid(
+            SampleID=unique(hiTAD.TADs.df$SampleID),
+            chr=CHROMOSOMES,
+            resolution=parsed.args$resolutions
+        ) %>% 
+        add_column(
+            TADs=NULL,
+            TAD.params=NULL,
+            TAD.method='spectralTAD'
+        )
+    # Bind everything together
+    bind_rows(
+        hiTAD.TADs.df,
+        cooltools.TADs.df,
+        consensusTAD.TADs.df,
+        spectralTAD.TADs.df
+    ) %>%
+    unite(
+        'TAD.set.index',
+        sep='~',
+        remove=FALSE,
+        c(
+          TAD.method,
+          TAD.params,
+          resolution
+        )
+    ) %>% 
+    rename('pre_tads'=TADs)
+}
+
+###################################################
+# Generate ConsensusTADs
+###################################################
 run_ConsensusTAD <- function(
     samples.df,
     resolution,
@@ -107,8 +230,8 @@ run_all_ConsensusTADs <- function(
             )
     ) %>% 
     arrange(resolution) %>% 
-    future_pmap(
-    # pmap(
+    # future_pmap(
+    pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_ConsensusTAD
             function(results_file, ...){ 
@@ -126,7 +249,7 @@ run_all_ConsensusTADs <- function(
     )
 }
 
-load_CosensusTADs <- function(
+load_ConsensusTADs <- function(
     filepath,
     ...){
     read_tsv(
@@ -136,21 +259,35 @@ load_CosensusTADs <- function(
     )
 }
 
-load_all_CosensusTADs <- function(...){
-    file.path(TAD_DIR, 'results_TADCompare') %>%
-    parse_results_filelist() %>% 
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+load_all_ConsensusTAD_TADs <- function(...){
+    file.path(TAD_DIR, 'method_ConsensusTAD') %>%
+    parse_results_filelist(
+        suffix='-ConsensusTADs.tsv',
+        filename.column.name='Sample.Group',
+    ) %>% 
     mutate(
         TADs=
             # pmap(
             future_pmap(
                 .,
-                load_CosensusTADs,
+                load_ConsensusTADs,
                 .progress=TRUE
             )
     ) %>%
     unnest(TADs) %>% 
     select(-c(filepath))
+}
+
+post_process_ConsensusTAD_TAD_results <- function(results.df){
+    results.df %>%
+    unite(
+        'TAD.params',
+        sep='#',
+        z.thresh,
+        window.size,
+        gap.thresh,
+    ) %>% 
+    rename('chr'=region)
 }
 
 ###################################################

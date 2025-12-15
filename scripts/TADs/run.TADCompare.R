@@ -10,6 +10,7 @@ suppressPackageStartupMessages({
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
     source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADs.R'))
+    source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADCompare.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)
@@ -33,6 +34,11 @@ hyper.params.df <-
         window_size=c(15),
         gap_thresh=c(0.2)
     )
+# Load TAD annotations to compare 
+TADs.df <- 
+    load_all_TAD_results_for_TADCompare() %>% 
+    select(-c(TAD.set.index))
+
 # List of pairs of merged matrices to compare
 merged.matrices.df <- 
     list_mcool_files() %>%
