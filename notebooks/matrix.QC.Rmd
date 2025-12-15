@@ -55,6 +55,27 @@ The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](
 
 >We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
 
+```{r coallate_marginal_contacts_rachita, eval=F}
+coverage.summary <- 
+    check_cached_results(
+        results_file=RACHITA_COVERAGE_RESULTS_FILE,
+        # force_redo=TRUE,
+        resolutions=c(100, 50, 25, 10, 5) * 1e3,  # Kbs
+        sample.metadata.df=sample.metadata.df,
+        results_fnc=
+           function(resolutions, sample.metadata.df, ...){
+                load_all_coverage_data(resolutions=resolutions) %>% 
+                # standardize_data_cols() %>% 
+                left_join(
+                    sample.metadata.df %>%
+                    select(SampleID, FlowcellID),
+                    by=join_by(SampleID)
+                ) %>%
+                mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
+           }
+    )
+```
+
 ```{r calc_resolution}
 coverage.summary <- 
     check_cached_results(
