@@ -6,6 +6,7 @@ library(magrittr)
 library(tictoc)
 library(glue)
 library(optparse)
+library(future)
 library(HiCExperiment)
 library(hictkR)
 
@@ -72,6 +73,7 @@ parse_results_filelist <- function(
     pattern=NA,
     param_delim='_',
     ...){
+    # input_dir=file.path(TAD_DIR, 'method_cooltools'); suffix='-TAD.tsv'; filename.column.name='MatrixID'; pattern=NA; param_delim='_';
     # !!NOTICE!!
     # This will break if any parameter_dir name has a param_delim character in the name or value, not as the delimiter
     # This shouldnt  break if the filename has a single param_delim character in it 
@@ -108,7 +110,8 @@ parse_results_filelist <- function(
                     filename.column.name,
                     fileinfo,
                     sep=param_delim
-                ),
+                ) %>% 
+                str_remove(suffix),
                 fileinfo
             )
     ) %>% 
@@ -499,7 +502,7 @@ load_chr_sizes <- function(){
 }
 
 get_min_resolution_per_matrix <- function(
-    df,
+    df=NULL,
     as_int=TRUE,
     filter_res=TRUE){
     # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
@@ -508,10 +511,17 @@ get_min_resolution_per_matrix <- function(
     select(SampleID, resolution) %>% 
     mutate(resolution=scale_numbers(resolution, force_numeric=as_int)) %>% 
     add_column(is.smallest.resolution=TRUE) %>% 
-    left_join(
-        df,
-        by=join_by(SampleID)
-    ) %>%
+    {
+        if (is.null(df)) {
+            .
+        } else {
+            left_join(
+                .,
+                df,
+                by=join_by(SampleID)
+            )
+        }
+    } %>% 
     { 
         if (filter_res) {
             filter(., is.smallest.resolution) %>%
