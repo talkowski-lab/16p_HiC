@@ -39,46 +39,65 @@ TADs.df <-
     load_all_TAD_results_for_TADCompare() %>% 
     select(-c(TAD.set.index))
 
-# List of pairs of merged matrices to compare
-merged.matrices.df <- 
-    list_mcool_files() %>%
-    get_min_resolution_per_matrix() %>% 
-    filter(isMerged) %>% 
-    mutate(Sample.Group=glue('{Edit}.{Celltype}.{Genotype}')) %>% 
-    select(isMerged, resolution, Sample.Group, filepath)
-# get all relevant pairs of merged matrices
-comparisons.df <- 
+###################################################
+# Generate TADCompare results from merged matrices
+###################################################
+# List all pairs of matrices to compare
+comparisons.list <- 
     tribble(
-        ~Sample.Group.Numerator, ~Sample.Group.Denominator,
-        '16p.iN.DEL',            '16p.iN.WT',  
-        '16p.iN.DUP',            '16p.iN.WT',  
-        # '16p.iN.DUP',            '16p.iN.DEL', 
-
-        '16p.NSC.DEL',           '16p.NSC.WT',
-        '16p.NSC.DUP',           '16p.NSC.WT',
-        # '16p.NSC.DUP',           '16p.NSC.DEL',
-
-        # '16p.iN.DEL',            '16p.NSC.DEL',
-        # '16p.iN.DUP',            '16p.NSC.DUP',
-        '16p.iN.WT',             '16p.NSC.WT'
-    ) %>% 
+        ~SampleID.Numerator, ~SampleID.Denominator,
+        # '16p.iN.DUP',       '16p.iN.DEL', 
+        # '16p.NSC.DUP',      '16p.NSC.DEL',
+        # '16p.NSC.DUP',      '16p.iN.DUP',
+        # '16p.NSC.DEL',      '16p.iN.DEL',
+        # '16p.NSC.WT',       '16p.iN.WT',
+        # '16p.iN.DUP',       '16p.iN.WT',  
+        # '16p.iN.DEL',       '16p.iN.WT',  
+        '16p.NSC.DUP',      '16p.NSC.WT',
+        '16p.NSC.DEL',      '16p.NSC.WT'
+    ) %>%
+    mutate(
+        across(
+            everything(),
+            ~ paste0(.x, '.Merged.Merged')
+        )
+    )
+# List of pairs of merged matrices to compare
+comparisons.df <- 
+    # List merged matrices
+    list_mcool_files() %>%
+    filter(isMerged) %>% 
+    select(SampleID, filepath) %>%
+    filter(!is.na(filepath)) %>% 
+    # each sample X each resolution
+    cross_join(tibble(resolution=parsed.args$resolutions)) %>% 
+    # add the TAD boundaries to compare between matrices
     left_join(
-        merged.matrices.df %>% select(-c(resolution)),
-        by=join_by(Sample.Group.Numerator == Sample.Group)
+        TADs.df,
+        by=join_by(resolution, SampleID)
     ) %>% 
-    left_join(
-        merged.matrices.df %>% select(-c(resolution)),
-        suffix=c('.Numerator', '.Denominator'),
-        by=join_by(isMerged, Sample.Group.Denominator == Sample.Group)
+    mutate(chr=as.character(chr)) %>% 
+    # Now list all pairs of matrices, matched by 
+    get_all_row_combinations(
+        df1=filter(., !str_detect(SampleID, '.WT')),
+        df2=filter(., str_detect(SampleID, '.WT')),
+        cols_to_pair=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
+        suffixes=c('.Numerator', '.Denominator'),
+        keep_self=FALSE
     ) %>% 
-    cross_join(tibble(resolution=parsed.args$resolutions))
-# Run TADCompare on everything
+    inner_join(
+        comparisons.list,
+        by=join_by(SampleID.Numerator, SampleID.Denominator)
+    )
+# used by calls to future_pmap() in functions below
 message(glue('using {parsed.args$num.cores} core to parallelize'))
 plan(multisession, workers=parsed.args$num.cores)
+# Run TADCompare on everything
 comparisons.df %>% 
+    filter(TAD.method != 'cooltools') %>% 
     run_all_TADCompare(    
         hyper.params.df=hyper.params.df,
-        force_redo=parsed.args$force.redo,
-        chromosomes=CHROMOSOMES
+        TADs.df=TADs.df,
+        force_redo=parsed.args$force.redo
     )
 

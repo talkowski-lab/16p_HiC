@@ -295,9 +295,11 @@ post_process_ConsensusTAD_TAD_results <- function(results.df){
 ###################################################
 run_TADCompare <- function(
     filepath.Numerator,
+    SampleID.Numerator,
+    pre_tads.Numerator,
     filepath.Denominator,
-    Sample.Group.Numerator,
-    Sample.Group.Denominator,
+    SampleID.Denominator,
+    pre_tads.Denominator,
     resolution,
     normalization,
     range1,
@@ -305,9 +307,9 @@ run_TADCompare <- function(
     z_thresh,
     window_size,
     gap_thresh,
-    pre_tads,
     ...){
-    # row_index=1; filepath.Numerator=tmp$filepath.Numerator[[row_index]]; filepath.Denominator=tmp$filepath.Denominator[[row_index]]; Sample.Group.Numerator=tmp$Sample.Group.Numerator[[row_index]]; Sample.Group.Denominator=tmp$Sample.Group.Denominator[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; z_thresh=tmp$z_thresh[[row_index]]; window_size=tmp$window_size[[row_index]]; gap_thresh=tmp$gap_thresh[[row_index]]; pre_tads=tmp$pre_tads[[row_index]];
+    # tmp[165,] %>% t()
+    # row_index=165; filepath.Numerator=tmp$filepath.Numerator[[row_index]]; SampleID.Numerator=tmp$SampleID.Numerator[[row_index]]; pre_tads.Numerator=tmp$pre_tads.Numerator[[row_index]]; filepath.Denominator=tmp$filepath.Denominator[[row_index]]; SampleID.Denominator=tmp$SampleID.Denominator[[row_index]]; pre_tads.Denominator=tmp$pre_tads.Denominator[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; z_thresh=tmp$z_thresh[[row_index]]; window_size=tmp$window_size[[row_index]]; gap_thresh=tmp$gap_thresh[[row_index]];
     # chr1 @ 10Kb -> 24896x24896 matrix -> 40Gb is enough
     # Run TADCompare on the 2 matrices being compared
     matrix.numerator <-
@@ -326,6 +328,12 @@ run_TADCompare <- function(
             range1=range1,
             range2=range2
         )
+    pre_tads <- 
+        if (is.null(pre_tads.Numerator)) {
+            NULL
+        } else {
+            list(pre_tads.Numerator, pre_tads.Denominator)
+        }
     tad.compare.results <- 
         TADCompare(
             matrix.numerator,
@@ -350,10 +358,10 @@ run_TADCompare <- function(
         isTADBoundary=ifelse(is.na(isTADBoundary), FALSE, isTADBoundary),
         Enriched.Condition=
             case_when(
-                Enriched_In.TADs == 'Matrix 1' ~ Sample.Group.Numerator,
-                Enriched_In.TADs == 'Matrix 2' ~ Sample.Group.Denominator,
-                Enriched_In.All  == 'Matrix 1' ~ Sample.Group.Numerator,
-                Enriched_In.All  == 'Matrix 2' ~ Sample.Group.Denominator,
+                Enriched_In.TADs == 'Matrix 1' ~ SampleID.Numerator,
+                Enriched_In.TADs == 'Matrix 2' ~ SampleID.Denominator,
+                Enriched_In.All  == 'Matrix 1' ~ SampleID.Numerator,
+                Enriched_In.All  == 'Matrix 2' ~ SampleID.Denominator,
                 TRUE                      ~ NA
             ),
         Differential=
@@ -401,19 +409,12 @@ run_TADCompare <- function(
 run_all_TADCompare <- function(
     comparisons.df,
     hyper.params.df,
-    TADs.df,
-    chromosomes=CHROMOSOMES,
-    force_redo=TRUE,
+    force_redo=FALSE,
     ...){
-    # chromosomes=CHROMOSOMES; force_redo=TRUE;
+    # force_redo=TRUE;
     comparisons.df %>% 
     # for each comparison list all paramter combinations
     cross_join(hyper.params.df) %>% 
-    cross_join(tibble(chr=chromosomes)) %>% 
-    left_join(
-        TADs.df,
-        by=join_by(isMerged, resolution, chr)
-    ) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -422,23 +423,30 @@ run_all_TADCompare <- function(
             file.path(
                 TAD_DIR,
                 'results_TADCompare',
-                glue('merged_{isMerged}'),
-                glue('method_{TAD.method}'),
                 glue('z.thresh_{z_thresh}'),
                 glue('window.size_{window_size}'),
                 glue('gap.thresh_{gap_thresh}'),
-                glue('resolution_{scale_numbers(resolution)}'),
+                glue('TAD.method_{TAD.method}'),
+                glue('TAD.params_{TAD.params}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
                 # glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
         results_file=
             file.path(
                 output_dir,
-                glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-TADCompare.tsv')
+                glue('{SampleID.Numerator}_vs_{SampleID.Denominator}-TADCompare.tsv')
             )
     ) %>% 
-    arrange(resolution) %>% 
-        {.}
+    arrange(desc(resolution), desc(chr)) %>% 
+    {
+        if (force_redo) {
+            .
+        } else {
+            filter(., !file.exists(results_file))
+        }
+    } %>% 
+        # {.} -> tmp
     future_pmap(
     # pmap(
         .l=.,
