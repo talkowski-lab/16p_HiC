@@ -45,3 +45,6 @@ work*
 # Output files from R CMD build
 /*.tar.gz
 
+reference.files/hg38_100000_goldenpathData
+reference.files/functionsdchic_1.0.tar.gz
+reference.files/hashmap_0.2.2.tar.gz
