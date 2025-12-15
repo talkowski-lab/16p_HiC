@@ -177,17 +177,17 @@ For 2 different TAD boundary annotation sets (just is/is not a boundary) of the 
    2. Calculate mean distance and just compare that between pairs
 
 
-### Loop Analysis
-
-#### Loop Annotation
-
-#### Loop Comparison
-
 ### Compartment Analysis
 
 #### Compartment Annotation
 
 #### Compartment Comparison
+
+### Loop Analysis
+
+#### Loop Annotation
+
+#### Loop Comparison
 
 ### Differential Contact Analysis
 
@@ -201,10 +201,6 @@ Rscript ./scripts/distiller/make.distiller.configs.R ./sample.configs/template.d
 # Run the distiller-nf pipeline by submitting each sample config as an individual SLURM job
 module load wget; module unload java; module load singularity/3.7.0; conda activate dist2
 ./scripts/distiller/run.distiller.sh -w "./work_${USER}" -a ~/miniforge3 ./sample.configs/16p.*.yml
-# List all unmergeed matrices produced by the pipeline
-find ./results/coolers_library -type f -name "*.mapq_30.1000.mcool" | 
-    grep -v 'Merged' | 
-    grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1'
 ```
 Generate various QC results from `distiller-nf` output files
 ```bash
@@ -249,7 +245,10 @@ Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 ```
 Generate Compartment annotations
 ```bash
-Rscript ./scripts/compartments/run.compartments.R
+# pre-process input matrices for dcHiC
+Rscript ./scripts/compartments/preprocess.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/preprocess.dcHiC.cmds.txt
+Rscript ./scripts/compartments/run.compartments.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/run.dcHiC.cmds.txt
+# Rscript ./scripts/compartments/run.compartments.R
 ```
 Generate Loop Annotations
 ```bash
@@ -272,9 +271,12 @@ find results/TADs/method_hiTAD/ -type f -name '*-TAD.tsv' | cut -d'/' -f4- | sed
 # List all ConsensusTAD results
 find results/TADs/method_ConsensusTAD/ -type f  | cut -d'/' -f4-8,11- | sed -e 's/-ConsensusTADs.tsv//' | sort | uniq -c | column -s'/' -t
 # List all TADComapre results
+find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 's/-TADCompare.tsv//' | sed -e 's/_vs_/\//' | cut -d'/' -f4-9,11- | sort | uniq -c | column -s'/' -t
 # List all multiHiCCompare results
 find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-7,10 | sort | uniq -c | column -s'/' -t
 # List all dcHiC results
+find results/compartments/pre.processed.input/ -type f | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
+find results/compartments/results/method_dcHiC/ -type f -name '*-dcHiC.input.tsv' | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
 # List all loop results
 ```
 
