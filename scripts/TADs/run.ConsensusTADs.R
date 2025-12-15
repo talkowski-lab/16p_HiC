@@ -33,26 +33,37 @@ hyper.params.df <-
         window_size=c(15),
         gap_thresh=c(0.2)
     )
+
+###################################################
+# Generate ConsensusTAD results
+###################################################
+comparisons.df <- 
+    tribble(
+        ~Sample.Group,
+        # '16p.iN.DUP',
+        # '16p.iN.DEL',
+        # '16p.iN.WT',
+        '16p.NSC.DUP',
+        '16p.NSC.DEL',
+        '16p.NSC.WT'
+    ) %>% 
+    set_up_sample_groups(
+        resolutions=parsed.args$resolutions,
+        use_merged=FALSE
+    )
 # used by calls to future_pmap() in functions below
-message(glue('using {parsed.args$num.cores} core to parallelize'))
-plan(multisession, workers=parsed.args$num.cores)
-# Set up results to generate
-tribble(
-    ~Sample.Group,
-    # '16p.iN.DUP',
-    # '16p.iN.DEL',
-    # '16p.iN.WT',
-    '16p.NSC.DUP',
-    '16p.NSC.DEL',
-    '16p.NSC.WT'
-) %>% 
-set_up_sample_groups(
-    resolutions=parsed.args$resolutions,
-    use_merged=FALSE
-) %>% 
-run_all_ConsensusTADs(
-    hyper.params.df=hyper.params.df,
-    force_redo=parsed.args$force.redo,
-    chromosomes=CHROMOSOMES  # all chromosomes
-)
+if (parsed.args$num.cores > 1) {
+    message(glue('using {parsed.args$num.cores} core to parallelize'))
+    plan(multisession, workers=parsed.args$num.cores)
+} else {
+    plan(sequential)
+}
+# Generate results
+comparisons.df
+comparisons.df %>% 
+    run_all_ConsensusTADs(
+        hyper.params.df=hyper.params.df,
+        force_redo=parsed.args$force.redo,
+        chromosomes=CHROMOSOMES  # all chromosomes
+    )
 
