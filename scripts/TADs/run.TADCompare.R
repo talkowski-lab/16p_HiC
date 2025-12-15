@@ -16,40 +16,15 @@ suppressPackageStartupMessages({
 })
 
 ###################################################
-# Arguments
+# Handle arguments/parameters
 ###################################################
-# Parse Arguments
+options(scipen=999)
 parsed.args <- 
-    OptionParser() %>%
-    add_option(
-        c('-t', '--threads'),
-        type='integer',
-        default=length(availableWorkers()),
-        dest='num.cores'
-    ) %>% 
-    add_option(
-        c('-f', '--force'),
-        action='store_true',
-        default=FALSE,
-        dest='force.redo'
-    ) %>%
-    add_option(
-        c('-r', '--resolutions'),
-        type='character',
-        default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
-        dest='resolutions'
-    ) %>%
-    parse_args(positional_arguments=TRUE) %>%
-    {.$options}
-parsed.args$resolutions <- 
-    parsed.args$resolutions %>%
-    str_split(',') %>%
-    lapply(as.integer) %>%
-    unlist()
-
-###################################################
-# Generate TADCompare results from merged matrices
-###################################################
+    handle_CLI_args(
+        args=c('threads', 'force', 'resolutions'),
+        has.positional=FALSE
+    )
+parsed.args$resolutions <- c(5000, parsed.args$resolutions)
 # TADCompare hypper-parameters
 hyper.params.df <- 
     expand_grid(

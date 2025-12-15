@@ -5,6 +5,7 @@ library(tidyverse)
 library(magrittr)
 library(tictoc)
 library(glue)
+library(optparse)
 library(HiCExperiment)
 library(hictkR)
 
@@ -262,6 +263,68 @@ get_info_from_MatrixIDs <- function(
         } else {
             .
         }
+    }
+}
+
+handle_CLI_args <- function(
+    args=c('threads', 'force', 'resolutions'),
+    has.positional=FALSE){
+    # parse listed arguments
+    parsed.args <- 
+        OptionParser() %>%
+        {
+            if ('threads' %in% args){
+                add_option(
+                    .,
+                    c('-t', '--threads'),
+                    type='integer',
+                    default=length(availableWorkers()),
+                    dest='threads'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        {
+            if ('force' %in% args){
+                add_option(
+                    .,
+                    c('-f', '--force'),
+                    action='store_true',
+                    default=FALSE,
+                    dest='force.redo'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        {
+            if ('resolutions' %in% args){
+                add_option(
+                    .,
+                    c('-r', '--resolutions'),
+                    type='character',
+                    default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
+                    dest='resolutions'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        parse_args(positional_arguments=TRUE)
+    # parse list of resolutions if passed
+    if ('resolutions' %in% args){
+        parsed.args$options$resolutions <- 
+            parsed.args$options$resolutions %>%
+            str_split(',') %>%
+            lapply(as.integer) %>%
+            unlist()
+    }
+    # return positional args if supplied
+    if (has.positional){
+        parsed.args
+    } else {
+        parsed.args$options
     }
 }
 

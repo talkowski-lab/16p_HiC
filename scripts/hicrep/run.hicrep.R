@@ -16,36 +16,15 @@ suppressPackageStartupMessages({
 })
 
 ###################################################
-# Arguments
-###################################################
-# Parse Arguments
-parsed.args <- 
-    OptionParser() %>%
-    add_option(
-        c('-f', '--force'),
-        action='store_true',
-        default=FALSE,
-        dest='force.redo'
-    ) %>%
-    add_option(
-        c('-r', '--resolutions'),
-        type='character',
-        default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
-        dest='resolutions'
-    ) %>%
-    parse_args(positional_arguments=TRUE) %>%
-    {.$options}
-parsed.args$resolutions <- 
-    parsed.args$resolutions %>%
-    str_split(',') %>%
-    lapply(as.integer) %>%
-    unlist()
-
-###################################################
 # Set up param combinations
 ###################################################
 options(scipen=999)
-# All combinations of multiHiCCompare hyper-params to test
+parsed.args <- 
+    handle_CLI_args(
+        args=c('threads', 'force', 'resolutions'),
+        has.positional=FALSE
+    )
+# dcHiC hyper-params
 hyper.params.df <- 
     expand_grid(
         max.window.size=c(100000, 500000, 1000000, 5000000),

@@ -30,38 +30,11 @@ hyper.params.df <-
         zero.p=c(0.8),
         A.min=c(5)
     )
-
-###################################################
-# Arguments
-###################################################
-# Parse Arguments
 parsed.args <- 
-    OptionParser() %>%
-    add_option(
-        c('-t', '--threads'),
-        type='integer',
-        default=length(availableWorkers()),
-        dest='num.cores'
-    ) %>% 
-    add_option(
-        c('-f', '--force'),
-        action='store_true',
-        default=FALSE,
-        dest='force.redo'
-    ) %>%
-    add_option(
-        c('-r', '--resolutions'),
-        type='character',
-        default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
-        dest='resolutions'
-    ) %>%
-    parse_args(positional_arguments=TRUE) %>%
-    {.$options}
-parsed.args$resolutions <- 
-    parsed.args$resolutions %>%
-    str_split(',') %>%
-    lapply(as.integer) %>%
-    unlist()
+    handle_CLI_args(
+        args=c('threads', 'force', 'resolutions'),
+        has.positional=FALSE
+    )
 
 ###################################################
 # Generate DAC results for each comparison
