@@ -90,7 +90,7 @@ run_multiHiCCompare <- function(
     effect.col='Sample.Group',
     p.method='fdr',
     ...){
-# row_index=72 * 5 + 16; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; p.method='fdr'; effect.col='Sample.Group'; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]; frac.cutoff=0.8; samples.df; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL
+    # row_index=1; sample_group_priority_fnc=sample_group_priority_fnc_16p; samples.df=tmp$samples.df[[row_index]]; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; covariates.df=NULL; frac.cutoff=0.8; effect.col='Sample.Group'; p.method='fdr';
     # Handle covariates if specified
     design.info <- 
         handle_covariates(
@@ -217,7 +217,8 @@ run_all_multiHiCCompare <- function(
     covariates.df=NULL,
     chromosomes=CHROMOSOMES,
     ...){
-    # chromosomes=c('chr15', 'chr16'); covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL; p.method='fdr'
+    # chromosomes=c('chr15', 'chr16'); covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL
+    # force_redo=FALSE; covariates.df=NULL; chromosomes=CHROMOSOMES; sample_group_priority_fnc=sample_group_priority_fnc_16p; remove.regions=hg38_cyto
     comparisons.df %>% 
     # for each comparison list all paramter combinations
     cross_join(hyper.params.df) %>% 
@@ -273,7 +274,15 @@ run_all_multiHiCCompare <- function(
                 glue('{Sample.Group.Numerator}_vs_{Sample.Group.Denominator}-multiHiCCompare.tsv')
             )
     ) %>% 
+    {
+        if (!force_redo) {
+            filter(., !(file.exists(results_file)))
+        } else{
+            .
+        }
+    } %>% 
     arrange(resolution) %>% 
+        # {.} -> tmp
     future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare

@@ -21,9 +21,6 @@ suppressPackageStartupMessages({
 # Set up all comparisons
 ###################################################
 options(scipen=999)
-# Individual sample metadata
-sample.metadata.df <- 
-    load_sample_metadata(filter=TRUE)
 # All combinations of multiHiCCompare hyper-params to test
 hyper.params.df <- 
     expand_grid(
@@ -43,21 +40,21 @@ parsed.args <-
 data('hg38_cyto') 
 # 2 group comparison + no covariates -> use exact test
 message(glue('using {parsed.args$num.cores} core to parallelize'))
-register(MulticoreParam(workers=parsed.args$num.cores * 2 / 4), default=TRUE)
-plan(multisession,      workers=parsed.args$num.cores * 2 / 4)
+register(MulticoreParam(workers=parsed.args$num.cores * 4 / 4), default=TRUE)
+# plan(multisession,      workers=parsed.args$num.cores * 1 / 4)
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     tribble(
-    ~Sample.Group.Left, ~Sample.Group.Right,
-    # '16p.iN.DUP',       '16p.iN.DEL', 
-    # '16p.NSC.DUP',      '16p.NSC.DEL',
-    # '16p.NSC.DUP',      '16p.iN.DUP',
-    # '16p.NSC.DEL',      '16p.iN.DEL',
-    # '16p.NSC.WT',       '16p.iN.WT',
-    # '16p.iN.DUP',       '16p.iN.WT',  
-    # '16p.iN.DEL',       '16p.iN.WT',  
-    '16p.NSC.DUP',      '16p.NSC.WT',
-    '16p.NSC.DEL',      '16p.NSC.WT'
+        ~Sample.Group.Left, ~Sample.Group.Right,
+        # '16p.iN.DUP',       '16p.iN.DEL', 
+        # '16p.NSC.DUP',      '16p.NSC.DEL',
+        # '16p.NSC.DUP',      '16p.iN.DUP',
+        # '16p.NSC.DEL',      '16p.iN.DEL',
+        # '16p.NSC.WT',       '16p.iN.WT',
+        # '16p.iN.DUP',       '16p.iN.WT',  
+        # '16p.iN.DEL',       '16p.iN.WT',  
+        '16p.NSC.DUP',      '16p.NSC.WT',
+        '16p.NSC.DEL',      '16p.NSC.WT'
     ) %>% 
     set_up_sample_comparisons(
         resolutions=parsed.args$resolutions,
