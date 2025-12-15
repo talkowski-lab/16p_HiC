@@ -49,43 +49,7 @@ library(purrr)
 
 Load all hiTAD annotations
 ```{r load_hiTAD_TADs}
-sample.metadata <- load_sample_metadata()
 all.hitad.annotations <- 
-    check_cached_results(
-        results_file=TAD_RESULTS_FILE,
-        results_fnc=load_all_TAD_annotations,
-        # force_redo=TRUE,
-        pattern='/method_hiTAD/'
-    ) %>% 
-    inner_join(
-        sample.metadata %>% select(SampleID),
-        by=join_by(SampleID)
-    ) %>% 
-    mutate(
-        isMerged=factor(ifelse(isMerged, 'Merged', 'Individual')),
-        resolution=scale_numbers(resolution),
-        chr=factor(chr, levels=CHROMOSOMES),
-        TAD.length=TAD.end - TAD.start
-    ) %>% 
-    select(
-        isMerged,
-        Edit,
-        Genotype,
-        Celltype,
-        CloneID,
-        TechRepID,
-        SampleID,
-        resolution,
-        weight,
-        chr,
-        TAD.start,
-        TAD.end,
-        TAD.length
-    )
-# Subset to only relevant parameters
-hitad.annotations <- 
-    all.hitad.annotations %>% 
-    filter(weight == 'ICE')
 ```
 
 ## Number of TADs
