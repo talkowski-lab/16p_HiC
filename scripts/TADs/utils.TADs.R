@@ -10,6 +10,42 @@ library(ggh4x)
 library(cowplot)
 
 ###################################################
+# Utilities
+###################################################
+convert_boundaries_to_TADs <- function(
+    # convert list of TAD boundaries to start/end format
+    # every bnoundary is a start+end excpet for the first and last ones
+    boundaries,
+    start.col.name='start',
+    end.col.name='end',
+    ...){
+    boundaries <- unlist(boundaries)
+    tibble(
+        TAD.start=boundaries[1:length(boundaries)-1],
+        TAD.end=boundaries[2:length(boundaries)]
+    ) %>%
+    add_row(TAD.start=NA, TAD.end=NA) %>% 
+    rename(
+       !!start.col.name := TAD.start,
+       !!end.col.name := TAD.end
+    )
+}
+
+convert_TADs_to_boundaries <- function(
+    # convert list of TAD boundaries to start/end format
+    # every bnoundary is a start+end excpet for the first and last ones
+    TAD.starts,
+    TAD.ends,
+    boundary.col.name='boundary',
+    ...){
+    c(TAD.starts, TAD.ends) %>%
+    unique() %>%
+    sort() %>% 
+    tibble(boundary=.) %>% 
+    rename(boundary.col.name=boundary)
+}
+
+###################################################
 # Cooltools 
 ###################################################
 load_cooltools_file <- function(
