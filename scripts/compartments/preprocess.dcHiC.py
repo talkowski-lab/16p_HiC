@@ -16,6 +16,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("-input", action= 'store', dest = 'input', help= "[required] 'cool' for .cool files, and 'hic' for .hic files.")
 
+parser.add_argument("-output", action= 'store', dest = 'output_dir', help= "[required] output dir where to save files")
+
 parser.add_argument("-file", action = "store", dest = "file", help = "[required] Enter the .cool/.mcool/.hic file path")
 
 parser.add_argument("-res", action = "store", dest = "res", help = "[required] Enter the resolution for the processing")
@@ -53,7 +55,7 @@ if results.input == "cool":
 
     # Set output names
 
-    outname = results.prefix + ".matrix"
+    outname = results.output_dir + '/' + results.prefix + ".matrix"
     extension = os.path.splitext(results.file)[1]
     filename = ""
     tmpfile = "tmp"
@@ -79,7 +81,7 @@ if results.input == "cool":
         cooler.wait()
         if cooler.returncode != 0:
             raise RuntimeError(f"cooler dump failed with exit code {cooler.returncode}")
-    name = results.prefix + ".abs.bed" #data_200000_abs.bed
+    name = results.output_dir + '/' + results.prefix + ".abs.bed"
     iterator = 1 # one-based
 
     # Make bed files
@@ -137,7 +139,7 @@ else:
 
     # Make bed files
 
-    name = results.prefix + ".abs.bed"
+    name = results.output_dir + '/' + results.prefix + ".abs.bed"
     iterator = 1 # one-based
     res = int(results.res)
 
@@ -163,7 +165,7 @@ else:
 
     # Sparse Matrix Dump
 
-    outname = results.prefix + ".matrix"
+    outname = results.output_dir + '/' + results.prefix + ".matrix"
 
     chrList = []
     print(" - Processing These Chromosomes: ")
