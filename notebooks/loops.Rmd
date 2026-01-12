@@ -1,0 +1,59 @@
+---
+title: "Loop Analysis for 16p"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+# Set Up
+
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    dev=c('png', 'pdf', 'svg'),
+    dpi=300
+)
+```
+Set up file locations + load dependences
+```{r dependencies, results=FALSE, message=FALSE, warning=FALSE}
+library(here)
+here::i_am('notebooks/loops.Rmd')
+BASE_DIR <- here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+source(file.path(BASE_DIR, 'scripts/constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'loops/utils.loops.R'))
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(ggh4x)
+library(purrr)
+```
+
+# Load Loop Annotations
+
+Load all cooltools loop annotations
+```{r load_hiTAD_TADs}
+all.loop.annotations.df <- 
+    check_cached_results(
+        results_file=COOLTOOLS_LOOPS_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_cooltools_dots
+    ) %>%
+    post_process_cooltools_dots_results() %>% 
+    standardize_data_cols()
+```
+
+# Plot loops
+
+```{r plot_loops}
+all.loop.annotations.df %>% head(2) %>% t()
+```
+

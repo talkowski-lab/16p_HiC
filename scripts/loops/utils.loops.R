@@ -1,4 +1,6 @@
-library('FitHiC')
+# library('FitHiC')
+library(stringi)
+library(furrr)
 
 ###################################################
 # Generate FitHiC2 commands to run
@@ -88,7 +90,7 @@ run_FitHiC <- function(
     ...){ 
     fragments.df <- 
         format_fragments(
-            coverage.filepath
+            coverage.filepath,
             resolution=resolution,
             contact.type=contact.type,
         )
@@ -202,7 +204,67 @@ load_all_FitHiC_results <- function(
 }
 
 post_process_FitHiC_results <- function(results.df){
+    results.df
+}
+
+###################################################
+# cooltools dots
+###################################################
+load_cooltools_dots <- function(
+    filepath,
+    ...){
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE
+    )
+}
+
+load_all_cooltools_dots <- function(){
+    LOOPS_DIR %>% 
+    parse_results_filelist(suffix='-dots.tsv') %>%
+    filter(method == 'cooltools') %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    mutate(
+        loops=
+            # pmap(
+            future_pmap(
+                .,
+                load_cooltools_dots,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(loops) %>% 
+    dplyr::rename(chr=chrom1) %>% 
+    rename_with(
+        ~ stri_replace_all(
+            .x, 
+            regex='la_exp.([a-z]+).(value|qval)',
+            '$2.$1'
+        )
+    ) %>% 
+    select(
+        -c(
+            method,
+            cstart1,
+            cstart2,
+            region,
+            region1,
+            region2,
+            end1,
+            end2,
+            chrom2,
+            filepath
+        )
+    )
+}
+
+post_process_cooltools_dots_results <- function(results.df){
+# tmp <- file.path(BASE_DIR, 'results/loops/method_cooltools/type_cis/weight_balanced/resolution_25000/16p.NSC.DEL.Merged.Merged.hg38.mapq_30.1000-dots.tsv') %>% read_tsv()
+# tmp
+# tmp %>% head(2) %>% t()
     results.df %>%
-    standardize_data_cols()
+    mutate(dist=start2 - start1)
+    # rename_with(~ str_replace(.x, '.value', ''))
 }
 
