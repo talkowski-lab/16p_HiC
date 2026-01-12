@@ -17,7 +17,8 @@ CELLTYPES_EDITS=('iN')
 SEED=9  # Random seed for qc3C
 MAPQ_FITERS=('mapq_30')
 # RESOLUTIONS='10000000,5000000,2500000,1000000,500000,250000,100000,50000,25000,10000,5000'
-RESOLUTIONS=(10000000 5000000 2500000 1000000 500000 250000 100000 50000 25000 10000 5000)
+# RESOLUTIONS=(10000000 5000000 2500000 1000000 500000 250000 100000 50000 25000 10000 5000)
+RESOLUTIONS=(100000 50000 25000 10000 5000)
 CONTACT_TYPES=('cis' 'trans')
 WEIGHT_NAMES=('raw' 'balanced')
 declare -rA WEIGHTS=([raw]='' [balanced]='weight')
@@ -30,7 +31,7 @@ GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 # Utils
 ###################################################
 help() {
-    if [[ $# -eq 0 ]]; then
+    if [[ -v $1 ]]; then
 echo "Usage: ${0} \${MODE}
 modes: 
     merge_Cohesin 
@@ -40,17 +41,19 @@ modes:
     coverage 
     expected"
         exit 0
+    else 
+        case ${1} in 
+            merge_Cohesin) args="\${COOLER_DIR}" ;;
+            merge_16p)     args="\${COOLER_DIR}" ;;
+            qc3C)          args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample{1..N}.lane1.hg38.0.bam" ;;
+            multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
+            coverage)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
+            expected)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
+            *) echo "Invalid mode: $mode" && exit 1 ;;
+        esac
+        echo "Usage: ${0} ${1} ${args}"
     fi
-    case ${1} in 
-        merge_Cohesin) args="\${COOLER_DIR}" ;;
-        merge_16p)     args="\${COOLER_DIR}" ;;
-        qc3C)          args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample1.lane1.hg38.0.bam sample{2..N}.lane1.hg38.0.bam" ;;
-        multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
-        coverage)      args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
-        expected)      args="\${OUTPUT_DIR} sample1.mcool sample{2..N}.mcool" ;;
-        *) echo "Invalid mode: $mode" && exit 1 ;;
-    esac
-    echo "Usage: ${0} ${1} ${args}"
+    exit 0
 }
 
 activate_conda() {
@@ -320,6 +323,7 @@ matrix_balance() {
 matrix_coverage() {
     output_dir="$(readlink -e "${1}")"
     mkdir -p "${1}"
+    echo "Saving results in ${output_dir}"
     activate_conda 'cooltools'
     for sample_file in "${@:2}"; do
         # Extract SampleID
@@ -356,6 +360,7 @@ matrix_coverage() {
 
 matrix_expected() {
     output_dir="$(readlink -e "${1}")"
+    echo "Saving results in ${output_dir}"
     mkdir -p "${1}"
     activate_conda 'cooler'
     for sample_file in "${@:2}"; do
@@ -369,25 +374,32 @@ matrix_expected() {
         for resolution in "${RESOLUTIONS[@]}"; do
             uri="${sample_file}::resolutions/${resolution}"
             for weight_name in "${WEIGHT_NAMES[@]}"; do
-            for contact_type in "${CONTACT_TYPES[@]}"; do
                 weight="${WEIGHTS[${weight_name}]}"
                 if [[ ${weight} != '' ]]; then
-                    weight_flag="--clr_weight_name ${weight} "
+                    weight_flag="--clr-weight-name ${weight} "
                 else 
                     weight_flag=""
                 fi
-                # name output file directory with params
-                param_dir="${output_dir}/type_${contact_type}/weight_${weight_name}/resolution_${resolution}"
-                mkdir -p "${param_dir}"
-                output_file="${param_dir}/${sample_ID}-expected.tsv"
-                [[ -f "${output_file}" ]] && continue
-                echo "${output_file}"
-                # Caculate expected IF of each position
-                cooltools "expected-${contact_type}" ${weight_flag}--nproc "${THREADS}" \
-                    --smooth                  \
-                    --aggregate-smoothed      \
-                    --output "${output_file}" \
-                    "${uri}"
+                for contact_type in "${CONTACT_TYPES[@]}"; do
+                    if [[ ${contact_type} == 'cis' ]]; then
+                        ct_args="--smooth --aggregate-smoothed "
+                    else 
+                        ct_args=""
+                    fi
+                    # name output file directory with params
+                    param_dir="${output_dir}/type_${contact_type}/weight_${weight_name}/resolution_${resolution}"
+                    mkdir -p "${param_dir}"
+                    output_file="${param_dir}/${sample_ID}-expected.tsv"
+                    [[ -f "${output_file}" ]] && continue
+                    echo "${output_file}"
+                    # Caculate expected IF of each position
+                    cmd="cooltools expected-${contact_type} ${weight_flag}--nproc ${THREADS} ${ct_args} --output ${output_file} ${uri}"
+                    ${cmd}
+                    # cooltools "expected-${contact_type}" ${weight_flag}--nproc "${THREADS}" \
+                    #     --smooth \
+                    #     --aggregate-smoothed \
+                    #     --output "${output_file}" \
+                    #     "${uri}"
             done
             done
         done
@@ -409,9 +421,7 @@ main() {
         balance)       matrix_balance "${@:2}" ;;
         coverage)      matrix_coverage "${@:2}" ;;
         expected)      matrix_expected "${@:2}" ;;
-        *) 
-            echo "Invalid mode: $mode" && exit 1 
-            ;;
+        *) echo "Invalid mode: ${mode}" && exit 1 ;;
     esac
 }
 
@@ -426,10 +436,10 @@ while getopts "a:t:h" flag; do
     case ${flag} in 
         a) CONDA_DIR="${OPTARG}" ;;
         t) THREADS="${OPTARG}" ;;
-        h) help && exit 0 ;;
+        h) help ;;
         *) echo "Invalid flag ${flag}" && help && exit 1 ;;
     esac
 done
 shift $(( OPTIND-1 ))
-[[ $# -eq 1 ]] && (help "${1}" && exit 1)
+[[ $# -eq 1 ]] && help "${1}"
 main "${@}"
