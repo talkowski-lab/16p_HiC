@@ -186,7 +186,7 @@ readfilesinter <- function(i, df, pcout, cthrd, pthrd, rmergeno = 10000, dirover
 		cat ("Found ",chrom," unique chromosomes\n")
 		if (cthread > 1) {
 			cl_cthread <- parallel::makeCluster(cthrd)
-			parallel::clusterExport(cl_cthread, c("extractTrans","ijk2matfunc_trans","mat2fbm"))
+			parallel::clusterExport(cl_cthread, c("extractTrans","ijk2matfunc_trans","mat2fbm", "read_tsv"))
 			parallel::parLapply(cl_cthread, 1:length(chrom), extractTrans, chrom, normalizePath(df$mat[i]), normalizePath(df$bed[i]), paste0(df$prefix[i],"_pca/","inter_pca/",df$prefix[i],"_mat"))
 			parallel::parLapply(cl_cthread, 1:length(chrom), ijk2matfunc_trans, chrom, bed, paste0(df$prefix[i],"_pca/","inter_pca/",df$prefix[i],"_mat"), pcout, pthrd, rmergeno)
 			parallel::stopCluster(cl_cthread)
@@ -450,7 +450,7 @@ readfilesintra <- function(i, df, pcout, ebackground, cthrd, pthrd, diroverwrite
  		if (length(chrom) > 0) {
   			if (cthread > 1) {
   				cl_cthread <- parallel::makeCluster(cthrd)
-				parallel::clusterExport(cl_cthread, c("ijk2matfunc_cis","mat2fbm"))
+				parallel::clusterExport(cl_cthread, c("ijk2matfunc_cis","mat2fbm", "read_tsv"))
 				parallel::parLapply(cl_cthread, 1:length(chrom), ijk2matfunc_cis, chrom, paste0(df$prefix[i],"_pca/","intra_pca/",df$prefix[i],"_mat"), pcout, pthrd)
 				parallel::stopCluster(cl_cthread)
 			} else {
@@ -1610,7 +1610,7 @@ fithicformat <- function(data, diffdir, fithicpath, pythonpath, fdr_thr, dist_th
 	resolution <- as.integer(resolution)
 
 	if (!is.na(cl_sthread)) {
-		parallel::clusterExport(cl_sthread, "callfithiC")
+		parallel::clusterExport(cl_sthread, "callfithiC", "read_tsv")
 		invisible(parallel::parLapply(cl_sthread, c(1:nrow(data)), callfithiC, fithicpath, pythonpath, resolution, data, diffdir, dist_thr, dirovwt))
 	} else {
 		invisible(lapply(c(1:nrow(data)), callfithiC, fithicpath, pythonpath, resolution, data, diffdir, dist_thr, dirovwt))
@@ -2678,7 +2678,8 @@ geneEnrichment <- function(data, diffdir, genome, exclA=T, region="anchor", pcgr
 ### END ###
 
 #Get the options 
-option_list = list(
+option_list = 
+    list(
 	make_option(c("--file"), type="character", help="an input.txt file with the following columns, e.g.\n
 	\t\t<mat>\t<bed>\t<prefix_replicate>\t<prefix>
 	\t\tmat.txt\tmat.bed\tname_R1\tname\n
@@ -2788,13 +2789,13 @@ option_list = list(
  	make_option(c("--subnum"), type="integer", default=6, help="Total number of sub-compartments to find 
  		[default 6]\n"),
 
- 	 make_option(c("--minc"), type="integer", default=0, help="Minimum interaction count to be retained during pca (cis) calculation and differential loop calling 
+ 	make_option(c("--minc"), type="integer", default=0, help="Minimum interaction count to be retained during pca (cis) calculation and differential loop calling 
  		[default 0]\n"),
 
- 	 make_option(c("--minexpcc"), type="numeric", default=0, help="Minimum expected interaction. For high resolution analysis the expected interaction gets very low value, setting this to a minimum value will keep the expected interaction within a threshold
+ 	make_option(c("--minexpcc"), type="numeric", default=0, help="Minimum expected interaction. For high resolution analysis the expected interaction gets very low value, setting this to a minimum value will keep the expected interaction within a threshold
  		[default 0]\n"),
 
- 	 make_option(c("--maxd"), type="integer", default=2e6, help="Maximum distance (bp) between interactions to be kept during differential loop calling 
+ 	make_option(c("--maxd"), type="integer", default=2e6, help="Maximum distance (bp) between interactions to be kept during differential loop calling 
  		[default 2e6]\n"),
 
 	make_option(c("--exclA"), type="logical", default=TRUE, help="Setting this option to TRUE will allow dcHiC to search genes that are overlapping with differential-A regions in a sample and B in all others [default TRUE]\n"),
@@ -2836,8 +2837,11 @@ option_list = list(
  		[default 1]\n
  	Note: The total number of threads will be used is = sthread X cthread X pthread\n"),
 
-	make_option(c("--seed"), type="integer", default=123, help="Seed used for random number generation\n")
+	make_option(c("--seed"), type="integer", default=123, help="Seed used for random number generation\n"),
+
+	make_option(c("--output_dir"), type="character", default=NA, help="output directory where to put all output files")
 )
+
 opt <- parse_args(OptionParser(option_list=option_list))
 
 inputfile  <- as.character(opt$file)
@@ -2869,6 +2873,7 @@ region 	   <- as.character(opt$region)
 pcgrp 	   <- as.character(opt$pcgroup)
 interaction<- as.character(opt$interaction)
 cells	   <- as.character(opt$cells)
+output_dir <- as.character(opt$output_dir)
 dirovwt    <- opt$dirovwt
 exclA      <- opt$exclA
 pcscore    <- opt$pcscore
@@ -2880,11 +2885,13 @@ pc <- as.integer(opt$pc)
 
 if (sthread > 1) {
 	cl_sthread<- parallel::makeCluster(sthread)
-	parallel::clusterExport(cl_sthread, c("expectedInteraction","ijk2matfunc_cis","extractTrans","ijk2matfunc_trans","mat2fbm"))
+	parallel::clusterExport(cl_sthread, c("expectedInteraction","ijk2matfunc_cis","extractTrans","ijk2matfunc_trans","mat2fbm", "read_tsv"))
 }
 
 # Init PRNG
 set.seed(as.integer(opt$seed))
+setwd(output_dir)
+getwd()
 
 #Read input file
 # data <- read_tsv(paste0(inputfile))
