@@ -39,15 +39,16 @@ parsed.args <-
 # GRanges object with Centro/Telomere regions to filter
 data('hg38_cyto') 
 # 2 group comparison + no covariates -> use exact test
-message(glue('using {parsed.args$num.cores} core to parallelize'))
-register(MulticoreParam(workers=parsed.args$num.cores * 4 / 4), default=TRUE)
-# plan(multisession,      workers=parsed.args$num.cores * 1 / 4)
+message(glue('using {parsed.args$threads} core to parallelize'))
+# register(MulticoreParam(workers=parsed.args$threads * 4 / 4), default=TRUE)
+register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
+plan(multisession,      workers=parsed.args$threads * 2 / 4)
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     tribble(
         ~Sample.Group.Left, ~Sample.Group.Right,
-        # '16p.iN.DUP',       '16p.iN.DEL', 
         # '16p.NSC.DUP',      '16p.NSC.DEL',
+        # '16p.iN.DUP',       '16p.iN.DEL', 
         # '16p.NSC.DUP',      '16p.iN.DUP',
         # '16p.NSC.DEL',      '16p.iN.DEL',
         # '16p.NSC.WT',       '16p.iN.WT',
@@ -60,7 +61,6 @@ comparisons.df <-
         resolutions=parsed.args$resolutions,
         merging='individual'
     )
-comparisons.df
 comparisons.df %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,

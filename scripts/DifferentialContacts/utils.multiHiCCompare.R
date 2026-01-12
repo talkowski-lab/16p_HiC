@@ -126,6 +126,7 @@ run_multiHiCCompare <- function(
             normalization="NONE",
             .progress=FALSE
         )
+    message('loaded contact matrices')
     # Get all bin pairs that are detected in > frac.cutoff fraction of samples e.g. 
     # frac.cutoff=0.8 -> only test contacts detected in > 80% of all samples
     common.bin.pairs <- 
@@ -148,6 +149,7 @@ run_multiHiCCompare <- function(
                 )
             }
         )
+    message(glue('subset contacts to those detected in {frac.cutoff * 100}% of contacts'))
     # Make experiment object with relevant data+parameters
     make_hicexp(
         data_list=samples.contacts,
@@ -158,15 +160,17 @@ run_multiHiCCompare <- function(
         remove.regions=remove.regions,
         remove_zeroes=FALSE,
         filter=TRUE
-    ) %>% 
+    ) %T>% 
+    {message('Made experiment object')} %>% 
     # Normalize hic data, use cyclic loess with automatically calculated span
-    cyclic_loess(
+    fastlo(
         verbose=TRUE,
         parallel=TRUE,
         span=NA
     ) %T>% 
     # Plot normalized IFs for all sample pairs
     {
+        message('Normalized contacts with fast cyclic loess')
         dir.create(
             dirname(md_plot_file),
             showWarnings=FALSE,
@@ -226,28 +230,8 @@ run_all_multiHiCCompare <- function(
     # Determine sample group priority i.e. 
     # which sample group is numerator in fold-change values (lower priority value) and 
     # which sample group is denominator in fold change values (higher priority value)
-    mutate(
-        across(
-            starts_with('Sample.Group.'),
-            ~ sample_group_priority_fnc(.x),
-            .names='{.col}.Priority'
-        )
-    ) %>%
-    mutate(
-        Sample.Group.Numerator=
-            case_when(
-                Sample.Group.Left.Priority < Sample.Group.Right.Priority ~ Sample.Group.Left,
-                Sample.Group.Left.Priority > Sample.Group.Right.Priority ~ Sample.Group.Right,
-                TRUE ~ NA
-            ),
-        Sample.Group.Denominator=
-            case_when(
-                Sample.Group.Numerator == Sample.Group.Left ~ Sample.Group.Right,
-                Sample.Group.Numerator == Sample.Group.Right ~ Sample.Group.Left,
-                TRUE ~ NA
-            )
-    ) %>% 
-    select(-c(ends_with('.Priority'))) %>% 
+    # creates the columns Sample.Group.Numerator, Sample.Group.Denominator[
+    set_foldchange_direction_as_factor(sample_group_priority_fnc=sample_group_priority_fnc) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -280,10 +264,26 @@ run_all_multiHiCCompare <- function(
         } else{
             .
         }
-    } %>% 
-    arrange(resolution) %>% 
-        # {.} -> tmp
+    } %T>% 
+    {
+        message('Generating the following results files')
+        print(
+            dplyr::count(
+                .,
+                zero.p,
+                A.min,
+                resolution,
+                Sample.Group.Numerator,
+                Sample.Group.Denominator
+            ) %>%
+            rename_with(~ str_remove(., 'Sample.Group.'))
+        )
+    } %>%
+    arrange(desc(chr)) %>% 
+    # arrange(resolution) %>% 
+        # {.} -> tmp2; effect.col='Sample.Group';
     future_pmap(
+    # pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
             function(results_file, ...){ 
