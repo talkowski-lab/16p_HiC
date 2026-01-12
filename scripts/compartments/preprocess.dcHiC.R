@@ -37,44 +37,44 @@ hyper.params.df <-
 ###################################################
 PREPROCESS_SCRIPT_FILEPATH <- file.path(SCRIPT_DIR, 'compartments', 'preprocess.dcHiC.py')
 list_mcool_files() %>% 
-    filter(!isMerged) %>% 
-    select(SampleID, filepath) %>% 
-    cross_join(hyper.params.df) %>% 
-    mutate(
-        hyper.param.path=
-            file.path(
-                glue("contact.type_{contact.type}"),
-                glue("resolution_{resolution}")
-            ),
-        preprocess.output.dir=
-            file.path(
-                COMPARTMENTS_PREPROCESSED_DIR,
-                hyper.param.path
-            ),
-        preprocess.cmd=glue("mkdir -p {preprocess.output.dir}; python {PREPROCESS_SCRIPT_FILEPATH} -genomeFile {CHROMOSOME_SIZES_FILE} -res {resolution} -prefix {SampleID} -input cool -output {preprocess.output.dir} -file {filepath}"), #%>% str_replace_all(BASE_DIR, '.'),
-        preprocessed.matrix.filepath=
-            file.path(
-                COMPARTMENTS_PREPROCESSED_DIR,
-                hyper.param.path,
-                glue("{SampleID}.matrix")
-            ),
-        preprocessed.region.filepath=
-            file.path(
-                COMPARTMENTS_PREPROCESSED_DIR,
-                hyper.param.path,
-                glue("{SampleID}.abs.bed")
-            )
-    ) %>% 
-    {
-        if (parsed.args$force.redo) {
-            .
-        } else {
-            filter(., !file.exists(preprocessed.matrix.filepath))
-        }
-    } %>% 
-    select(preprocess.cmd) %>% 
-    # head(1) %>% t()
-    write_tsv(
-        file.path(COMPARTMENTS_DIR, 'preprocess.dcHiC.cmds.txt'),
-        col_names=FALSE
-    )
+filter(!isMerged) %>% 
+select(SampleID, filepath) %>% 
+cross_join(hyper.params.df) %>% 
+mutate(
+    hyper.param.path=
+        file.path(
+            glue("contact.type_{contact.type}"),
+            glue("resolution_{resolution}")
+        ),
+    preprocess.output.dir=
+        file.path(
+            COMPARTMENTS_PREPROCESSED_DIR,
+            hyper.param.path
+        ),
+    preprocess.cmd=glue("mkdir -p {preprocess.output.dir}; python {PREPROCESS_SCRIPT_FILEPATH} -genomeFile {CHROMOSOME_SIZES_FILE} -res {resolution} -prefix {SampleID} -input cool -output {preprocess.output.dir} -file {filepath}"), #%>% str_replace_all(BASE_DIR, '.'),
+    preprocessed.matrix.filepath=
+        file.path(
+            COMPARTMENTS_PREPROCESSED_DIR,
+            hyper.param.path,
+            glue("{SampleID}.matrix")
+        ),
+    preprocessed.region.filepath=
+        file.path(
+            COMPARTMENTS_PREPROCESSED_DIR,
+            hyper.param.path,
+            glue("{SampleID}.abs.bed")
+        )
+) %>% 
+{
+    if (parsed.args$force.redo) {
+        .
+    } else {
+        filter(., !file.exists(preprocessed.matrix.filepath))
+    }
+} %>% 
+select(preprocess.cmd) %>% 
+# head(1) %>% t()
+write_tsv(
+    file.path(COMPARTMENTS_DIR, 'preprocess.dcHiC.cmds.txt'),
+    col_names=FALSE
+)

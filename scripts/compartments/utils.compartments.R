@@ -84,22 +84,38 @@ setup_dcHiC_group_comparisons <- function(
     select(-c(input.file.contents.Numerator, input.file.contents.Denominator))
 }
 
-make_cmd_list <- function(
-    resolution,
+make_script_file <- function(
+    input_filepath,
+    total.input.file.contents,
+    output_dir,
+    script_filepath,
     dchic.script.filepath,
-    genome_name,
     force_redo,
-    input.filepath,
+    genome_name,
+    resolution,
     contact.type,
     threads,
     seed,
     ...){
+    # make speicific results directory
+    dir.create(
+        output_dir,
+        recursive=TRUE,
+        showWarnings=FALSE
+    )
+    # write dcHiC specific input file to directory
+    write_tsv(
+        x=total.input.file.contents,
+        file=input_filepath,
+        col_names=FALSE
+    )
+    # make cmds to generate results with dcHiC for this comparison
     base.cmd <- 
         c(
             "Rscript {dchic.script.filepath}",
             "--dirovwt {force_redo}",
             "--seed {seed}",
-            "--file {input.filepath}",
+            "--file {input_filepath}",
             "--output_dir {output_dir}"
         )
     # Generate PCA loadings using cis contacts only
@@ -110,41 +126,47 @@ make_cmd_list <- function(
             "--cthread {threads}",
             "--pthread {threads}"
         )
-        # Pick which PCs to use for compartment assignment
+    # Pick which PCs to use for compartment assignment
     select.pcs.cmd <- 
         c(
             base.cmd,
             "--pcatype select",
             "--genome {genome_name}",
-            "--gfolder {hg38_{resolution}_goldenpathData}"
+            "--gfolder {DCHIC_REF_DIR}/hg38_{resolution}_goldenpathData"
         )
     # Compute differential statistics between the 2 conditions
     analyze.cmd <- 
         c(
             base.cmd,
             "--pcatype analyze",
-            "--diffdir {output.dir}"
+            "--diffdir {output_dir}"
         )
     # Annotated subcompartments as well
     subcomp.cmd <- 
         c(
             base.cmd,
             "--pcatype subcomp",
-            "--diffdir {output.dir}",
+            "--diffdir {output_dir}",
             collapse=" "
         )
     # paste commands together
     list(
-        "cd {{output.dir}",
+        # "cd {output_dir}",
         make.pcs.cmd,
         select.pcs.cmd,
         analyze.cmd,
-        subcomp.cmd,
-        "cd -"
+        subcomp.cmd
+        # "cd -"
     ) %>%
     lapply(paste, collapse=" ") %>% 
-    paste(collapse="; ") %>% 
-    glue()
+    paste(collapse="\n") %>% 
+    glue() %>%
+    as.character() %>% 
+    tibble(cmd=.) %>% 
+    write_tsv(
+        file=script_filepath,
+        col_names=FALSE
+    )
 }
 
 ###################################################
