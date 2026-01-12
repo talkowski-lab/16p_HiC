@@ -960,76 +960,73 @@ set_foldchange_direction_as_factor <- function(
 join_all_rows <- function(
     df1,
     df2=NULL,
-    join_keys=c(),
+    cols_to_match=c(),
     ...){
-    if (is_tibble(df2)) {
-        full_join(
-            df1 %>% add_column(join_dummy=0),
-            df2 %>% add_column(join_dummy=0),
-            relationship='many-to-many',
-            by=c('join_dummy', join_keys),
+    if (is.null(df2)){ 
+        df2 <- df1
+    }
+    if (length(cols_to_match) == 0) {
+        cross_join(
+            df1,
+            df2,
             ...
-        ) %>% 
-        select(-c(join_dummy))
+        ) 
     } else {
         full_join(
-            df1 %>% add_column(join_dummy=0),
-            df1 %>% add_column(join_dummy=0),
+            df1,
+            df2,
             relationship='many-to-many',
-            by=c('join_dummy', join_keys),
+            by=cols_to_match,
             ...
-        ) %>% 
-        select(-c(join_dummy))
+        )
     }
 }
 
 get_all_row_combinations <- function(
     df1,
     df2=NULL,
-    cols_to_pair=c(),
+    col_to_pair=NA,
+    cols_to_match=c(),
     suffixes=c('.P1', '.P2'),
     keep_self=TRUE,
     ...){
+    # df2=NULL; col_to_pair='SampleID'; cols_to_match=c('resolution', 'chr', 'TAD.method', 'TAD.params'); suffixes=c('.P1', '.P2'); keep_self=FALSE;
     # Get all combinations of rows with matching attributes (cols_to_pair)
-    {
-        if (is_tibble(df2)) {
-            join_all_rows(
-                df1 %>% mutate(index=row_number()),
-                df2 %>% mutate(index=row_number()),
-                join_keys=cols_to_pair,
-                suffix=c('.A', '.B')
-            )
-        } else {
-            join_all_rows(
-                df1 %>% mutate(index=row_number()),
-                df1 %>% mutate(index=row_number()),
-                join_keys=cols_to_pair,
-                suffix=c('.A', '.B')
-            )
-        }
-    } %>% 
-    # Keep only distinct pairs of rows (order doesnt matter
-    mutate(
-        index.pair=
-            pmap_chr(
-                list(index.A, index.B),
-                ~ paste(sort(c(...)), collapse='~')
-            )
-    ) %>%
-    distinct(
-        index.pair,
-        .keep_all=TRUE
-    ) %>%
+    colA <- glue('{col_to_pair}.A')
+    colB <- glue('{col_to_pair}.B')
+    join_all_rows(
+        df1,
+        df2,
+        cols_to_match=cols_to_match,
+        suffix=c('.A', '.B')
+    ) %>% 
     # keep/remove pairs of a row matched to itself
     {
         if (keep_self) {
             .
         } else {
-            filter(., index.A != index.B)
+            filter(., !!sym(colA) != !!sym(colB))
         }
     } %>% 
-    # rename with suffixes
+    # Keep only distinct pairs of rows (order doesnt matter)
+    rowwise() %>% 
+    mutate(
+        index=
+            case_when(
+                !!sym(colA) >= !!sym(colB) ~ paste(!!sym(colA), !!sym(colB), collapse='~'),
+                !!sym(colA) <  !!sym(colB) ~ paste(!!sym(colB), !!sym(colA), collapse='~')
+            ) %>% 
+            paste(collapse='~')
+    ) %>% 
+    ungroup() %>% 
+    group_by(across(c(cols_to_match))) %>% 
+    distinct(
+        index,
+        .keep_all=TRUE
+    ) %>%
+    ungroup() %>% 
     select(-c(starts_with('index'))) %>%
+    # rename with suffixes
     rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
     rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
 }
