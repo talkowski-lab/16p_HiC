@@ -229,6 +229,26 @@ run_all_ConsensusTADs <- function(
                 glue('{Sample.Group}-ConsensusTADs.tsv')
             )
     ) %>% 
+    {
+        if (!force_redo) {
+            filter(., !(file.exists(results_file)))
+        } else{
+            .
+        }
+    } %T>% 
+    {
+        message('Generating the following results files')
+        print(
+            dplyr::count(
+                .,
+                z_thresh,
+                window_size,
+                gap_thresh,
+                resolution,
+                Sample.Group
+            )
+        )
+    } %>%
     arrange(resolution) %>% 
     # future_pmap(
     pmap(
@@ -440,15 +460,31 @@ run_all_TADCompare <- function(
     ) %>% 
     arrange(desc(resolution), desc(chr)) %>% 
     {
-        if (force_redo) {
+        if (!force_redo) {
+            filter(., !(file.exists(results_file)))
+        } else{
             .
-        } else {
-            filter(., !file.exists(results_file))
         }
-    } %>% 
+    } %T>% 
+    {
+        message('Generating the following results files')
+        print(
+            dplyr::count(
+                .,
+                z_thresh,
+                window_size,
+                gap_thresh,
+                TAD.method, 
+                TAD.params,
+                resolution,
+                SampleID.Numerator,
+                SampleID.Denominator
+            )
+        )
+    } %>%
         # {.} -> tmp
-    future_pmap(
-    # pmap(
+    # future_pmap(
+    pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
             function(results_file, ...){ 
@@ -469,32 +505,85 @@ run_all_TADCompare <- function(
 load_TADCompare_results <- function(
     filepath,
     ...){
+    filepath %>% 
     read_tsv(
-        filepath,
         show_col_types=FALSE,
-        progress=FALSE,
-    )
+        progress=FALSE
+    ) %>%
+        # dplyr::count(isTADBoundary, TAD.isDifferential)
+    mutate(
+        isTADBoundary= 
+            case_when(
+                isTADBoundary == 'Differential' ~ TRUE,
+                isTADBoundary == 'Non-Differential' ~ FALSE,
+                TRUE ~ isTADBoundary,
+                # TRUE ~ NA
+                # isTADBoundary == 'Differential' ~ 'TRUE',
+                # isTADBoundary == 'Non-Differential' ~ 'FALSE',
+                # TRUE ~ isTADBoundary
+            ),
+        TAD.isDifferential=
+            case_when(
+                TAD.isDifferential == 'Differential' ~ TRUE,
+                TAD.isDifferential == 'Non-Differential' ~ FALSE,
+                # TRUE ~ TAD.isDifferential
+            )
+    ) %>%
+        # dplyr::count(isTADBoundary, TAD.isDifferential)
+    # Only keep TAD boundaries (differential or not) or differential non-boundary bins
+    filter(!is.na(isTADBoundary) & !is.na(TAD.isDifferential)) %>% 
+    filter(!(!isTADBoundary & !TAD.isDifferential))
 }
 
 load_all_TADCompare_results <- function(...){
+    # Get a list of all results files
     file.path(TAD_DIR, 'results_TADCompare') %>%
-    parse_results_filelist() %>% 
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    parse_results_filelist(
+        suffix='-TADCompare.tsv',
+        filename.column.name='pair.name'
+    ) %>% 
+    # Split title into pair of groups ordered by numerator/denominator
+    separate_wider_delim(
+        pair.name,
+        delim='_vs_',
+        names=c('Sample.Group.Numerator', 'Sample.Group.Denominator')
+    ) %>% 
+    filter(TAD.method != 'cooltools') %>% 
+    # Filter relevant results 
+        # {.} -> tmp
+        # row_index=2884; tmp$filepath[[row_index]]; filepath <- tmp$filepath[[row_index]]
     mutate(
-        TADs=
-            # pmap(
-            future_pmap(
+        results=
+            pmap(
+            # future_pmap(
                 .,
                 load_TADCompare_results,
                 .progress=TRUE
             )
     ) %>%
-    unnest(TADs) %>% 
+    unnest(results) %>% 
     select(-c(filepath))
 }
 
 post_process_TADCompare_results <- function(results.df){
     results.df %>%
-    standardize_data_cols()
+    filter(TAD.method != 'cooltools') %>% 
+    mutate(
+        across(
+            c(
+                Sample.Group.Numerator,
+                Sample.Group.Denominator,
+                Enriched.Condition
+            ),
+            ~ str_remove(.x, '.Merged.Merged')
+        ),
+        comparison=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
+    ) %>% 
+    rename(
+        'chr'=region,
+        'isBoundary'=isTADBoundary, 
+        'isDifferential'=TAD.isDifferential, 
+        'Difference'=TAD.Difference.Type
+    )
 }
 

@@ -69,29 +69,24 @@ comparisons.df <-
     filter(isMerged) %>% 
     select(SampleID, filepath) %>%
     filter(!is.na(filepath)) %>% 
-    # each sample X each resolution
-    cross_join(tibble(resolution=parsed.args$resolutions)) %>% 
     # add the TAD boundaries to compare between matrices
     left_join(
         TADs.df,
-        by=join_by(resolution, SampleID)
+        by=join_by(SampleID)
     ) %>% 
     mutate(chr=as.character(chr)) %>% 
-    # Now list all pairs of matrices, matched by 
-    get_all_row_combinations(
-        df1=filter(., !str_detect(SampleID, '.WT')),
-        df2=filter(., str_detect(SampleID, '.WT')),
-        cols_to_pair=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
-        suffixes=c('.Numerator', '.Denominator'),
-        keep_self=FALSE
+    # Specify which comparisons to evaluate
+    join_all_rows(
+        cols_to_match=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
+        suffix=c('.Numerator', '.Denominator')
     ) %>% 
     inner_join(
         comparisons.list,
         by=join_by(SampleID.Numerator, SampleID.Denominator)
     )
 # used by calls to future_pmap() in functions below
-message(glue('using {parsed.args$num.cores} core to parallelize'))
-plan(multisession, workers=parsed.args$num.cores)
+message(glue('using {parsed.args$threads} core to parallelize'))
+plan(multisession, workers=parsed.args$threads)
 # Run TADCompare on everything
 comparisons.df %>% 
     filter(TAD.method != 'cooltools') %>% 
