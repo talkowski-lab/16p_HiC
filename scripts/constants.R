@@ -12,6 +12,19 @@ CNV.GROUPS <-
         '16p.iN.DEL',
         '16p.iN.WT'
     )
+SAMPLE_GROUP_COMPARISONS <- 
+    tribble(
+        ~Sample.Group.Numerator, ~Sample.Group.Denominator,
+        # '16p.iN.DUP',       '16p.iN.DEL', 
+        # '16p.NSC.DUP',      '16p.NSC.DEL',
+        # '16p.NSC.DUP',      '16p.iN.DUP',
+        # '16p.NSC.DEL',      '16p.iN.DEL',
+        # '16p.NSC.WT',       '16p.iN.WT',
+        # '16p.iN.DUP',       '16p.iN.WT',  
+        # '16p.iN.DEL',       '16p.iN.WT',  
+        '16p.NSC.DUP',      '16p.NSC.WT',
+        '16p.NSC.DEL',      '16p.NSC.WT'
+    )
 # have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
     c(
@@ -65,7 +78,7 @@ RESOLUTION_IDEAL_H <-
 GENOMIC_REGIONS <- 
 	tribble(
     ~region.group, ~region,                    ~region.chr, ~region.start, ~region.end,
-    "16p",         "chr16p.deletion",          "chr16",          29488679,    30188679,
+    "16p",         "16p11.2 CNV",              "chr16",          29488679,    30188679,
     "16p",         "chr16p.telomere",          "chr16",                 0,     5149999,
     "16p",         "chr16p11.2",               "chr16",          24288679,    30188679,
     "16p",         "chr16p",                   "chr16",                 0,    36800000,
@@ -82,15 +95,6 @@ GENOMIC_REGIONS <-
     "RGDs",        "17q21.31",                 "chr17",            452200,     1272274,
     "RGDs",        "22q11.21_DGS_VCFS_common", "chr22",          18518837,    21562827,
 	) %>%	
-    mutate(
-        region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
-        region.dist=region.end - region.start
-    )
-LAB_MEETING_REGIONS <- 
-    tribble(
-    ~region.group, ~region,           ~region.chr, ~region.start, ~region.end,
-    "16p",         "16p11.2 CNV",         "chr16",      29488679,    30188679,
-    ) %>% 
     mutate(
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
         region.dist=region.end - region.start
