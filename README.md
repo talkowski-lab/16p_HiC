@@ -237,6 +237,7 @@ Rscript ./scripts/TADs/run.ConsensusTADs.R
 Generate TADCompare results
 ```bash
 # Run TADCompare to generated differential TAD results
+# requires 120Gb for the largest matrix comparison (i.e. chr1 @5Kb)
 Rscript ./scripts/TADs/run.TADCompare.R
 ```
 Generate multiHiCCompare results
@@ -246,13 +247,13 @@ Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 Generate Compartment annotations
 ```bash
 # pre-process input matrices for dcHiC
-Rscript ./scripts/compartments/preprocess.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/preprocess.dcHiC.cmds.txt
-Rscript ./scripts/compartments/run.compartments.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/run.dcHiC.cmds.txt
-# Rscript ./scripts/compartments/run.compartments.R
+# Rscript ./scripts/compartments/preprocess.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/preprocess.dcHiC.cmds.txt
+# Rscript ./scripts/compartments/run.compartments.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/run.dcHiC.cmds.txt
+Rscript ./scripts/compartments/run.compartments.HiCDOC.R
 ```
 Generate Loop Annotations
 ```bash
-./scripts/loops/run.LoopCallers.sh ./results/Loops cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+./scripts/loops/run.loops.cooltools.sh ./results/loops cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 ```
 
 ### File Summary One-liners
@@ -278,6 +279,7 @@ find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | se
 find results/compartments/pre.processed.input/ -type f | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
 find results/compartments/results/method_dcHiC/ -type f -name '*-dcHiC.input.tsv' | cut -d'/' -f4,5 | sort | uniq -c | sort -nr -k1,1 | column -s'/' -t
 # List all loop results
+find results/loops/method_cooltools -type f -name '*-dots.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
 ```
 
 ### Results Checklist
