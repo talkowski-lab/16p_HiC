@@ -836,7 +836,7 @@ set_up_sample_comparisons <- function(
         resolution.min=min(samples.df$resolution),
         resolution.max=max(samples.df$resolution)
     ) %>% 
-    # Now list every comparison at every resolution that is either a min or max for 1 comparison
+    # List every comparison + resolution that is either a min or max for 1 comparison
     ungroup() %>%
     mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
     unnest(resolution) %>% 
@@ -862,7 +862,10 @@ sample_group_priority_fnc_16p <- function(Sample.Group){
     # so for 16p.NSC.DEL vs 16p.NSC.WT we want to force 16p.NSC.DEL be numerator 
     # therefore we make it the SECOND factor level i.e. have  a larger priority number 
     # i.e. this works when the priority of 16p.NSC.DEL > 16p.NSC.WT
-
+    # so if we create a factor based on this priority the factor hass the following levels
+    # Levels: 16p.NSC.WT 16p.NSC.DEL
+    # which results in the call exactTest(groups=c(16p.NSC.WT, 16p.NSC.DEL))
+    # which is DEL as the FC numerator
     case_when(
         Sample.Group == '16p.NSC.DUP' ~ 1,  # always numerator in FCs
         Sample.Group == '16p.iN.DUP'  ~ 2,
@@ -874,7 +877,7 @@ sample_group_priority_fnc_16p <- function(Sample.Group){
     )
 }
 
-sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
+sample_group_priority_fnc_Cohesin <- function(Sample.Group){
     # FC is determined by the edger::exactTest() function called in multiHiCCompare
     # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
     # According to the docs for exactTest()
@@ -897,6 +900,57 @@ sample_group_priority_fnc_NIPBLWAPL <- function(Sample.Group){
         grepl('NIPBL.iN.WT',  Sample.Group) ~ 14,
         grepl(  'All.iN.WT',  Sample.Group) ~ 15,
         TRUE                                ~ Inf
+    )
+}
+
+set_foldchange_direction_as_factor <- function(
+    results.df,
+    sample_group_priority_fnc,
+    group1_colname='Sample.Group.Left', 
+    group2_colname='Sample.Group.Right',
+    ...){
+    # Use this to make sure that when testing is done by edger::exactTest(), which relies only 
+    # on factor levels to determine fold-change direction, that the explicitly stated numerator
+    group1_priority <- glue('{group1_colname}.Priority') 
+    group2_priority <- glue('{group2_colname}.Priority') 
+    # will have the approriate factor level detected by edger
+    results.df %>% 
+    # Determine sample group priority i.e. 
+    # which sample group is numerator in fold-change values (lower priority value) and 
+    # which sample group is denominator in fold change values (higher priority value)
+    # use priority function to determine which sample group should represent the numerator 
+    # in the fold change 
+    mutate(
+        across(
+            c(group1_colname, group2_colname),
+            ~ sample_group_priority_fnc(.x),
+            .names='{.col}.Priority'
+        )
+    ) %>%
+    # Create explicit and consistent Numerator column, i.e. if there is a log(FC) > 0 then 
+    # the Numerator is enriched for the signal being compared
+    # The Denominator is set to be the opposite group
+    mutate(
+        Sample.Group.Numerator=
+            case_when(
+                .data[[group1_priority]] < .data[[group2_priority]] ~ .data[[group1_colname]],
+                .data[[group1_priority]] > .data[[group2_priority]] ~ .data[[group2_colname]],
+                TRUE ~ NA
+            ),
+        Sample.Group.Denominator=
+            case_when(
+                Sample.Group.Numerator == .data[[group1_colname]] ~ .data[[group2_colname]],
+                Sample.Group.Numerator == .data[[group2_colname]] ~ .data[[group1_colname]],
+                TRUE ~ NA
+            )
+    ) %>% 
+    # clean up unneded columns since we now have explicity numerator/denominator labels
+    select(
+        -c(
+            ends_with('.Priority'),
+            group1_colname,
+            group2_colname
+        )
     )
 }
 
