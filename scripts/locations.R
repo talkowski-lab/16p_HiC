@@ -60,15 +60,22 @@ HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
 COOLTOOLS_TAD_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.annotations.tsv')
 COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
 CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConesensusTAD.TAD.annotations.tsv')
-TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
+# TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
 TADCOMPARE_RESULTS_FILE        <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
 
 ###################################################
 # Compartment Annotations
 ###################################################
+DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
 COMPARTMENTS_DIR               <- file.path(RESULTS_DIR, 'compartments')
 COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
 COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
+
+###################################################
+# Loop Annotations
+###################################################
+LOOPS_DIR                    <- file.path(RESULTS_DIR, 'loops')
+COOLTOOLS_LOOPS_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
 
 ###################################################
 # Functional genome annotations
