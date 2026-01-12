@@ -1,0 +1,84 @@
+---
+title: "TADCompare Analysis for 16p"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+# Set Up
+
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set( 
+    results=FALSE,
+    message=FALSE,
+    warning=FALSE,
+    dev=c('png', 'pdf', 'svg'),
+    dpi=300
+)
+```
+Set up file locations + load dependences
+```{r dependencies}
+library(here)
+here::i_am('notebooks/TADCompare.Rmd')
+BASE_DIR <- here()
+source(file.path(BASE_DIR, 'scripts', 'locations.R'))
+source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADs.R'))
+source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADCompare.R'))
+library(tidyverse)
+library(magrittr)
+library(purrr)
+library(ggplot2)
+library(ggh4x)
+```
+Load TADCompare results
+```{r load_TADCompare_data}
+all.TADCompare.results.df <- 
+    check_cached_results(
+        results_file=TADCOMPARE_RESULTS_FILE,
+        force_redo=TRUE,
+        results_fnc=load_all_TADCompare_results
+    ) %>%
+    post_process_TADCompare_results() %>% 
+    standardize_data_cols()
+```
+Print summary of results
+```{r print_summaries}
+all.TADCompare.results.df %>% head(2) %>% t()
+all.TADCompare.results.df %>%
+    dplyr::count(
+        resolution, 
+        #z.thresh, window.size, gap.thresh,
+        TAD.method, TAD.params, 
+        comparison, 
+        isBoundary, isDifferential
+    )
+all.TADCompare.results.df %>%
+    filter(isBoundary) %>% 
+    # filter(TAD.isDifferential) %>% 
+    dplyr::count(
+        resolution, 
+        #z.thresh, window.size, gap.thresh,
+        TAD.method, TAD.params, 
+        comparison, 
+        Enriched.Condition, 
+        isBoundary, isDifferential, Difference
+    ) %>%
+    select(-c(TAD.params, isBoundary)) %>%
+    pivot_wider(
+        names_from=TAD.method,
+        values_from=n
+    ) %>% 
+    # select(-c(comparison, TAD.params, isBoundary)) %>%
+    print(n=Inf)
+```
+
