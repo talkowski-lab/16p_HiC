@@ -1,34 +1,37 @@
 #!/bin/bash
-# set -euo pipefail
+# set -eo pipefail
 
 ###################################################
 # TAD Calling params
 ###################################################
-RESOLUTIONS=(100000 50000 25000 10000)
 # hiTAD params
 declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
 # cooltools insulation params
-COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
-COOLTOOLS_MFVP=(0.33 0.66 0.9)
-# COOLTOOLS_MFVP=( 0.66 0.9)
-COOLTOOLS_THRESHOLD=(Li 0)
-# COOLTOOLS_THRESHOLD=(Li)
+# COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
+# COOLTOOLS_MFVP=(0.33 0.66 0.9)
+# COOLTOOLS_THRESHOLD=(Li 0)
+COOLTOOLS_WINDOW_SIZES="60 100" # numer of bins, not bp 
+COOLTOOLS_MFVP=(0.66 0.9)
+COOLTOOLS_THRESHOLD=(Li)
 declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight" ["Raw"]="")
 
 ###################################################
 # Functions
 ###################################################
 help() {
-    echo "USAGE: $(basename ${0}) [OPTIONS] {METHOD} sample1.mcool sample{2..N}.mcool
-        -a | --anaconda-dir        # where conda is installed
-        -r | --resolution          # resolutions at which to annotate TADs
-        -o | --output-dir          # root results dir
-        -h | --help                # print this message
-            -l | --log-dir
-            -p | --partition
-            -m | --mem
-            -t | --ntasks-per-node
-            -c | --cpus
+    echo "USAGE: $(basename ${0}) [OPTIONS] {METHOD} sample{1..N}.mcool
+    MEHTODS: cooltools, hiTAD
+        [OPTIONS]
+        -a  # where conda is installed
+        -r  # resolutions at which to annotate TADs
+        -o  # output dir
+        -h  # print this message
+        [OPTIONS] (Slurm)
+        -l  # log-dir
+        -p  # partition
+        -m  # mem
+        -t  # ntasks-per-node
+        -c  # cpus
 "
     exit 0
 }
@@ -66,13 +69,14 @@ run_cmd() {
                 --wrap="${cmd}"
             ;;
         txt)     
-            echo "${CONDA_ENV_CMD}; ${cmd}" 
+            echo "${cmd}" 
+            # echo "${cmd}" >> ${CMD_TXT_FILE}
             ;;
         inplace) 
             time eval "${cmd}" 
             ;;
         *)       
-            echo "Invalid launch method ${EVAL_METHOD}" && help && exit 1 
+            echo "Invalid launch method ${EVAL_METHOD}" && help
             ;;
     esac
 }
@@ -162,8 +166,20 @@ run_cooltools_insulation() {
 }
 
 main() {
+    mkdir -p "${OUTPUT_DIR}"
     # Activate conda env now if running locally (not submitting jobs)
-    [[ ${EVAL_METHOD} == 'inplace' ]] && eval "${CONDA_ENV_CMD}"
+    case ${EVAL_METHOD} in 
+        slurm)   continue ;;
+        txt) 
+            CMD_TXT_FILE="${OUTPUT_DIR}/${METHOD}-TAD.calling.cmds.txt"
+            rm "${CMD_TXT_FILE}"
+            ;;
+        inplace) 
+            CONDA_ENV_CMD="$(activate_conda "${METHOD}")"
+            eval "${CONDA_ENV_CMD}" 
+            ;;
+        *) echo "Invalid launch method ${EVAL_METHOD}" && help && exit 1 ;;
+    esac
     # Loop over all samples at all resolutions and call tads
     for resolution in ${RESOLUTIONS[@]}; do
         for sample_file in ${HIC_SAMPLES[@]}; do
@@ -187,23 +203,25 @@ main() {
 BASE_DIR="./"
 OUTPUT_DIR="${BASE_DIR}/results/TADs"
 EVAL_METHOD='txt'
+RESOLUTIONS=(100000 50000 25000 10000)
 # Default SLURM params
 QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; THREADS=2; LOG_DIR="${BASE_DIR}/slurm.logs"
 CONDA_DIR="$(conda info --base)"
-[[ $# -eq 0 ]] && echo "No Args" && exit 1
+[[ $# -eq 0 ]] && echo "No Args" && help
 while getopts "ho:l:r:n:c:q:m:a:t:e:" flag; do
     case ${flag} in 
+        h) help && exit 0 ;;
+        e) EVAL_METHOD="${OPTARG}" ;;
         a) CONDA_DIR="${OPTARG}" ;;
         r) RESOLUTIONS=($(echo "${OPTARG}" | cut -d',' --output-delimiter=' ' -f1-)) ;;
         o) OUTPUT_DIR="${OPTARG}" ;;
+        # SLURM params 
         t) THREADS="${OPTARG}" ;;
-        e) EVAL_METHOD="${OPTARG}" ;;
         m) MEM_GB="${OPTARG}" ;;
         n) NTASKS_PER_NODE="${OPTARG}" ;;
         c) CPUS="${OPTARG}" ;;
         q) QUEUE="${OPTARG}" ;;
         l) LOG_DIR="${OPTARG}" ;;
-        h) help && exit 0 ;;
         *) echo "Invalid flag ${flag}" && help && exit 1 ;;
     esac
 done
@@ -214,13 +232,10 @@ shift $(( OPTIND-1 ))
 ###################################################
 METHOD="${1}"
 HIC_SAMPLES=${@:2}
+OUTPUT_DIR="$(readlink -e "${OUTPUT_DIR}")"
 echo "
 Using TAD caller:       ${METHOD}
 Using resolution(s):    ${RESOLUTIONS[*]}
 Using output directory: ${OUTPUT_DIR}
 Threads:                ${THREADS}"
-CONDA_ENV_CMD="$(activate_conda "${METHOD}")"
-OUTPUT_DIR="$(readlink -e "${OUTPUT_DIR}")"
-mkdir -p "${OUTPUT_DIR}"
 main 
-
