@@ -532,9 +532,64 @@ plot_boxplot <- function(
         }
     } %>% 
     # make it a boxplot 
+    { . + geom_boxplot(outlier.size=1) } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(...)
+}
+
+plot_violin <- function(
+    plot.df,
+    x.var='',
+    y.var='',
+    fill.var=NULL, 
+    plot_pts=FALSE,
+    jitter.size=1,
+    quantile.color=NULL,
+    draw.quantiles=0L,
+    quantile.linewidth=NULL,
+    position='dodge',
+    adjust=0.5,
+    ...){
+    # Set fill group if specified
+    {
+        if (is.null(fill.var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]]
+                )
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    fill=.data[[fill.var]]
+                )
+            )
+        }
+    } %>% 
+    # make it a violin plot
     { 
         . + 
-        geom_boxplot(outlier.size=1)
+        geom_violin(
+            quantile.color=quantile.color,
+            quantile.linetype=draw.quantiles,
+            quantile.linewidth=quantile.linewidth,
+            position=position,
+            adjust=adjust
+        )
+    } %>% 
+    # plot individual points if specified
+    {
+        if (plot_pts){
+            . +
+            geom_jitter(aes(size=jitter.size))
+        } else {
+            .
+        }
     } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...)
