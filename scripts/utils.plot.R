@@ -640,18 +640,39 @@ plot_jitter <- function(
     x.var='',
     y.var='',
     color.var=NULL, 
+    shape.var=NULL,
     alpha=0.5,
     size=0.5,
     scales='fixed',
     ...){
     # Set fill group if specified
     {
-        if (is.null(color.var)) {
+        if (!is.null(color.var) && !is.null(shape.var)) {
             ggplot(
                 plot.df,
                 aes(
                     x=.data[[x.var]],
-                    y=.data[[y.var]]
+                    y=.data[[y.var]],
+                    shape=.data[[shape.var]],
+                    color=.data[[color.var]]
+                )
+            )
+        } else if (!is.null(color.var) &&  is.null(shape.var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    color=.data[[color.var]]
+                )
+            )
+        } else if ( is.null(color.var) && !is.null(shape.var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    shape=.data[[shape.var]]
                 )
             )
         } else {
@@ -659,8 +680,7 @@ plot_jitter <- function(
                 plot.df,
                 aes(
                     x=.data[[x.var]],
-                    y=.data[[y.var]],
-                    color=.data[[color.var]]
+                    y=.data[[y.var]]
                 )
             )
         }
