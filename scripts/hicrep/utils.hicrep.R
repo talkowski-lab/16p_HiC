@@ -26,9 +26,11 @@ load_all_hicrep_results <- function(
     sample_metadata=NULL,
     samples_to_keep=NULL){
     # Load all files generated from ./scripts/run.hicrep.sh
+    # sample_metadata=NULL; samples_to_keep=NULL
     # sample_metadata=sample.metadata %>% select( SampleID, Batch)
+    HICREP_DIR %>% 
     parse_results_filelist(
-        input_dir=HICREP_DIR,
+        # input_dir=HICREP_DIR,
         suffix='-hicrep.txt',
         filename.column.name='file.pair',
         param_delim='_'
@@ -39,20 +41,23 @@ load_all_hicrep_results <- function(
         delim='-',
         names=
             c(
-                'MatrixID.P1',
-                'MatrixID.P2',
-                NA
+                'SampleInfo.P1.SampleID',
+                'SampleInfo.P2.SampleID'
             )
     ) %>% 
     # Extract sample metadata from IDs
-    get_info_from_MatrixIDs(
-        matrix_ID_col='MatrixID.P1',
-        keep_id=FALSE,
+    get_info_from_SampleIDs(
         sample_ID_col='SampleInfo.P1.SampleID',
         col_prefix='SampleInfo.P1.',
-        nest_col=NA
-
+        keep_id=TRUE
     ) %>% 
+    # get_info_from_MatrixIDs(
+    #     matrix_ID_col='MatrixID.P1',
+    #     keep_id=FALSE,
+    #     sample_ID_col='SampleInfo.P1.SampleID',
+    #     col_prefix='SampleInfo.P1.',
+    #     nest_col=NA
+    # ) %>% 
     # Add extra sample metadata as paired columns 
     # # NOTE: using right_join to filter samples only present in the metadata table
     # {
@@ -71,13 +76,18 @@ load_all_hicrep_results <- function(
     #     }
     # } %>% 
     # Repeat for the other sample in each pair
-    get_info_from_MatrixIDs(
-        matrix_ID_col='MatrixID.P2',
-        keep_id=FALSE,
+    get_info_from_SampleIDs(
         sample_ID_col='SampleInfo.P2.SampleID',
         col_prefix='SampleInfo.P2.',
-        nest_col=NA
+        keep_id=TRUE
     ) %>% 
+    # get_info_from_MatrixIDs(
+    #     matrix_ID_col='MatrixID.P2',
+    #     keep_id=FALSE,
+    #     sample_ID_col='SampleInfo.P2.SampleID',
+    #     col_prefix='SampleInfo.P2.',
+    #     nest_col=NA
+    # ) %>% 
     # Add extra sample metadata as paired columns 
     # # NOTE: using right_join to filter samples only present in the metadata table
     # {
@@ -105,13 +115,13 @@ load_all_hicrep_results <- function(
         }
     } %>% 
     # Now format sample metadata per pair for easy grouping+plotting
-    mutate(
-        across(
-            ends_with('.isMerged'), 
-            ~ ifelse(.x, 'Merged', 'Individual') %>% factor(levels=c('Merged', 'Individual'))
-        )
+    # mutate(
+    #     across(
+    #         ends_with('.isMerged'), 
+    #         ~ ifelse(.x, 'Merged', 'Individual') %>% factor(levels=c('Merged', 'Individual'))
+    #     )
             
-    ) %>% 
+    # ) %>% 
     nest(
         SampleInfo.P1=starts_with('SampleInfo.P1.'),
         SampleInfo.P2=starts_with('SampleInfo.P2.')
@@ -130,6 +140,7 @@ load_all_hicrep_results <- function(
     ungroup() %>% 
     select(-c(starts_with('SampleInfo'))) %>% 
     unnest(SamplePairInfo) %>% 
+    {.} -> tmp; tmp
    # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
@@ -172,6 +183,9 @@ post_proces_hicrep_results <- function(results.df){
     select(-c(ReadFilter, filepath))
 }
 
+###################################################
+# plotting
+###################################################
 make_heatmap_plotdf <- function(
     hicrep.results,
     ...){

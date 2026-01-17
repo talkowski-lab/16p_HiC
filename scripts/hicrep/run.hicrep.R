@@ -5,8 +5,8 @@ library(here)
 here::i_am('scripts/hicrep/run.hicrep.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
-    source(file.path(SCRIPT_DIR, 'constants.R'))
+    source(file.path(BASE_DIR,   'scripts', 'locations.R')) # sets SCRIPT_DIR
+    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
     library(tidyverse)
@@ -21,7 +21,7 @@ suppressPackageStartupMessages({
 options(scipen=999)
 parsed.args <- 
     handle_CLI_args(
-        args=c('threads', 'force', 'resolutions'),
+        args=c('force', 'resolutions'),
         has.positional=FALSE
     )
 # dcHiC hyper-params
@@ -46,10 +46,10 @@ hyper.params.df <-
 list_mcool_files() %>%
     select(SampleID, filepath, isMerged) %>% 
     get_all_row_combinations(
-        cols_to_pair=c('isMerged'),
+        cols_to_match=c('isMerged'),
         suffixes=c('.P1', '.P2'),
-        keep_self=FALSE
-    ) %>%
+        keep_self=FALSE,
+    ) %>% 
     # all pairs of matrices X all sets of hyper params
     cross_join(hyper.params.df) %>% 
     mutate(
@@ -87,7 +87,7 @@ list_mcool_files() %>%
         }
     } %>% 
     mutate(
-        cmd=glue("hicrep {is.downsampled.flag}--dBPMax {max.window.size} --binSize {resolution} --h {h} {filepath.P1} {filepath.P2} {output_file}")
+        cmd=glue("hicrep {is.downsampled.flag}--dBPMax {max.window.size} --binSize {resolution} --h {h} {filepath.P1} {filepath.P2} {output_file} 2> /dev/null")
     ) %>% 
     select(cmd) %>% 
     write_tsv(

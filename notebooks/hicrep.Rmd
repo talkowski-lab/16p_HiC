@@ -29,11 +29,11 @@ library(here)
 here::i_am('notebooks/hicrep.Rmd')
 BASE_DIR <- here()
 SCRIPT_DIR <- here('scripts')
-source(file.path(SCRIPT_DIR, 'locations.R'))
-source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+source(file.path(BASE_DIR, 'scripts/constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-source(file.path(SCRIPT_DIR, 'utils.hicrep.R'))
+source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
 library(tidyverse)
 library(magrittr)
 library(ggplot2)
@@ -47,12 +47,13 @@ hicrep.results <-
         HICREP_RESULTS_FILE,
         # force_redo=TRUE,
         results_fnc=load_all_hicrep_results,
-        # sample_metadata=NULL
-        samples_to_keep=load_sample_metadata() %>% pull(SampleID)
+        sample_metadata=NULL,
+        samples_to_keep=NULL
     ) %>% 
     post_proces_hicrep_results() %>% 
     standardize_data_cols(skip.isMerged=TRUE)
-hicrep.results %>% head(2) %>% t()
+# hicrep.results %>% head(2) %>% t()
+hicrep.results %>% dplyr::count(resolution, window.size, is.downsampled, chr)
 ```
 plot objects
 ```{r plot_objects}
