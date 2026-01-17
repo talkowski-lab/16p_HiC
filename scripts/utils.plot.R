@@ -700,60 +700,6 @@ plot_jitter <- function(
     )
 }
 
-plot_upset <- function(
-    plot.df,
-    make.binary=FALSE,
-    category_col='Comparison',
-    title.str='Common DACs across Comparisons',
-    ...){
-    category_prefix <- fixed(glue('{category_col}.'))
-    if (make.binary) {
-        plot.df <-
-            plot.df %>%
-            add_column(is.category=TRUE) %>%
-            pivot_wider(
-                names_from=category_col,
-                names_prefix=category_prefix,
-                values_from=is.category,
-                values_fill=FALSE
-            )
-    } 
-    upset(
-        plot.df,
-        plot.df %>%
-            dplyr::select(starts_with(category_prefix)) %>%
-            colnames(),
-        width_ratio=0.3,
-        mode='exclusive_intersection',
-        name=category_col,
-        labeller=function(x) str_remove(x, category_prefix),
-        annotations=
-            list(
-                'Chrs'=
-                    (
-                        ggplot(mapping=aes(fill=chr))
-                        + geom_bar(stat='count', position='fill')
-                        + scale_y_continuous(labels=scales::percent_format())
-                        + ylab('Chrs')
-                    )
-            ),
-        set_sizes=
-            (
-                upset_set_size(
-                    position='right',
-                    geom=
-                        geom_bar(
-                            aes(fill=chr, x=group),
-                            width=0.8
-                        )
-                ) +
-                make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
-            ),
-        guides='over' # moves legends over the set sizes
-    ) +
-    ggtitle(title.str)
-}
-
 ###################################################
 # Contact Heatmaps
 ###################################################
@@ -1020,41 +966,6 @@ heatmap_wrapper <- function(
 ###################################################
 # log2FC Heatmaps
 ###################################################
-make_sample_pairs <- function(
-    annotated.contacts.df,
-    ...){
-    annotated.contacts.df %>%
-    nest(data=-c(filepath, Sample.ID)) %>% 
-    # Get all pairs of samples with comparable contact matrices
-    full_join(
-        .,
-        {.},
-        suffix=c('.A', '.B'),
-        by=join_by(data)  # all other params must be equal
-    ) %>%
-    # Dedup pairs (symetrical)
-    filter(Sample.ID.A != Sample.ID.B) %>% 
-    rowwise() %>% 
-    mutate(pair.id=paste0(sort(c(Sample.ID.A, Sample.ID.B)), collapse="")) %>% 
-    ungroup() %>% 
-    distinct(
-        pair.id, 
-        .keep_all=TRUE
-    ) %>%
-    select(-c(pair.id)) %>% 
-    unnest(data)
-}
-
-NIPBL_WAPL_sample_priority_fnc <- function(Sample.ID){
-    case_when(
-        grepl( 'WAPL.DEL', Sample.ID) ~ 1,
-        grepl('NIPBL.DEL', Sample.ID) ~ 2,
-        grepl( 'WAPL.WT',  Sample.ID) ~ 3,
-        grepl('NIPBL.WT',  Sample.ID) ~ 4,
-        TRUE ~ -Inf
-    )
-}
-
 logfc_heatmap_wrapper <- function(
     Sample.ID.A, Sample.ID.B,
     filepath.A, filepath.B,

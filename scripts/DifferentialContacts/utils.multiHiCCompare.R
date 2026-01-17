@@ -502,16 +502,16 @@ post_process_multiHiCCompare_results_16p <- function(results.df){
             ),
         comparison.type=
             case_when(
-                comparison == '16.NSC.DUP vs 16p.NSC.DEL' ~ 'main.NSC',
-                comparison == '16.NSC.DUP vs 16p.NSC.WT'  ~ 'main.NSC',
-                comparison == '16.NSC.DEL vs 16p.NSC.WT'  ~ 'main.NSC',
-                comparison == '16.NSC.WT vs 16p.iN.WT'    ~ 'wt.vs.wt',
-                comparison == '16p.NSC.DEL vs 16p.iN.DEL' ~ 'crosstype',
-                        on == '16p.NSC.DUP vs 16p.iN.DUP' ~ 'crosstype',
-                comparison == '16.iN.DUP vs 16p.iN.DEL'   ~ 'main.iN',
-                comparison == '16.iN.DUP vs 16p.iN.WT'    ~ 'main.iN',
-                comparison == '16.iN.DEL vs 16p.iN.WT'    ~ 'main.iN',
-                TRUE                                      ~ '???'
+                comparison == '16p.NSC.WT vs 16p.iN.WT'    ~ 'wt.vs.wt',
+                comparison == '16p.NSC.DUP vs 16p.iN.DUP'  ~ 'crosstype',
+                comparison == '16p.NSC.DEL vs 16p.iN.DEL'  ~ 'crosstype',
+                comparison == '16p.NSC.DUP vs 16p.NSC.DEL' ~ 'main.NSC',
+                comparison == '16p.NSC.DUP vs 16p.NSC.WT'  ~ 'main.NSC',
+                comparison == '16p.NSC.DEL vs 16p.NSC.WT'  ~ 'main.NSC',
+                comparison == '16p.iN.DUP vs 16p.iN.DEL'   ~ 'main.iN',
+                comparison == '16p.iN.DUP vs 16p.iN.WT'    ~ 'main.iN',
+                comparison == '16p.iN.DEL vs 16p.iN.WT'    ~ 'main.iN',
+                TRUE                                       ~ '???'
             ) %>%
             factor(levels=c('main.NSC', 'main.iN', 'crosstype'))
     )
@@ -629,3 +629,160 @@ format_meta_comparison_results_NIPBLWAPL <- function(mhc.results){
     )
 }
 
+###################################################
+# Plotting
+###################################################
+plot_upset <- function(
+    plot.df,
+    make.binary=FALSE,
+    category_col='Comparison',
+    title.str='Common DACs across Comparisons',
+    ...){
+    category_prefix <- fixed(glue('{category_col}.'))
+    if (make.binary) {
+        plot.df <-
+            plot.df %>%
+            add_column(is.category=TRUE) %>%
+            pivot_wider(
+                names_from=category_col,
+                names_prefix=category_prefix,
+                values_from=is.category,
+                values_fill=FALSE
+            )
+    } 
+    upset(
+        plot.df,
+        plot.df %>%
+            dplyr::select(starts_with(category_prefix)) %>%
+            colnames(),
+        width_ratio=0.3,
+        mode='exclusive_intersection',
+        name=category_col,
+        labeller=function(x) str_remove(x, category_prefix),
+        annotations=
+            list(
+                'Chrs'=
+                    (
+                        ggplot(mapping=aes(fill=chr))
+                        + geom_bar(stat='count', position='fill')
+                        + scale_y_continuous(labels=scales::percent_format())
+                        + ylab('Chrs')
+                    )
+            ),
+        set_sizes=
+            (
+                upset_set_size(
+                    position='right',
+                    geom=
+                        geom_bar(
+                            aes(fill=chr, x=group),
+                            width=0.8
+                        )
+                ) +
+                make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
+            ),
+        guides='over' # moves legends over the set sizes
+    ) +
+    ggtitle(title.str)
+}
+
+n_plot_fnc <- 
+    partial(
+        make_nested_plot_tabs,
+        plot.fnc=plot_heatmap,
+        max.header.lvl=3,
+        # x.var='sig.lvl',
+        y.var='comparison',
+        fill.var='nDACs', 
+        label.var='nDACs',
+        # legend.position='top',
+        # axis.text.x=element_text(angle=45, hjust=1),
+        # legend.text=element_text(angle=35, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+
+dist_plot_fnc <- 
+    partial(
+        make_nested_plot_tabs,
+        plot.fnc=plot_boxplot,
+        group.cols=c('comparison.type', 'resolution'),
+        max.header.lvl=3,
+        # x.var='comparison',
+        x.scale.mode='discrete',
+        y.var='value',
+        # fill.var='comparison',
+        # facet.row='statistic',
+        scales='free_y',
+        outlier.size=0.2,
+        # legend.position='right',
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        # axis.text.x=element_text(angle=45, hjust=1),
+        plot.elements=
+            list(
+                coord_cartesian(clip="off"),
+                geom_hline(
+                    yintercept=0,
+                    linetype='dashed'
+                )
+            )
+    )
+
+volcano_plot_fnc <- 
+    partial(
+        make_nested_plot_tabs,
+        plot.fnc=plot_jitter,
+        group.cols=c('comparison.type', 'resolution'),
+        max.header.lvl=3,
+        x.var='logFC',
+        y.var='log.p.adj.gw',
+        x.axis.label.accuracy=0.01,
+        y.axis.label.accuracy=0.1,
+    )
+
+distance_plot_fnc <- 
+    partial(
+        make_nested_plot_tabs,
+        plot.fnc=plot_jitter,
+        max.header.lvl=3,
+        x.var='logFC',
+        y.var='distance.bp',
+        y.scale.mode='mb',
+        scales='free_y'
+        # axis.title.y=element_blank(),
+        # axis.title.x=element_blank(),
+    )
+
+manhattan_plot_fnc <- 
+    partial(
+        plot.fnc=plot_jitter,
+        make_nested_plot_tabs,
+        max.header.lvl=3,
+        x.var='region.bp',
+        x.scale.mode='mb',
+        y.var='value',
+        axis.title.y=element_blank(),
+        axis.title.x=element_blank(),
+        plot.elements=
+            list(
+                # geom_vline(
+                #     xintercept=c(86435256, 86521792), # WAPL region on chr10
+                #     linewidth=0.3,
+                #     linetype='dashed',
+                #     color='#619CFF'
+                # ),
+                # geom_vline(
+                #     xintercept=c(36876769, 37066413), # NIPBL region on chr5
+                #     linewidth=0.3,
+                #     linetype='dashed',
+                #     color='#F8766D'
+                # ),
+                geom_hline(
+                    yintercept=0,
+                    linewidth=0.05,
+                    linetype='solid',
+                    color='black',
+                )
+            )
+    )
