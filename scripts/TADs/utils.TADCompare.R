@@ -269,9 +269,7 @@ run_all_ConsensusTADs <- function(
     )
 }
 
-load_ConsensusTADs <- function(
-    filepath,
-    ...){
+load_ConsensusTADs <- function(filepath, ...){
     read_tsv(
         filepath,
         show_col_types=FALSE,
@@ -307,7 +305,29 @@ post_process_ConsensusTAD_TAD_results <- function(results.df){
         window.size,
         gap.thresh,
     ) %>% 
-    rename('chr'=region)
+    # nest(scores=ends_with('.score'))
+    # Only keep boundaries
+    filter(isConsensusBoundary) %>% 
+    # Clean up 
+    rename('chr'=region) %>% 
+    select(merged, resolution, TAD.params, Sample.Group, chr, bin.start) %>% 
+    nest(boundaries=c(bin.start)) %>% 
+    # remove entries with < 2 boundaries
+    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(
+        TADs=
+            list(
+                convert_boundaries_to_TADs(
+                    boundaries=boundaries,
+                    start.col.name='TAD.start',
+                    end.col.name='TAD.end',
+                )
+            )
+    ) %>% 
+    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
+    # Nest for downstream analysis
+    mutate(TAD.length=TAD.end - TAD.start)
 }
 
 ###################################################
@@ -502,9 +522,7 @@ run_all_TADCompare <- function(
     )
 }
 
-load_TADCompare_results <- function(
-    filepath,
-    ...){
+load_TADCompare_results <- function(filepath, ...){
     filepath %>% 
     read_tsv(
         show_col_types=FALSE,
