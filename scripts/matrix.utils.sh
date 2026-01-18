@@ -1,6 +1,5 @@
 #!/bin/bash
-# set -euo pipefail
-set -uo pipefail
+set -o pipefail
 
 ###################################################
 # Fixed variables/lists 
@@ -31,7 +30,7 @@ GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 # Utils
 ###################################################
 help() {
-    if [[ -v $1 ]]; then
+    if [[ -z $1 ]]; then
 echo "Usage: ${0} \${MODE}
 modes: 
     merge_Cohesin 
@@ -40,7 +39,6 @@ modes:
     multiqcs
     coverage 
     expected"
-        exit 0
     else 
         case ${1} in 
             merge_Cohesin) args="\${COOLER_DIR}" ;;
@@ -49,7 +47,7 @@ modes:
             multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
             coverage)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
             expected)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
-            *) echo "Invalid mode: $mode" && exit 1 ;;
+            *) echo "Invalid mode: $mode" && help ;;
         esac
         echo "Usage: ${0} ${1} ${args}"
     fi
@@ -201,8 +199,9 @@ merge_matrices() {
     merged_sample_name="${4}"
     # list all samples to merge, ignore existing merged matrices
     matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
-    hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | paste -sd" ")
-    # hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1' | paste -sd" ")
+    # hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | paste -sd" ")
+    hic_matrices=$(find "${cooler_dir}" -type f -name "${matrix_file_pattern}" | grep -vi 'merge' | grep -vE '16p.iN.WT.(FACS1|p44|p49).TR1' | paste -sd" ")
+    echo ${hic_matrices}
     # Merge contacts
     sample_group_dir="${output_dir}/${merged_sample_name}"
     mkdir -p "${sample_group_dir}"
@@ -213,7 +212,7 @@ merge_matrices() {
         echo "Merging ${sample_group} samples into ${merged_cool_file}"
         cooler merge              \
             "${merged_cool_file}" \
-            "${hic_matrices[@]}"
+            ${hic_matrices}
     fi
     # Bin + balance merged matrix at all specified resolutions
     merged_mcool_file="${merged_cool_file%%.cool}.mcool"
@@ -221,9 +220,10 @@ merge_matrices() {
         echo "Skipping balancing, balanced merged file exists: ${merged_mcool_file}"
     else 
         echo "Balancing ${merged_cool_file} ..."
+        resolutions="$(echo "${RESOLUTIONS[@]}" | sed -e 's/ /,/g')"
         cooler zoomify                     \
             --nproc "${THREADS}"           \
-            --resolutions "$(echo "${RESOLUTIONS[@]}" | paste -sd',')" \
+            --resolutions "${resolutions}" \
             --balance                      \
             --out "${merged_mcool_file}"   \
             "${merged_cool_file}"
@@ -286,7 +286,7 @@ merge_Cohesin_matrices() {
         done
         # Merge across edits per genotype & celltype ACROSS Edits
         sample_group="${celltype}.${genotype}"
-        echo "${sample_group}"
+        echo "All.${sample_group}"
         echo '---------------'
         merge_matrices        \
             "${cooler_dir}"   \
@@ -437,7 +437,7 @@ while getopts "a:t:h" flag; do
         a) CONDA_DIR="${OPTARG}" ;;
         t) THREADS="${OPTARG}" ;;
         h) help ;;
-        *) echo "Invalid flag ${flag}" && help && exit 1 ;;
+        *) echo "Invalid flag ${flag}" && help ;;
     esac
 done
 shift $(( OPTIND-1 ))
