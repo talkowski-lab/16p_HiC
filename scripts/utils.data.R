@@ -1005,51 +1005,37 @@ join_all_rows <- function(
 
 get_all_row_combinations <- function(
     df1,
-    df2=NULL,
-    col_to_pair=NA,
     cols_to_match=c(),
     suffixes=c('.P1', '.P2'),
-    keep_self=TRUE,
+    keep_self=FALSE,
     ...){
-    # df2=NULL; col_to_pair='SampleID'; cols_to_match=c('resolution', 'chr', 'TAD.method', 'TAD.params'); suffixes=c('.P1', '.P2'); keep_self=FALSE;
+    idx.cols <- paste0('row.idx', suffixes, sep='')
     # Get all combinations of rows with matching attributes (cols_to_pair)
-    colA <- glue('{col_to_pair}.A')
-    colB <- glue('{col_to_pair}.B')
     join_all_rows(
-        df1,
-        df2,
+        df1 %>% mutate(row.idx=row_number()),
+        df2=NULL,
         cols_to_match=cols_to_match,
-        suffix=c('.A', '.B')
+        suffix=suffixes,
+        ...
     ) %>% 
-    # keep/remove pairs of a row matched to itself
     {
-        if (keep_self) {
+        if (keep_self){
             .
         } else {
-            filter(., !!sym(colA) != !!sym(colB))
+            filter(., !!sym(idx.cols[1]) != !!sym(idx.cols[2]))
         }
     } %>% 
-    # Keep only distinct pairs of rows (order doesnt matter)
+    # remove redundant combinations i.e. A~B vs B~A -> just keep A~B
     rowwise() %>% 
+    # mutate(pair.idx=paste(sort(idx.cols), collapse='-')) %>%
     mutate(
-        index=
-            case_when(
-                !!sym(colA) >= !!sym(colB) ~ paste(!!sym(colA), !!sym(colB), collapse='~'),
-                !!sym(colA) <  !!sym(colB) ~ paste(!!sym(colB), !!sym(colA), collapse='~')
-            ) %>% 
-            paste(collapse='~')
-    ) %>% 
-    ungroup() %>% 
-    group_by(across(c(cols_to_match))) %>% 
-    distinct(
-        index,
-        .keep_all=TRUE
+        pair.idx=
+            sort(c(!!sym(idx.cols[1]), !!sym(idx.cols[2]))) %>% 
+            paste(collapse='-')
     ) %>%
     ungroup() %>% 
-    select(-c(starts_with('index'))) %>%
-    # rename with suffixes
-    rename_with(~ str_replace(.x, '\\.A$', suffixes[[1]])) %>% 
-    rename_with(~ str_replace(.x, '\\.B$', suffixes[[2]]))
+    distinct(pair.idx, .keep_all=TRUE) %>%
+    select(-c(matches('\\.idx')))
 }
 
 merge_sample_info <- function(
