@@ -382,8 +382,13 @@ scale_numbers <- function(
 
 rename_chrs <- function(
     chrs, 
-    to_numeric=FALSE){
-    if (is.character(chrs) | to_numeric){
+    to_numeric=FALSE,
+    to_label=FALSE){
+    if (is.character(chrs) & to_label){
+        chrs
+    } else if (is.numeric(chrs) & to_numeric){
+        chrs
+    } else if (is.character(chrs) | to_numeric){
         case_when(
             chrs == 'chrX'     ~ 23,
             chrs == 'chrY'     ~ 24,
@@ -391,15 +396,16 @@ rename_chrs <- function(
             TRUE               ~ NA
         ) %>%
         as.integer()
-    } else {
+    } else if (is.numeric(chrs) | to_label) {
         case_when(
             chrs == 23             ~ 'X',
             chrs == 24             ~ 'Y',
+            chrs == 'Genome.Wide'  ~ 'Genome.Wide',
             chrs  >  0 & chrs < 23 ~ as.character(chrs),
             TRUE                   ~ NA
         ) %>% 
-        paste0('chr', .) %>% 
-        factor(levels=CHROMOSOMES)
+        as.character() %>% 
+        paste0('chr', .)
     }
 }
 
@@ -409,7 +415,10 @@ standardize_data_cols <- function(
     skip.isMerged=FALSE,
     skip.resolution=FALSE,
     skip.window.size=FALSE,
-    skip.chr=FALSE){
+    skip.chr=FALSE,
+    to_numeric=FALSE,
+    to_label=TRUE,
+    ...){
     results.df %>% 
     {
         if ('isGenome' %in% colnames(.) & !skip.isGenome) {
@@ -462,16 +471,28 @@ standardize_data_cols <- function(
     } %>% 
     {
         if ('chr' %in% colnames(.) & !skip.chr) {
-            if ('Genome.Wide' %in% .$chr) {
-                mutate(., chr=factor(chr, levels=c(CHROMOSOMES, 'Genome.Wide'))) %>% 
+            if ('Genome.Wide' %in% .$chr & !skip.isGenome) {
+                mutate(
+                    .,
+                    chr=
+                        chr %>%
+                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
+                        factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
+                ) %>% 
                 mutate(
                     isGenome=
                         ifelse(chr == 'Genome.Wide', 'Genome.Wide', 'Per.Chr') %>% 
                         factor(levels=c('Genome.Wide', 'Per.Chr'))
                 )
             } else {
-                mutate(., chr=factor(chr, levels=CHROMOSOMES))
-            }
+                mutate(
+                    .,
+                    chr=
+                        chr %>% 
+                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
+                        factor(levels=CHROMOSOMES)
+                )
+            } 
         } else {
             .
         }
@@ -497,7 +518,7 @@ load_chr_sizes <- function(){
     CHROMOSOME_SIZES_FILE %>% 
     read_tsv(
         show_col_types=FALSE,
-        col_names=c('Chr', 'chr.total.bp')
+        col_names=c('chr', 'chr.size.bp')
     )
 }
 
