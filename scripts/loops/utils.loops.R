@@ -234,6 +234,8 @@ load_all_cooltools_dots <- function(){
                 .progress=TRUE
             )
     ) %>%
+        # {.} -> tmp; tmp
+        # tmp %>% select(SampleID, loops)
     unnest(loops) %>% 
     dplyr::rename(chr=chrom1) %>% 
     rename_with(
@@ -260,11 +262,129 @@ load_all_cooltools_dots <- function(){
 }
 
 post_process_cooltools_dots_results <- function(results.df){
-# tmp <- file.path(BASE_DIR, 'results/loops/method_cooltools/type_cis/weight_balanced/resolution_25000/16p.NSC.DEL.Merged.Merged.hg38.mapq_30.1000-dots.tsv') %>% read_tsv()
-# tmp
-# tmp %>% head(2) %>% t()
     results.df %>%
-    mutate(dist=start2 - start1)
-    # rename_with(~ str_replace(.x, '.value', ''))
+    dplyr::rename(
+        'anchor.left'=start1,
+        'anchor.right'=start2
+    ) %>% 
+    pivot_longer(
+        c(
+            starts_with('value.'),
+            starts_with('qval.')
+        ),
+        names_to='statistic',
+        values_to='value'
+    ) %>% 
+    separate_wider_delim(
+        statistic,
+        delim='.',
+        names=c('statistic', 'kernel')
+    ) %>% 
+    pivot_wider(
+        names_from=statistic,
+        values_from=value
+    ) %>%
+    dplyr::rename('enrichment'=value) %>% 
+    mutate(
+        SampleID=str_replace_all(SampleID, '.Merged.Merged', ''),
+        log10.qval=-log10(qval),
+        length=anchor.right - anchor.left
+    ) %>% 
+    dplyr::select(
+        c(
+            # "type",
+            "weight",
+            "resolution",
+            "Edit",
+            "Celltype",
+            "Genotype",
+            # "CloneID",
+            # "TechRepID",
+            # "ReadFilter",
+            # "isMerged",
+            "SampleID",
+            "chr",
+            "anchor.left",
+            "anchor.right",
+            "count",
+            # "c_label",
+            # "c_size",
+            "length",
+            "kernel",
+            "enrichment",
+            "log10.qval"
+        )
+    )
+}
+
+###################################################
+# Analysis
+###################################################
+
+###################################################
+# Plotting
+###################################################
+plot_upset <- function(
+    plot.df,
+    category_prefix,
+    title.str,
+    ...){
+    upset(
+        plot.df,
+        plot.df %>%
+            dplyr::select(starts_with(category_prefix)) %>%
+            colnames(),
+        width_ratio=0.3,
+        mode='exclusive_intersection',
+        name=category_prefix,
+        # name=category_col,
+        # labeller=function(x) str_remove(x, category_prefix),
+        annotations=
+            list(
+                'Chrs'=
+                    (
+                        ggplot(mapping=aes(fill=chr))
+                        + geom_bar(stat='count', position='fill')
+                        + scale_y_continuous(labels=scales::percent_format())
+                        + ylab('Chrs')
+                    )
+            ),
+        set_sizes=
+            (
+                upset_set_size(
+                    position='right',
+                    geom=
+                        geom_bar(
+                            aes(fill=chr, x=group),
+                            width=0.8
+                        )
+                ) +
+                make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
+            ),
+        guides='over' # moves legends over the set sizes
+    ) +
+    ggtitle(title.str)
+}
+
+plot_pairs <- function(
+    freq.df,
+    cols_pattern,
+    text.size=7,
+    ...){
+    cols_to_plot <-
+        freq.df %>%
+        colnames() %>%
+        str_detect(cols_pattern) %>%
+        which()
+    ggpairs(
+        freq.df,
+        columns=cols_to_plot,
+        ...
+    ) +
+    theme(
+        axis.text.x=element_text(size=text.size, angle=45, vjust=1, hjust=1),
+        axis.text.y=element_text(size=text.size),
+        strip.text=element_text(size=text.size)
+    )
 }
 
