@@ -11,6 +11,7 @@ library(viridis)
 library(cowplot)
 library(gtable)
 library(furrr)
+library(hictkR)
 
 ###################################################
 # Generate resutls
@@ -220,8 +221,10 @@ run_all_multiHiCCompare <- function(
     force_redo=FALSE,
     covariates.df=NULL,
     chromosomes=CHROMOSOMES,
+    group1_colname='Sample.Group.P1',
+    group2_colname='Sample.Group.P2',
     ...){
-    # chromosomes=c('chr15', 'chr16'); covariates.df=NULL; force_redo=TRUE; remove.regions=hg38_cyto; sample_group_priority_fnc=sample_group_priority_fnc_NIPBLWAPL
+    # sample_group_priority_fnc=sample_group_priority_fnc_Cohesin; force_redo=FALSE; covariates.df=NULL; chromosomes=c('chr15', 'chr16'); group1_colname='Sample.Group.P1'; group2_colname='Sample.Group.P2'
     # force_redo=FALSE; covariates.df=NULL; chromosomes=CHROMOSOMES; sample_group_priority_fnc=sample_group_priority_fnc_16p; remove.regions=hg38_cyto
     comparisons.df %>% 
     # for each comparison list all paramter combinations
@@ -231,7 +234,11 @@ run_all_multiHiCCompare <- function(
     # which sample group is numerator in fold-change values (lower priority value) and 
     # which sample group is denominator in fold change values (higher priority value)
     # creates the columns Sample.Group.Numerator, Sample.Group.Denominator[
-    set_foldchange_direction_as_factor(sample_group_priority_fnc=sample_group_priority_fnc) %>% 
+    set_foldchange_direction_as_factor(
+        sample_group_priority_fnc=sample_group_priority_fnc,
+        group1_colname=group1_colname,
+        group2_colname=group2_colname,
+    ) %>% 
     # Create nested directory structure listing all relevant analysis parameters
     # Name output file as {numerator}_vs_{denominator}-*.tsv
     mutate(
@@ -281,7 +288,8 @@ run_all_multiHiCCompare <- function(
     } %>%
     arrange(desc(chr)) %>% 
     # arrange(resolution) %>% 
-        # {.} -> tmp2; effect.col='Sample.Group';
+        # {.} -> tmp2
+        # tmp2 %>% head(2) %>% 
     future_pmap(
     # pmap(
         .l=.,
@@ -298,7 +306,7 @@ run_all_multiHiCCompare <- function(
                     ...  # passed from the call run_all_multiHiCCompare()
                 )
             },
-        ...,  # passed from the call to this function
+        # ...,  # passed from the call to this function
         .progress=TRUE
     )
 }
@@ -328,7 +336,7 @@ load_and_correct_multiHiCCompare_results <- function(
 
 load_all_multiHiCCompare_results <- function(
     resolutions=NULL,
-    comparisons=NULL,
+    sample.group.comparisons=NULL,
     gw.fdr.threshold=1,
     fdr.threshold=1,
     nom.threshold=1,
@@ -366,8 +374,12 @@ load_all_multiHiCCompare_results <- function(
         }
     } %>% 
     {
-        if (!is.null(comparisons)) {
-            filter(., any(grepl(comparisons,  comparison)))
+        if (!is.null(sample.group.comparisons)) {
+            inner_join(
+                .,
+                sample.group.comparisons,
+                by=c('Sample.Group.Numerator', 'Sample.Group.Denominator')
+            )
         } else {
             .
         }
@@ -478,12 +490,12 @@ format_meta_comparison_results <- function(results.df){
 ###################################################
 post_process_multiHiCCompare_results_16p <- function(results.df){
     results.df %>% 
+    rename(
+        region1.bp=region1,
+        region2.bp=region2,
+    ) %>% 
     mutate(
-        chr=factor(chr, levels=CHROMOSOMES),
-        resolution=
-            resolution %>% 
-            scale_numbers(force_numeric=TRUE) %>% 
-            scale_numbers(),
+        distance.bp=region2.bp - region1.bp,
         comparison=
             factor(
                 comparison,
