@@ -99,3 +99,4 @@ GENOMIC_REGIONS <-
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
         region.dist=region.end - region.start
     )
+

@@ -8,7 +8,7 @@ library(glue)
 library(optparse)
 library(future)
 library(HiCExperiment)
-library(hictkR)
+# library(hictkR)
 
 ###################################################
 # Pairsing and Caching
@@ -526,10 +526,11 @@ get_min_resolution_per_matrix <- function(
     df=NULL,
     as_int=TRUE,
     filter_res=TRUE){
+    # df=contacts.df; as_int=TRUE; filter_res=TRUE
     # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
     MIN_SAMPLE_RESOLUTION_FILE %>%
     read_tsv(show_col_types=FALSE) %>%
-    select(SampleID, resolution) %>% 
+    dplyr::select(SampleID, resolution) %>% 
     mutate(resolution=scale_numbers(resolution, force_numeric=as_int)) %>% 
     add_column(is.smallest.resolution=TRUE) %>% 
     {
@@ -546,7 +547,7 @@ get_min_resolution_per_matrix <- function(
     { 
         if (filter_res) {
             filter(., is.smallest.resolution) %>%
-            select(-c(is.smallest.resolution))
+            dplyr::select(-c(is.smallest.resolution))
         } else {
             .
         }
@@ -844,8 +845,8 @@ set_up_sample_comparisons <- function(
             mutate(
                 Sample.Group=
                     case_when(
-                        str_detect(SampleID, Sample.Group.Left.Pattern) ~ Sample.Group.Left,
-                        str_detect(SampleID, Sample.Group.Right.Pattern) ~ Sample.Group.Right,
+                        str_detect(SampleID, Sample.Group.Numerator.Pattern) ~ Sample.Group.Numerator,
+                        str_detect(SampleID, Sample.Group.Denominator.Pattern) ~ Sample.Group.Denominator,
                         TRUE ~ NA
                     )
             ) %>%

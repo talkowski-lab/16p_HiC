@@ -532,7 +532,7 @@ post_process_multiHiCCompare_results_16p <- function(results.df){
 ###################################################
 # NIPBL+WAPL Format results
 ###################################################
-post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
+post_process_multiHiCCompare_results_Cohesin <- function(results.df){
     results.df %>% 
     rename(
         'region1.bp'=region1,
@@ -593,7 +593,7 @@ post_process_multiHiCCompare_results_NIPBLWAPL <- function(results.df){
     # )
 }
 
-format_meta_comparison_results_NIPBLWAPL <- function(mhc.results){
+format_meta_comparison_results_Cohesin <- function(mhc.results){
     mhc.results.df %>% 
     filter(comparison %in% 
         c(

@@ -14,6 +14,7 @@ if (grepl('/home/', BASE_DIR)) {
 ###################################################
 SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
 REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
+GENOME_GTF_FILE         <- file.path(REF_DIR, 'hg38.knownGene.gtf')
 GENOME_REF_DIR          <- file.path(REF_DIR, 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
@@ -53,15 +54,17 @@ MULTIHICCOMPARE_RESULTS_FILE   <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompar
 ###################################################
 # TAD Annotations
 ###################################################
-TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
-HITAD_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.TAD.annotations.tsv')
-HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
-HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
-COOLTOOLS_TAD_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.annotations.tsv')
-COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
-CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConesensusTAD.TAD.annotations.tsv')
+TAD_DIR                         <- file.path(RESULTS_DIR, 'TADs')
+HITAD_TAD_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.TAD.annotations.tsv')
+# HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
+# HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
+COOLTOOLS_TAD_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.TAD.annotations.tsv')
+# COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
+CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.annotations.tsv')
+# CONSENSUSTAD_MOC_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
 # TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
-TADCOMPARE_RESULTS_FILE        <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
+TADCOMPARE_RESULTS_FILE         <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
+ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
 
 ###################################################
 # Compartment Annotations
@@ -76,6 +79,12 @@ COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
 ###################################################
 LOOPS_DIR                    <- file.path(RESULTS_DIR, 'loops')
 COOLTOOLS_LOOPS_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
+LOOP_SIMILARITY_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loop.similarities.tsv')
+
+###################################################
+# gghic objects
+###################################################
+GGHIC_PLOT_OBJECTS_FILE <- file.path(RESULTS_DIR, 'gghic.plot.objs.cached.rds')
 
 ###################################################
 # Functional genome annotations
