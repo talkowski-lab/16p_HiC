@@ -345,9 +345,6 @@ annotate_DI_with_TADs <- function(
 ###################################################
 # Generate ConsensusTADs
 ###################################################
-define_TAD_pairs <- function(
-    TADs.P1,
-    TADs.P2,
 run_ConsensusTAD <- function(
     samples.df,
     resolution,
@@ -358,22 +355,6 @@ run_ConsensusTAD <- function(
     window_size,
     gap_thresh,
     ...){
-    # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]];
-    cross_join(
-        TADs.P1,
-        TADs.P2,
-        suffix=c('.P1', '.P2')
-    ) %>%
-    # only keep pairs of TADs that overlap at all
-    #   000000000111111111122222222223333
-    #   123456789012345678901234567890123
-    # P ---|++++|------|+++++|-----------|+++++++++++|------|++++++|------------|+++++|--
-    # Q ------|++++|------------|++++|-------|++++|------|+++++++++++++++|----|++++|-----
-    filter(
-        between(TAD.start.P1, TAD.start.P2, TAD.end.P2) |
-        between(TAD.end.P1,   TAD.start.P2, TAD.end.P2) |
-        between(TAD.start.P2, TAD.start.P1, TAD.end.P1) |
-        between(TAD.end.P2,   TAD.start.P1, TAD.end.P1)
     # row_index=750; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]
     # filepath=samples.df$filepath[[1]]
     sampleID.mapping <- 
@@ -509,15 +490,8 @@ load_all_ConsensusTAD_TADs <- function(...){
         suffix='-ConsensusTADs.tsv',
         filename.column.name='Sample.Group',
     ) %>% 
-    # Only keep each TAD once at most
-    # compute overlap similarity (MoC) for each pair of TADs between the 2 annotations
     filter(method == 'ConsensusTAD') %>% 
     mutate(
-        rightmost.start=max(TAD.start.P1, TAD.start.P2),
-        leftmost.end=min(TAD.end.P1, TAD.end.P2),
-        overlap=leftmost.end  - rightmost.start,
-        # observed overlap / total possible overlap
-        TAD.jaccard=((overlap**2) / (TAD.length.P1 * TAD.length.P2))
         TADs=
             # pmap(
             future_pmap(
@@ -526,34 +500,10 @@ load_all_ConsensusTAD_TADs <- function(...){
                 .progress=TRUE
             )
     ) %>%
-    select(-c(rightmost.start, leftmost.end, overlap))
     unnest(TADs) %>% 
     select(-c(filepath))
 }
 
-calculate_pair_MoC <- function(
-    TADs.P1,
-    TADs.P2,
-    ...){
-    # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]]
-    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length
-    # 1 row per TAD
-    # Number of TADs
-    nTADs.P <- nrow(TADs.P1)
-    nTADs.Q <- nrow(TADs.P2)
-    # Skip trivial cases
-    if (nTADs.P == nTADs.Q & nTADs.P == 1) {
-        1
-    } else {
-        norm_const <- 1 / (sqrt(nTADs.P * nTADs.Q) - 1)
-        define_TAD_pairs(
-            TADs.P1,
-            TADs.P2
-        ) %>% 
-        pull(TAD.jaccard) %>% 
-        sum() %>% 
-        {(. - 1) * norm_const}
-    }
 post_process_ConsensusTAD_TAD_results <- function(results.df){
     results.df %>%
     unite(
@@ -588,62 +538,9 @@ post_process_ConsensusTAD_TAD_results <- function(results.df){
     mutate(length=end - start)
 }
 
-calculate_all_pairs_MoCs <- function(
-    tad.annotations,
-    pair_grouping_cols,
-    ...){
-    # pair_grouping_cols=c('isMerged', 'resolution', 'chr'); tad.annotations=hitad.TAD.df %>% nest(TADs=c(TAD.start, TAD.end, TAD.length)) %>% nest(SampleInfo=c(Edit, Genotype, Celltype, CloneID, TechRepID, SampleID)); tad.annotations
-    # tad.annotations Must contain the following columns
-    # SampleInfo: nested tibble of Sample attributes
-    # TADs: nested tibble with 3 columns; TAD.start, TAD.end, TAD.length
-    # pair_grouping_cols: all columns listed here, only compare pairs of TAD sets that match
-    # that match along these attributes e.g. resolution, chr
-    tad.annotations %>% 
-    # List all pairs of annotations (SampleID + chr) that also have matching parameter values listed
-    get_all_row_combinations(
-        cols_to_pair=pair_grouping_cols,
-        keep_self=FALSE
-    ) %>% 
-        # {.} -> tmp
-    rowwise() %>% 
-    mutate(
-        SamplePairInfo=
-            merge_sample_info(
-                SampleInfo.P1,
-                SampleInfo.P2
-            ) %>%
-            list()
-    ) %>% 
-    ungroup() %>% 
-    select(-c(starts_with('SampleInfo'))) %>% 
-    unnest(SamplePairInfo) %>% 
-    # Finally compute all MoCs for all listed pairs of annotations
-    mutate(
-        mocs=
-            pmap(
-                .l=.,
-                .f=calculate_pair_MoC,
-                .progress=TRUE
-            )
-    ) %>%
-    unnest(mocs) %>%
-    select(-c(TADs.P1, TADs.P2))
-}
-
-calculate_pair_boundary_conservation <- function(
-    TADs.P1,
-    TADs.P2,
-    tolerance=50000,
-    ...){
-    # TADs.P1, TADs.P2 should be tibble with columns TAD.start, TAD.end, TAD.length, resolution
-    # 1 row per TAD
-    cross_join(
-        boundaries.P1,
-        boundaries.P2,
-        suffix=c('.P', '.Q')
-    )
-}
-
+###################################################
+# Compute Similarities
+###################################################
 calculate_profile_differences <- function(
     joint.DIs,
     group_cols=NULL){

@@ -1090,3 +1090,233 @@ merge_sample_info <- function(
     )
 }
 
+###################################################
+# Boundary-based analyes
+###################################################
+define_boundary_pairs <- function(
+    boundaries.P1,
+    boundaries.P2,
+    only_keep_overlaps=TRUE,
+    ...){
+    # boundaries.P1, boundaries.P2 are both tibbles with 
+    # the following 3 columns: start, end, length
+    # add indices to track all pairs of boundaries
+    cross_join(
+        boundaries.P1 %>% mutate(idx=row_number()),
+        boundaries.P2 %>% mutate(idx=row_number()),
+        suffix=c('.P1', '.P2')
+    ) %>%
+    # only keep overlapping pairs
+    {
+        if (only_keep_overlaps){
+            filter(
+                .,
+                between(start.P1, start.P2, end.P2) |
+                between(end.P1,   start.P2, end.P2) |
+                between(start.P2, start.P1, end.P1) |
+                between(end.P2,   start.P1, end.P1)
+            )
+        } else {
+            .
+        }
+    } %>%
+    # compute similarity metrics for each pair of boundaries 
+    # i.e. (start.P1, end.P2) vs (start.P2, end.P2)
+    rowwise() %>% 
+    mutate( 
+        # calcualte difference in boundary sites
+        start.diff=start.P2 - start.P1,
+        end.diff=end.P2 - end.P1,
+        length.diff=length.P2 - length.P1,
+        # calculate regions intersection
+        rightmost.start=max(start.P1, start.P2),
+        leftmost.end=min(end.P1, end.P2),
+        intersection=leftmost.end  - rightmost.start,
+        # calculate regions union
+        leftmost.start=min(start.P1, start.P2),
+        rightmost.end=max(end.P1, end.P2),
+        union=rightmost.end - leftmost.start,
+        # calcualte difference in boundary overlap
+        jaccard=intersection / union,
+        moc.inner=((intersection**2) / (length.P1 * length.P2))
+    ) %>%
+    ungroup() %>% 
+    # only keep pairs of boundaries that are the most similar of all pairs
+    filter(jaccard > 0) %>% 
+    # Only keep the most simialar loop (highest jaccard index) for each loop
+    group_by(idx.P1) %>% 
+    slice_max(jaccard) %>% 
+    # break ties with smallest difference in start/end coordinates
+    slice_min(start.diff + end.diff, n=1) %>% 
+    ungroup() %>% 
+    # Repeat for other side of pairs
+    group_by(idx.P2) %>% 
+    slice_max(jaccard) %>% 
+    slice_min(start.diff + end.diff, n=1) %>% 
+    ungroup() %>% 
+        # {.} -> dbp3; dbp3
+    select(
+        -c(
+            idx.P1, 
+            idx.P2,
+            rightmost.start,
+            leftmost.end,
+            intersection,
+            leftmost.start,
+            rightmost.end,
+            union
+        )
+    )
+}
+
+get_boundary_pairs <- function(
+    boundaries.P1,
+    boundaries.P2,
+    only_keep_overlaps=TRUE,
+    ...){
+    # For all pairs of boundaries between P1 vs P2 only keeps the most similar pair for each
+    # so if |P1| = 10 boundary sets (10 rows) and |P2| = 5
+    # then for each set in P1 I only keep 1 set from P2, the "most similar" one 
+    # i.e. largest jaccard index
+    # MoC normalization constant
+    nboundaries.P1 <- nrow(boundaries.P1)
+    nboundaries.P2 <- nrow(boundaries.P2)
+    norm_const <- 1 / (sqrt(nboundaries.P1 * nboundaries.P2) - 1)
+    define_boundary_pairs(
+        boundaries.P1,
+        boundaries.P2,
+        only_keep_overlaps=only_keep_overlaps,
+    ) %>%
+    add_column(MoC.norm=norm_const)
+}
+
+calculate_boundary_similarities <- function(
+    boundaries.P1,
+    boundaries.P2,
+    only_keep_overlaps=TRUE,
+    ...){
+    # For all pairs of boundaries between P1 vs P2 only keeps the most similar pair for each
+    # so if |P1| = 10 boundary sets (10 rows) and |P2| = 5
+    # then for each set in P1 I only keep 1 set from P2, the "most similar" one 
+    # i.e. largest jaccard index
+    pairs.df <- 
+        define_boundary_pairs(
+            boundaries.P1,
+            boundaries.P2,
+            only_keep_overlaps=only_keep_overlaps,
+        )
+    # MoC normalization constant
+    nboundaries.P1 <- nrow(boundaries.P1)
+    nboundaries.P2 <- nrow(boundaries.P2)
+    norm_const <- 1 / (sqrt(nboundaries.P1 * nboundaries.P2) - 1)
+    # Compute MoC 
+    moc.df <- 
+        pairs.df %>% 
+        summarize(
+            boundary.nPairs=n(),
+            boundary.MoC=(sum(moc.inner) - 1) * norm_const,
+        ) %>%
+        pivot_longer(
+            everything(),
+            names_to='tmp',
+            values_to='value'
+        ) %>%
+        separate_wider_delim(
+            tmp,
+            delim='.',
+            names=c('context', 'stat')
+        )
+    # summarize similarity statistics across those "most similar" boundary pair sets
+    stats.df <- 
+        pairs.df %>% 
+        rename_with(~ str_remove(.x, '.diff$')) %>% 
+        select(c(start, end, length, jaccard)) %>% 
+        pivot_longer(
+             everything(),
+             names_to='context',
+             values_to='value'
+         ) %>% 
+        group_by(context) %>%
+        reframe(broom::tidy(summary(value))) %>% 
+        # reframe(skimr::skim_without_charts(value)) %>% 
+        pivot_longer(
+            -c(context),
+            names_to='stat',
+            values_to='value'
+        )
+        # return tidy stats table
+        bind_rows(
+            stats.df,
+            moc.df
+        )
+
+}
+
+calculate_all_boundary_similarities <- function(
+    boundaries.df,
+    pair_grouping_cols,
+    sample.group.comparisons=NULL,
+    only_keep_overlaps=TRUE,
+    ...){
+    # sample.group.comparisons=SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols= c('resolution', 'method', 'TAD.params', 'chr'); 
+    # sample.group.comparisons=SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); only_keep_overlaps=FALSE
+    # boundaries.df Must contain the following columns
+    # SampleInfo: nested tibble of Sample attributes
+    # 3 columns; start, end, length indicating each set of boundaries
+    # pair_grouping_cols: list of cols, only compare pairs of boundaries sets that match
+    boundaries.df %>% 
+    # List all pairs of annotations (SampleID + chr) with matching parameters 
+    join_all_rows(
+        cols_to_match=pair_grouping_cols,
+        suffix=c('.P1', '.P2')
+        # suffix=c('.Numerator', '.Denominator')
+    ) %>% 
+    # only keep explicitly specified sample group pairs
+    {
+        if (is.null(sample.group.comparisons)) {
+            .
+        } else {
+            inner_join(
+                .,
+                sample.group.comparisons,
+                by=colnames(sample.group.comparisons)
+            )
+        }
+    } %>% 
+    # tidy metadata
+    {
+        if (any(grepl('SampleInfo', colnames(.)))){
+            rowwise(.) %>% 
+            mutate(
+                SamplePairInfo=
+                    merge_sample_info(
+                        SampleInfo.P1,
+                        SampleInfo.P2
+                    ) %>%
+                    list()
+            ) %>% 
+            ungroup() %>% 
+            select(-c(starts_with('SampleInfo'))) %>% 
+            unnest(SamplePairInfo)
+        } else {
+            .
+        }
+    } %>% 
+    # Finally compute all MoCs for all listed pairs of annotations
+        # {.} -> tmp; tmp
+        # tmp2 <- tmp %>% head(2) %>% 
+    mutate(
+        similarities=
+            pmap(
+                .l=.,
+                # .f=calculate_boundary_similarities,
+                .f=get_boundary_pairs,
+                only_keep_overlaps=only_keep_overlaps,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(similarities) %>%
+    select(-c(boundaries.P1, boundaries.P2))
+    # select(-c(ends_with('.P1'), ends_with('.P2')))
+}
+
