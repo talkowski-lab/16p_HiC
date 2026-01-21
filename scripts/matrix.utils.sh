@@ -9,8 +9,8 @@ GENOTYPES_16P=('WT' 'DEL' 'DUP')
 CELLTYPES_16P=('iN' 'NSC')
 # CLONEIDS_16P=('A12' 'A3' 'B8' 'C5' 'D12' 'D9' 'FACS1' 'G7' 'H10' 'p44' 'p46' 'p49')
 # Edit information
-PROJECT_EDITS=('NIPBL' 'WAPL' 'RAD21')
-GENOTYPES_EDITS=('WT' 'DEL')
+PROJECT_EDITS=('NIPBL' 'WAPL' 'RAD21' 'CTCF')
+GENOTYPES_EDITS=('WT' 'DEL' 'BIALLELIC')
 CELLTYPES_EDITS=('iN')
 # Technical Args
 SEED=9  # Random seed for qc3C
@@ -285,14 +285,14 @@ merge_Cohesin_matrices() {
             echo '============================================='
         done
         # Merge across edits per genotype & celltype ACROSS Edits
-        sample_group="${celltype}.${genotype}"
-        echo "All.${sample_group}"
-        echo '---------------'
-        merge_matrices        \
-            "${cooler_dir}"   \
-            "*.${sample_group}" \
-            "${read_filter}"  \
-            "All.${sample_group}.Merged.Merged"
+        # sample_group="${celltype}.${genotype}"
+        # echo "All.${sample_group}"
+        # echo '---------------'
+        # merge_matrices        \
+        #     "${cooler_dir}"   \
+        #     "*.${sample_group}" \
+        #     "${read_filter}"  \
+        #     "All.${sample_group}.Merged.Merged"
     done
     done
     done
@@ -429,7 +429,7 @@ main() {
 # Handle Arguments
 ###################################################
 CONDA_DIR="${HOME}/miniforge3"
-THREADS="8" 
+THREADS=$(nproc)
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
 while getopts "a:t:h" flag; do

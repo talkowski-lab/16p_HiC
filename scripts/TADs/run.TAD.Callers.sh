@@ -204,8 +204,9 @@ BASE_DIR="./"
 OUTPUT_DIR="${BASE_DIR}/results/TADs"
 EVAL_METHOD='txt'
 RESOLUTIONS=(100000 50000 25000 10000)
+THREADS=$(nproc)
 # Default SLURM params
-QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; THREADS=2; LOG_DIR="${BASE_DIR}/slurm.logs"
+QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; LOG_DIR="${BASE_DIR}/slurm.logs"
 CONDA_DIR="$(conda info --base)"
 [[ $# -eq 0 ]] && echo "No Args" && help
 while getopts "ho:l:r:n:c:q:m:a:t:e:" flag; do

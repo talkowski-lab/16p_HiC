@@ -6,7 +6,7 @@ here::i_am('scripts/DifferentialContacts/run.multiHiCCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
     source(file.path(BASE_DIR,   'scripts/locations.R'))
-    source(file.path(SCRIPT_DIR, 'constants.R'))
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
     source(file.path(SCRIPT_DIR, 'DifferentialContacts/utils.multiHiCCompare.R'))
@@ -15,6 +15,7 @@ suppressPackageStartupMessages({
     library(purrr)
     library(optparse)
     library(BiocParallel)
+    library(hictkR)
 })
 
 ###################################################
@@ -41,19 +42,19 @@ data('hg38_cyto')
 # 2 group comparison + no covariates -> use exact test
 message(glue('using {parsed.args$threads} core to parallelize'))
 # register(MulticoreParam(workers=parsed.args$threads * 4 / 4), default=TRUE)
-register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
+# register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
 plan(multisession,      workers=parsed.args$threads * 2 / 4)
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     tribble(
         ~Sample.Group.Left, ~Sample.Group.Right,
-        # '16p.NSC.DUP',      '16p.NSC.DEL',
+        '16p.NSC.DUP',      '16p.NSC.DEL',
         # '16p.iN.DUP',       '16p.iN.DEL', 
         # '16p.NSC.DUP',      '16p.iN.DUP',
-        # '16p.NSC.DEL',      '16p.iN.DEL',
-        # '16p.NSC.WT',       '16p.iN.WT',
+        '16p.NSC.DEL',      '16p.iN.DEL',
+        '16p.NSC.WT',       '16p.iN.WT',
         # '16p.iN.DUP',       '16p.iN.WT',  
-        # '16p.iN.DEL',       '16p.iN.WT',  
+        '16p.iN.DEL',       '16p.iN.WT',  
         '16p.NSC.DUP',      '16p.NSC.WT',
         '16p.NSC.DEL',      '16p.NSC.WT'
     ) %>% 

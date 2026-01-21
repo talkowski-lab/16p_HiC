@@ -221,16 +221,14 @@ Generate HiCRep results
 ```bash
 # Generate list of commands to run for all pairs of matrices + all hyper-param combos
 conda activate hicrep
-Rscript ./scripts/hicrep/run.hicrep.R && parallel -j 0  --eta :::: ./results/hicrep/all.hicrep.cmds.txt
+Rscript ./scripts/hicrep/run.hicrep.R && parallel -j $(nproc) --bar --eta :::: ./results/hicrep/all.hicrep.cmds.txt
 ```
 Generate TAD and insulation annotations
 ```bash
 # Generate TAD annotations with hiTAD 
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t 8 -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
-# ./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.mapq_30.1000.mcool
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t $(nproc) -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Generate TAD boundary annotations with cooltools insulation
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t 8 -o ./results/TADs/ cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
-# ./scripts/TADs/run.TAD.Callers.sh -e inplace -t 12 -o ./results/TADs/ cooltools ./results/coolers_library/**/*.mapq_30.1000.mcool
+./scripts/TADs/run.TAD.Callers.sh -e inplace -t $(nproc) -o ./results/TADs/ cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Generate Consensus TAD results from set of individual matrices with spectralTAD
 Rscript ./scripts/TADs/run.ConsensusTADs.R
 ```
@@ -244,16 +242,16 @@ Generate multiHiCCompare results
 ```bash
 Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 ```
+Generate Loop Annotations
+```bash
+./scripts/loops/run.loops.cooltools.sh ./results/loops ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+```
 Generate Compartment annotations
 ```bash
 # pre-process input matrices for dcHiC
 # Rscript ./scripts/compartments/preprocess.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/preprocess.dcHiC.cmds.txt
 # Rscript ./scripts/compartments/run.compartments.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/run.dcHiC.cmds.txt
 Rscript ./scripts/compartments/run.compartments.HiCDOC.R
-```
-Generate Loop Annotations
-```bash
-./scripts/loops/run.loops.cooltools.sh ./results/loops cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 ```
 
 ### File Summary One-liners

@@ -4,6 +4,10 @@ set -uo pipefail
 ###################################################
 # Functions
 ###################################################
+help() {
+    echo "TODO"
+}
+
 call_loops() {
     output_dir="$(readlink -e "${1}")"
     echo "Saving results in ${output_dir}"
@@ -62,7 +66,7 @@ EXPECTED_CONTACTS_ROOT_DIR="./results/sample.QC/expected.coverage"
 RESOLUTIONS=(25000 10000 5000)
 CONTACT_TYPES=('cis')
 declare -rA WEIGHTS=([raw]='' [balanced]='weight')
-THREADS="8" 
+THREADS=$(nproc)
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
 while getopts "a:t:h" flag; do
@@ -75,6 +79,9 @@ while getopts "a:t:h" flag; do
     esac
 done
 shift $(( OPTIND-1 ))
+###################################################
+# Main
+###################################################
 # activate conda
 source "${CONDA_DIR}/etc/profile.d/conda.sh"
 conda activate "cooltools"
