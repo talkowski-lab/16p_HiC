@@ -8,6 +8,7 @@ library(viridis)
 library(ggh4x)
 # library(ggtext)
 library(cowplot)
+library(TADCompare)
 
 ###################################################
 # Utilities
@@ -342,11 +343,20 @@ annotate_DI_with_TADs <- function(
 }
 
 ###################################################
-# Compute Similarities
+# Generate ConsensusTADs
 ###################################################
 define_TAD_pairs <- function(
     TADs.P1,
     TADs.P2,
+run_ConsensusTAD <- function(
+    samples.df,
+    resolution,
+    normalization,
+    range1,
+    range2,
+    z_thresh,
+    window_size,
+    gap_thresh,
     ...){
     # TADs.P1=tmp$TADs.P1[[1]]; TADs.P2=tmp$TADs.P2[[1]];
     cross_join(
@@ -364,17 +374,161 @@ define_TAD_pairs <- function(
         between(TAD.end.P1,   TAD.start.P2, TAD.end.P2) |
         between(TAD.start.P2, TAD.start.P1, TAD.end.P1) |
         between(TAD.end.P2,   TAD.start.P1, TAD.end.P1)
+    # row_index=750; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]
+    # filepath=samples.df$filepath[[1]]
+    sampleID.mapping <- 
+        samples.df %>%
+        mutate(
+            SampleID=as.character(glue('{SampleID}.score')),
+            og.sample=as.character(glue('Sample {row_number()}'))
+        ) %>%
+        select(SampleID, og.sample) %>% 
+        deframe()
+    # Generate ConsensusTAD results
+    consensus.results <- 
+        samples.df %>%
+        pull(filepath) %>% 
+        sapply(
+            TADCompare_load_matrix,
+            resolution=resolution,
+            normalization=normalization,
+            range1=range1,
+            range2=range2,
+            simplify=FALSE,
+            USE.NAMES=FALSE
+        ) %>% 
+        ConsensusTADs(
+            resolution=resolution,
+            z_thresh=z_thresh,
+            window_size=window_size,
+            gap_thresh=gap_thresh
+        )
+    # Save data for all bins + consensus boundaries
+    consensus.results$All_Regions %>% 
+    tibble() %>%
+    # Specify which bins were actually called as boundaries
+    left_join(
+        consensus.results$Consensus %>% 
+        tibble() %>% 
+        select(Coordinate) %>% 
+        add_column(isConsensusBoundary=TRUE),
+        by=join_by(Coordinate)
+    ) %>% 
+    mutate(isConsensusBoundary=ifelse(is.na(isConsensusBoundary), FALSE, isConsensusBoundary)) %>% 
+    rename(
+        all_of(sampleID.mapping),
+        'bin.start'=Coordinate,
+        'consensus.score'=Consensus_Score
+    )
+}
+
+run_all_ConsensusTADs <- function(
+    sample.groups.df,
+    hyper.params.df,
+    chromosomes=CHROMOSOMES,
+    force_redo=TRUE,
+    ...){
+    # chromosomes=CHROMOSOMES; force_redo=TRUE;
+    sample.groups.df %>% 
+    # for each comparison list all paramter combinations
+    cross_join(hyper.params.df) %>% 
+    cross_join(tibble(chr=chromosomes)) %>% 
+    # Create nested directory structure listing all relevant analysis parameters
+    # Name output files accordingly
+    mutate(
+        range1=chr, range2=chr,
+        output_dir=
+            file.path(
+                TAD_DIR,
+                'method_ConsensusTAD',
+                glue('merged_{isMerged}'),
+                glue('z.thresh_{z_thresh}'),
+                glue('window.size_{window_size}'),
+                glue('gap.thresh_{gap_thresh}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
+                glue('resolution.type_{resolution.type}'),
+                glue('region_{chr}')
+            ),
+        results_file=
+            file.path(
+                output_dir,
+                glue('{Sample.Group}-ConsensusTADs.tsv')
+            )
+    ) %>% 
+    {
+        if (!force_redo) {
+            filter(., !(file.exists(results_file)))
+        } else{
+            .
+        }
+    } %T>% 
+    {
+        message('Generating the following results files')
+        print(
+            dplyr::count(
+                .,
+                z_thresh,
+                window_size,
+                gap_thresh,
+                resolution,
+                Sample.Group
+            )
+        )
+    } %>%
+    arrange(resolution) %>% 
+    # future_pmap(
+    pmap(
+        .l=.,
+        .f= # Need this wrapper to pass ... arguments to run_ConsensusTAD
+            function(results_file, ...){ 
+                check_cached_results(
+                    results_file=results_file,
+                    force_redo=force_redo,
+                    return_data=FALSE,
+                    results_fnc=run_ConsensusTAD,
+                    # all columns also passed as input arguments to run_multiHiCCompare() by pmap
+                    ...  # passed from the call run_all_multiHiCCompare()
+                )
+            },
+        ...,  # passed from the call to this function
+        .progress=TRUE
+    )
+}
+
+load_ConsensusTADs <- function(filepath, ...){
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE,
+    )
+}
+
+load_all_ConsensusTAD_TADs <- function(...){
+    TAD_DIR %>% 
+    parse_results_filelist(
+        suffix='-ConsensusTADs.tsv',
+        filename.column.name='Sample.Group',
     ) %>% 
     # Only keep each TAD once at most
     # compute overlap similarity (MoC) for each pair of TADs between the 2 annotations
+    filter(method == 'ConsensusTAD') %>% 
     mutate(
         rightmost.start=max(TAD.start.P1, TAD.start.P2),
         leftmost.end=min(TAD.end.P1, TAD.end.P2),
         overlap=leftmost.end  - rightmost.start,
         # observed overlap / total possible overlap
         TAD.jaccard=((overlap**2) / (TAD.length.P1 * TAD.length.P2))
+        TADs=
+            # pmap(
+            future_pmap(
+                .,
+                load_ConsensusTADs,
+                .progress=TRUE
+            )
     ) %>%
     select(-c(rightmost.start, leftmost.end, overlap))
+    unnest(TADs) %>% 
+    select(-c(filepath))
 }
 
 calculate_pair_MoC <- function(
@@ -400,6 +554,38 @@ calculate_pair_MoC <- function(
         sum() %>% 
         {(. - 1) * norm_const}
     }
+post_process_ConsensusTAD_TAD_results <- function(results.df){
+    results.df %>%
+    unite(
+        'TAD.params',
+        sep='#',
+        z.thresh,
+        window.size,
+        gap.thresh,
+    ) %>% 
+    # nest(scores=ends_with('.score'))
+    # Only keep boundaries
+    filter(isConsensusBoundary) %>% 
+    # Clean up 
+    rename('chr'=region) %>% 
+    select(method, resolution, TAD.params, Sample.Group, chr, bin.start) %>% 
+    nest(boundaries=c(bin.start)) %>% 
+    # remove entries with < 2 boundaries
+    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(
+        TADs=
+            list(
+                convert_boundaries_to_TADs(
+                    boundaries=boundaries,
+                    start.col.name='start',
+                    end.col.name='end',
+                )
+            )
+    ) %>% 
+    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
+    # Nest for downstream analysis
+    mutate(length=end - start)
 }
 
 calculate_all_pairs_MoCs <- function(
