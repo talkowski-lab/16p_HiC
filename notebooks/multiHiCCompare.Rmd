@@ -11,75 +11,69 @@ date: "`r Sys.Date()`"
 }
 </style>
 
-# Set up
+# Set up + Load all differential contact results
 
 ```{r knitr}
 library(knitr)
 knitr::opts_chunk$set(
+    eval=TRUE,
+    warning=FALSE,
+    message=FALSE,
+    results=FALSE,
     dev=c('png', 'pdf', 'svg'),
     dpi=300
 )
 ```
 Set up file locations + load dependenies
-```{r dependencies, results=FALSE, message=FALSE, warning=FALSE}
+```{r dependencies, results=FALSE, message=FALSE, warning=FALSE, eval=TRUE}
 library(here)
 here::i_am('notebooks/multiHiCCompare.Rmd')
 BASE_DIR <- here()
-SCRIPT_DIR <- file.path(BASE_DIR, 'scripts')
-source(file.path(SCRIPT_DIR, 'locations.R'))
-source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(BASE_DIR, 'scripts', 'locations.R'))
+source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-source(file.path(SCRIPT_DIR, 'utils.multiHiCCompare.R'))
+source(file.path(SCRIPT_DIR, 'DifferentialContacts', 'utils.multiHiCCompare.R'))
 library(tidyverse)
 library(magrittr)
 library(ggplot2)
 library(ggh4x)
-library(purrr)
+library(GGally)
+library(ComplexUpset)
 ```
-
-# Load all differential contact results
-
 Load results for all comparisons for all bin-pairs
-```{r load_results}
+```{r load_results, eval=TRUE}
 results.df <- 
     check_cached_results(
-        results_file=ALL_MULTIHICCOMPARE_RESULTS,
-        force_redo=TRUE,
+        results_file=MULTIHICCOMPARE_RESULTS_FILE,
+        # force_redo=TRUE,
         results_fnc=load_all_multiHiCCompare_results,
-        comparisons=NULL,
-        resolutions=NULL,
-        gw.fdr.threshold=1,
-        fdr.threshold=1,
+        sample_group_priority_fnc=sample_group_priority_fnc_16p,
+        sample.group.comparisons=
+            tribble(
+                ~Sample.Group.Numerator, ~Sample.Group.Denominator,
+                # '16p.iN.DUP',       '16p.iN.DEL', 
+                # '16p.NSC.DUP',      '16p.NSC.DEL',
+                # '16p.NSC.DUP',      '16p.iN.DUP',
+                '16p.NSC.DEL',      '16p.iN.DEL',
+                '16p.NSC.WT',       '16p.iN.WT',
+                # '16p.iN.DUP',       '16p.iN.WT',  
+                '16p.iN.DEL',       '16p.iN.WT',  
+                '16p.NSC.DUP',      '16p.NSC.WT',
+                '16p.NSC.DEL',      '16p.NSC.WT'
+            ),
+        gw.fdr.threshold=0.1,
+        fdr.threshold=0.1,
         nom.threshold=0.05
     ) %>% 
-    mutate(
-        chr=factor(chr, levels=CHROMOSOMES),
-        resolution=
-            resolution %>% 
-            scale_numbers(force_numeric=TRUE) %>% 
-            scale_numbers(),
-        comparison=
-            factor(
-                comparison,
-                levels=
-                    c(
-                        '16p.iN.WT vs 16p.NSC.WT',
-                        '16p.iN.DEL vs 16p.iN.WT',
-                        '16p.iN.DUP vs 16p.iN.WT',
-                        '16p.NSC.DEL vs 16p.NSC.WT',
-                        '16p.NSC.DUP vs 16p.NSC.WT'
-                    )
-            )
-    )
-
+    post_process_multiHiCCompare_results_16p() %>%
+    standardize_data_cols()
 ```
 Subset specific results for plotting
-```{r subset.data}
-chrs.to.plot <- factor(CHROMOSOMES, levels=CHROMOSOMES)
+```{r subset.data, eval=TRUE}
+chrs.to.plot <- CHROMOSOMES
+# chrs.to.plot <- CHROMOSOMES[c(1,5,10,16,22)]
 # chrs.to.plot <- CHROMOSOMES[c(10,16,22)]
-# results.df <- results.df %>% filter(chr %in% chrs.to.plot)
-# chrs.to.plot <- c('chr10', 'chr16', 'chrX')
 plot.df <- 
     results.df %>% 
     filter(chr %in% chrs.to.plot) %>% 
@@ -93,6 +87,24 @@ plot.df <-
     # Only show GW significant hits
     filter(p.adj.gw < 0.1)
 ```
+re-usable plot elements
+```{r plot_elements}
+zero.lines <- 
+    list(
+        geom_hline(
+            yintercept=0,
+            linewidth=0.5,
+            color='black',
+            linetype='dashed'
+        ),
+        geom_vline(
+            xintercept=0,
+            linewidth=0.5,
+            color='black',
+            linetype='dashed'
+        )
+    )
+```
 
 # N Contacts {.tabset}
 
@@ -100,55 +112,49 @@ plot.df <-
 n.plot.df <- 
     results.df %>% 
     mutate(
-        sig.lvl=
-            case_when(
-                p.adj.gw < 0.01 ~ 'p.adj.gw < 0.01',
-                p.adj.gw < 0.1  ~ 'p.adj.gw < 0.1',
-                p.value  < 0.05 ~ 'p.value  < 0.05',
-                TRUE            ~ 'N.S.'
-            )
+        # 'sig.lvl.N.S.'=p.value > 0.05,
+        # 'sig.lvl.p.value  < 0.05'=p.value  < 0.05,
+        'sig.lvl.N.S.'=p.adj.gw >= 0.1,
+        'sig.lvl.p.adj.gw < 0.1'=p.adj.gw < 0.1,
+        'sig.lvl.p.adj.gw < 0.001'=p.adj.gw < 1e-3,
+        'sig.lvl.p.adj.gw < 1e-6'=p.adj.gw < 1e-6,
+        'sig.lvl.p.adj.gw < 1e-9'=p.adj.gw < 1e-9,
+        'sig.lvl.p.adj.gw < 1e-15'=p.adj.gw < 1e-15
     ) %>% 
+    pivot_longer(
+        starts_with('sig.lvl.'),
+        names_to='sig.lvl',
+        names_prefix='sig.lvl.',
+        values_to='meet.sig.lvl'
+    ) %>% 
+    filter(meet.sig.lvl) %>% 
     count(
-        A.min, zero.p, merged, chr, resolution, comparison, sig.lvl,
+        A.min, zero.p, merged, chr, resolution, comparison, comparison.type, sig.lvl,
         name='nDACs'
     )
-n_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        max_header_lvl=3,
-        plot_fnc=plot_heatmap,
-        # x_var='sig.lvl',
-        y_var='comparison',
-        fill_var='nDACs', 
-        label_var='nDACs',
-        # legend.position='top',
-        # axis.text.x=element_text(angle=45, hjust=1),
-        # legend.text=element_text(angle=35, hjust=1),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank()
-    )
+rm(results.df)
 ```
 
-## Genome-wide {.tabset .tabset-pills}
+## Genome-wide {.tabset}
 
 ```{r plot_n_DACs_gw, results='asis', warning=FALSE, message=FALSE, fig.dim=c(8,4)}
 n.plot.df %>% 
-    group_by(A.min, zero.p, merged, resolution, comparison, sig.lvl) %>%
+    group_by(A.min, zero.p, merged, resolution, comparison, comparison.type, sig.lvl) %>%
     summarize(nDACs=sum(nDACs)) %>% 
     n_plot_fnc(
-        group_cols=c('Celltype', 'resolution'),
-        x_var='sig.lvl',
+        group.cols=c('comparison.type', 'resolution'),
+        x.var='sig.lvl',
         label.size=5,
     )
 ```
 
-## Per Chr {.tabset .tabset-pills}
+## Per Chr {.tabset}
 
 ```{r plot_n_DACs_chr, results='asis', fig.dim=c(8,4)}
 n.plot.df %>% 
     n_plot_fnc(
-        group_cols=c('Celltype', 'resolution', 'sig.lvl'),
-        x_var='chr',
+        group.cols=c('comparison.type', 'resolution', 'sig.lvl'),
+        x.var='chr',
         label.size=2,
         axis.text.x=element_text(angle=45, hjust=1)
     )
@@ -156,114 +162,146 @@ n.plot.df %>%
 
 # Distribution Plots {.tabset}
 
-```{r dist_plot_df}
+```{r dist_plot_df, eval=TRUE}
 dist.plot.df <- 
     plot.df %>% 
     select(
-        resolution, Celltype, comparison, chr,
-        region1.bp, region2.bp, distance.bp,
-        log.p.adj.gw, logFC
+        resolution, comparison.type, comparison, chr,
+        # region1.bp, region2.bp, distance.bp,
+         logFC, log.p.adj.gw
     ) %>%
     pivot_longer(
         c(logFC, log.p.adj.gw),
         names_to='statistic',
         values_to='value'
     )
-dist_lot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        group_cols=c('Celltype', 'resolution'),
-        max_header_lvl=3,
-        plot_fnc=plot_boxplot,
-        # x_var='comparison',
-        x_scale_mode='discrete',
-        y_var='value',
-        # fill_var='comparison',
-        # facet_row='statistic',
-        scales='free_y',
-        outlier.size=0.2,
-        # legend.position='right',
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.x=element_text(angle=45, hjust=1),
-        plot_elements=
-            list(
-                geom_hline(
-                    yintercept=0,
-                    linetype='dashed'
-                )
-            )
-    )
 ```
 
-## Genome-wide {.tabset .tabset-pills}
+## Genome-wide {.tabset}
 
-```{r plot_fc_dist_gw, results='asis', fig.dim=c(10, 6), eval=TRUE}
+```{r plot_fc_dist_gw, results='asis', fig.dim=c(6, 6), eval=TRUE}
 dist.plot.df %>% 
-    dist_lot_fnc(
-        x_var='comparison',
-        facet_row='statistic'
+    dist_plot_fnc(
+        x.var='comparison',
+        fill.var='comparison',
+        strip.text=element_text(size=10),
+        # legend.position='none',
+        axis.text.x=element_text(angle=70, hjust=1, size=10),
+        axis.text.y=element_text(size=10),
+        x.expand=c(0.1, 0.1, 0.1, 0.1),
+        y.expand=c(0.1, 0.1, 0.1, 0.1),
+        facet.row='statistic'
+        
     )
 ```
 
-## Per Chr {.tabset .tabset-pills}
+## Per Chr {.tabset}
 
 ```{r plot_fc_dist_chr, results='asis', fig.dim=c(16, 9), eval=TRUE}
 dist.plot.df %>% 
-    dist_lot_fnc(
-        x_var='chr',
-        fill_var='comparison',
-        facet_row='statistic'
+    dist_plot_fnc(
+        x.var='chr',
+        fill.var='comparison',
+        facet.row='statistic'
     )
 ```
 
 # Volcano Plots {.tabset}
 
-```{r volcano_plot_fnc}
-volcano_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        group_cols=c('Celltype', 'resolution'),
-        max_header_lvl=3,
-        plot_fnc=plot_jitter,
-        x_var='logFC',
-        y_var='log.p.adj.gw',
-        x_axis_label_accuracy=0.01,
-        y_axis_label_accuracy=0.1,
-    )
-```
-
-## Genome-Wide {.tabset .tabset-pills}
+## Genome-Wide {.tabset}
 
 ```{r plot_volcanos_gw, results='asis', fig.dim=c(8, 4), eval=TRUE}
 plot.df %>% 
     volcano_plot_fnc(
-        color_var='comparison', 
+        color.var='comparison', 
+        size=1,
         # legend.position=c(0.7, 0.9)
         legend.position='right'
     )
 ```
 
-## Fixed Scales {.tabset .tabset-pills}
+## Fixed Scales {.tabset}
 
-```{r plot_volcanos_fixed, results='asis', fig.dim=c(14, 8), eval=TRUE}
+```{r plot_volcanos_fixed, results='asis', fig.dim=c(14, 8)}
 plot.df %>% 
     volcano_plot_fnc(
-        color_var='comparison', 
-        facet_group='chr',
-        facet_nrow=4
+        color.var='comparison', 
+        facet.group='chr',
+        facet.nrow=4
     )
 ```
 
-## Free Scales {.tabset .tabset-pills}
+## Free Scales {.tabset}
 
-```{r plot_volcanos, results='asis', fig.dim=c(16, 8), eval=TRUE}
+```{r plot_volcanos, results='asis', fig.dim=c(16, 8)}
 plot.df %>% 
     volcano_plot_fnc(
-        color_var='comparison', 
-        facet_group='chr',
-        facet_nrow=4,
+        color.var='comparison', 
+        facet.group='chr',
+        facet.nrow=4,
         scales='free_y'
+    )
+```
+
+# Distance Plots {.tabset}
+
+```{r distance_plot_df}
+distance.plot.df <- 
+    plot.df %>% 
+    mutate(
+        distance.bracket=
+            case_when(
+                distance.bp > 150 * 1e6 ~ '> 100Mb',
+                distance.bp >  50 * 1e6 ~ '>  50Mb',
+                distance.bp >  20 * 1e6 ~ '>  20Mb',
+                distance.bp >   5 * 1e6 ~ '>   5Mb',
+                TRUE                    ~ '<=  5Mb'
+            ) %>%
+            factor(
+                levels=
+                    c(
+                        '> 100Mb',
+                        '>  50Mb',
+                        '>  20Mb',
+                        '>   5Mb',
+                        '<=  5Mb'
+                    )
+            )
+    ) %>% 
+    select(
+        resolution, comparison, comparison.type, chr, 
+        region1.bp, region2.bp, distance.bp, distance.bracket,
+        log.p.adj.gw, logFC
+    ) #%>%
+    # pivot_longer(
+    #     c(logFC, log.p.adj.gw),
+    #     names_to='statistic',
+    #     values_to='value'
+    # ) 
+```
+
+## Genome-Wide {.tabset}
+
+```{r plot_distances_gw, results='asis', fig.dim=c(9, 6)}
+distance.plot.df %>%
+    distance_plot_fnc(
+        group.cols=c('comparison.type', 'resolution'),
+        color.var='log.p.adj.gw', 
+        facet.row='distance.bracket',
+        facet.col='comparison'
+    )
+```
+
+## Per Chr {.tabset}
+
+```{r plot_distances_chr, results='asis', fig.dim=c(14, 8)}
+distance.plot.df %>%
+    distance_plot_fnc(
+        group.cols=c('comparison.type', 'resolution'),
+        legend.position='top',
+        color.var='comparison', 
+        facet.group='chr',
+        facet.ncol=6
     )
 ```
 
@@ -273,7 +311,7 @@ plot.df %>%
 manhattan.plot.df <- 
     plot.df %>% 
     select(
-        resolution, comparison, Celltype, chr, 
+        resolution, comparison, comparison.type, chr, 
         region1.bp, region2.bp, distance.bp,
         log.p.adj.gw, logFC
     ) %>%
@@ -295,75 +333,148 @@ manhattan.plot.df <-
         names_to='statistic',
         values_to='value'
     ) 
-# Lines to draw on plots
-manhattan.lines <- 
-    list(
-        geom_vline(
-            xintercept=c(86435256, 86521792), # WAPL region on chr10
-            linewidth=0.3,
-            linetype='dashed',
-            color='purple'
-        ),
-        geom_vline(
-            xintercept=c(36876769, 37066413), # NIPBL region on chr5
-            linewidth=0.3,
-            linetype='dashed',
-            color='orange'
-        ),
-        geom_hline(
-            yintercept=0,
-            linewidth=0.05,
-            linetype='solid',
-            color='black',
-        )
-    )
-manhattan_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        max_header_lvl=3,
-        plot_fnc=plot_jitter,
-        x_var='region.bp',
-        x_scale_mode='mb',
-        y_var='value',
-        axis.title.y=element_blank(),
-        axis.title.x=element_blank(),
-        plot_elements=manhattan.lines
-    )
 ```
 
-## Faceted {.tabset .tabset-pills}
+## Faceted {.tabset}
 
 ```{r plot_manhattans_facet, results='asis', fig.dim=c(10, 6), eval=TRUE}
 manhattan.plot.df %>% 
     manhattan_plot_fnc(
-        group_cols=c('Celltype', 'resolution', 'chr', 'statistic'),
-        color_var='distance.bp', 
-        facet_row='comparison',
+        group.cols=c('comparison.type', 'resolution', 'chr', 'statistic'),
+        color.var='distance.bp', 
+        facet.row='comparison',
         legend.text=element_text(angle=45, hjust=1),
         strip.text=element_text(size=7),
         legend.position='top'
     )
 ```
 
-## Color-wise {.tabset .tabset-pills}
+## Color-wise {.tabset}
 
 ```{r plot_manhattans_color, results='asis', fig.dim=c(12, 6), eval=TRUE}
 manhattan.plot.df %>% 
     manhattan_plot_fnc(
-        group_cols=c('Celltype', 'resolution', 'chr'),
-        color_var='comparison', 
-        facet_row='statistic',
+        group.cols=c('comparison.type', 'resolution', 'chr'),
+        color.var='comparison', 
+        facet.row='statistic',
         legend.position='top',
         scales='free_y'
     )
 ```
 
-# Heatmap Plots {.tabset .tabset-pills}
+# Common Hits Across Comparisons {.tabset}
 
-```{r plot_heatmaps, results='asis', fig.width=10, fig.height=5, eval=FALSE}
+Count how many bin-pairs are DACs across multiple related conditions
+```{r define_overlapping_hits, eval=TRUE}
+mhc.plot.df <- 
+    plot.df %>%
+    unite(
+        'bin.pair.idx',
+        chr, region1.bp, region2.bp,
+        sep='#',
+        remove=FALSE
+    )
+hits.overlap.df <- 
+    mhc.plot.df %>% 
+    mutate(Group=ifelse(comparison.type == 'main', 'main', 'other')) %>% 
+    mutate(comparison=str_replace_all(comparison, ' ', '_')) %>% 
+    select(
+        bin.pair.idx,
+        resolution,
+        Group,
+        comparison,
+        chr,
+    )
+```
+
+## Upset overlaps {.tabset}
+
+Plot overlapping hits
+```{r upset_plot_hits, results='asis', fig.dim=c(12, 7), eval=TRUE}
+hits.overlap.df %>%
+    make_nested_plot_tabs(
+        plot.fnc=plot_upset,
+        # group_cols=c('resolution', 'Group'),
+        group.cols=c('resolution'),
+        max.header.lvl=3,
+        make.binary=TRUE,
+        category_col='comparison',
+        title.str='Common DACs across Comparisons'
+    )
+```
+
+# Pair Plots {.tabset}
+
+Scatter plot of fold changes 
+```{r plot_mhc_diagonals_logfc_ggpairs, results='asis', fig.dim=c(9, 9), eval=TRUE}
+mhc.plot.df %>%
+    select(resolution, chr, bin.pair.idx, comparison, distance.bp, logFC) %>% 
+    # filter(resolution != '25Kb') %>% 
+    pivot_wider(
+        names_from='comparison',
+        values_from='logFC'
+    ) %>% 
+    make_nested_plot_tabs(
+        group.cols=c('resolution'),
+        max.header.lvl=2,
+        plot.fnc=
+            function(freq.df, text.size=7){
+                # print(grep(' vs ', colnames(freq.df), value=TRUE))
+                # freq.df %>% print()
+                # cols_to_plot=grep(' vs ', colnames(freq.df), value=TRUE)
+                cols_to_plot=which(grepl(' vs ', colnames(freq.df)))
+                # print(cols_to_plot)
+                ggpairs(
+                    freq.df,
+                    columns=cols_to_plot
+                    # mapping=aes(alpha=0.6),
+                ) +
+                theme(
+                    axis.text.x=element_text(size=text.size, angle=45, vjust=1, hjust=1),
+                    axis.text.y=element_text(size=text.size),
+                    strip.text=element_text(size=text.size)
+                ) #+ make_ggtheme()
+            }
+    )
+```
+
+## GGPairs log(p-values) {.tabset}
+
+Plot p-values against eachother
+```{r plot_mhc_diagonals_logp_ggpairs, results='asis', fig.dim=c(9, 9), eval=TRUE}
+mhc.plot.df %>% 
+    select(resolution, chr, bin.pair.idx, comparison, distance.bp, log.p.adj.gw ) %>% 
+    # filter(resolution != '25Kb') %>% 
+    pivot_wider(
+        names_from='comparison',
+        values_from='log.p.adj.gw'
+    ) %>% 
+    make_nested_plot_tabs(
+        group.cols=c('resolution'),
+        max.header.lvl=3,
+        plot.fnc=
+            function(freq.df, text.size=7){
+                ggpairs(
+                    freq.df,
+                    mapping=aes(fill=distance.bp, alpha=0.6),
+                    columns=grep(' vs ', colnames(freq.df), value=TRUE)
+                ) +
+                theme(
+                    axis.text.x=element_text(size=text.size, angle=45, vjust=1, hjust=1),
+                    axis.text.y=element_text(size=text.size),
+                    strip.text=element_text(size=text.size)
+                ) +
+                make_ggtheme()
+            }
+    )
+```
+
+# Heatmap Plots {.tabset}
+
+```{r plot_heatmaps, results='asis', fig.dim=c(10, 5), eval=FALSE}
 plot.df %>% 
     select(
-        resolution, comparison, Celltype, chr, 
+        resolution, comparison, comparison.type, chr, 
         region1.bp, region2.bp,
         log.p.adj.gw, logFC
     ) %>%
@@ -373,48 +484,19 @@ plot.df %>%
         values_to='value'
     ) %>% 
     make_nested_plot_tabs(
-        group_cols=c('Celltype', 'resolution', 'chr', 'statistic'),
-        max_header_lvl=2,
-        plot_fnc=plot_jitter,
-        x_var='region1.bp',
-        x_scale_mode='mb',
-        y_var='region2.bp',
-        y_scale_mode='mb',
-        color_var='value',
-        facet_col='comparison',
+        plot.fnc=plot_jitter,
+        group.cols=c('comparison.type', 'resolution', 'chr', 'statistic'),
+        max.header.lvl=2, 
+        x.var='region1.bp',
+        x.scale.mode='mb',
+        y.var='region2.bp',
+        y.scale.mode='mb',
+        color.var='value',
+        facet.col='comparison',
         alpha=0.3,
         scales='fixed',
         legend.position='right',
         axis.text.x=element_text(angle=35, hjust=1)
-    )
-```
-
-# Common Hits Across Comparisons {.tabset .tabset-pills}
-
-Count how many bin-pairs are DACs across multiple related conditions
-```{r define_overlapping_hits, warning=FALSE}
-hits.overlap.df <- 
-    plot.df %>% 
-    mutate(comparison=str_replace_all(comparison, ' ', '_')) %>% 
-    select(
-        resolution,
-        Group,
-        comparison,
-        chr,
-        bin.pair.idx
-    )
-```
-Plot overlapping hits
-```{r upset_plot_hits, results='asis', warning=FALSE, fig.dim=c(12, 7), eval=TRUE}
-hits.overlap.df %>%
-    make_nested_plot_tabs(
-        # group_cols=c('resolution', 'Group'),
-        group_cols=c('Group', 'resolution'),
-        max_header_lvl=2,
-        plot_fnc=plot_upset,
-        make.binary=TRUE,
-        category_col='comparison',
-        title.str='Common DACs across Comparisons'
     )
 ```
 
