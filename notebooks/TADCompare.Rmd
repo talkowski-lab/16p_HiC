@@ -29,7 +29,7 @@ library(here)
 here::i_am('notebooks/TADCompare.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
-source(file.path(SCRIPT_DIR, 'constants.R'))
+source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADs.R'))
@@ -45,15 +45,15 @@ Load TADCompare results
 all.TADCompare.results.df <- 
     check_cached_results(
         results_file=TADCOMPARE_RESULTS_FILE,
-        force_redo=TRUE,
+        # force_redo=TRUE,
         results_fnc=load_all_TADCompare_results
     ) %>%
     post_process_TADCompare_results() %>% 
     standardize_data_cols()
 ```
 Print summary of results
-```{r print_summaries}
-all.TADCompare.results.df %>% head(2) %>% t()
+```{r print_summaries, eval=FALSE}
+# all.TADCompare.results.df %>% head(2) %>% t()
 all.TADCompare.results.df %>%
     dplyr::count(
         resolution, 
@@ -80,5 +80,75 @@ all.TADCompare.results.df %>%
     ) %>% 
     # select(-c(comparison, TAD.params, isBoundary)) %>%
     print(n=Inf)
+```
+
+# Plot TAD differences {.tabset}
+
+```{r plot_n_diffs}
+n.compare.df <- 
+    all.TADCompare.results.df %>% 
+    dplyr::count(
+        resolution, 
+        #z.thresh, window.size, gap.thresh,
+        TAD.method, TAD.params, 
+        comparison, 
+        Enriched.Condition, 
+        isBoundary, isDifferential, Difference,
+        name='n.diffs'
+    )
+```
+Plot heatmap
+```{r n_loops_heatmap_binary}
+all.TADCompare.results.df %>% 
+    dplyr::count(
+        resolution, 
+        #z.thresh, window.size, gap.thresh,
+        TAD.method, TAD.params, 
+        comparison, 
+        Enriched.Condition, 
+        isBoundary, isDifferential,
+        name='n.diffs'
+    ) %>% 
+    # filter(isBoundary, isDifferential) %>% 
+    filter(isBoundary) %>% 
+    make_nested_plot_tabs(
+        # group.cols=c('TAD.params', 'resolution'),
+        group.cols=c('resolution'),
+        plot.fnc=plot_barplot,
+        max.header.lvl=2,
+        x.var='comparison',
+        y.var='n.diffs',
+        fill.var='isDifferential',
+        x.scale.mode='discrete',
+        # label.var='n.diffs',
+        facet.row='TAD.method',
+        # legend.position='top',
+        axis.text.x=element_text(angle=45, hjust=1),
+        # legend.text=element_text(angle=35, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+Plot heatmap
+```{r n_loops_heatmap}
+n.compare.df %>% 
+    filter(isBoundary, isDifferential) %>% 
+    # filter(isBoundary) %>% 
+    make_nested_plot_tabs(
+        # group.cols=c('TAD.params', 'resolution'),
+        group.cols=c('resolution'),
+        plot.fnc=plot_heatmap,
+        max.header.lvl=3,
+        y.var='comparison',
+        x.var='Difference',
+        fill.var='n.diffs', 
+        label.var='n.diffs',
+        facet.row='TAD.method',
+        # legend.position='top',
+        # axis.text.x=element_text(angle=45, hjust=1),
+        # legend.text=element_text(angle=35, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
 ```
 
