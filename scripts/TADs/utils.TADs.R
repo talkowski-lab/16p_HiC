@@ -1,25 +1,19 @@
 library(tidyverse)
 library(stringi)
-# library(HiContacts)
 library(glue)
 library(furrr)
-library(ggplot2)
-library(viridis)
-library(ggh4x)
-# library(ggtext)
-library(cowplot)
 library(TADCompare)
 
 ###################################################
 # Utilities
 ###################################################
 convert_boundaries_to_TADs <- function(
-    # convert list of TAD boundaries to start/end format
-    # every bnoundary is a start+end excpet for the first and last ones
     boundaries,
     start.col.name='start',
     end.col.name='end',
     ...){
+    # convert list of TAD boundaries to start/end format
+    # every bnoundary is a start+end excpet for the first and last ones
     boundaries <- unlist(boundaries)
     tibble(
         TAD.start=boundaries[1:length(boundaries)-1],
@@ -225,8 +219,8 @@ load_hiTAD_TADs <- function(
         col_names=
             c(
                 'chr',
-                'TAD.start',
-                'TAD.end'
+                'start',
+                'end'
             )
     )
 }
@@ -252,16 +246,19 @@ load_all_hiTAD_TADs <- function(){
 post_process_hiTAD_TAD_results <- function(results.df){
     results.df %>% 
     # Subset to only relevant parameters
+    mutate(length=end - start) %>% 
+    mutate(Sample.Group=str_replace_all(SampleID, '.Merged.Merged', '')) %>% 
     filter(weight == 'ICE') %>% 
-    standardize_data_cols() %>% 
-    mutate(TAD.length=TAD.end - TAD.start) %>% 
-    select(
+    filter(isMerged) %>% 
+    dplyr::select(
         -c(
-            method,
             weight,
             threshold,
             mfvp,
-            ReadFilter
+            ReadFilter,
+            isMerged,
+            Edit, Celltype, Genotype, CloneID, TechRepID,
+            SampleID
         )
     )
 }
