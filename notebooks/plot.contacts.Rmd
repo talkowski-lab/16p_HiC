@@ -1,5 +1,5 @@
 ---
-title: "Plot of contacts for 16p HiC samples"
+title: "16p Region Investigation"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -33,36 +33,104 @@ source(file.path(BASE_DIR, 'scripts', 'locations.R'))
 source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'TADs/utils.TADs.R'))
+source(file.path(SCRIPT_DIR, 'loops/utils.loops.R'))
 library(tidyverse)
 library(magrittr)
-library(ggplot2)
-library(ggh4x)
-library(GGally)
 library(ComplexUpset)
+library(GenomicRanges)
+library(InteractionSet)
 library(gghic)
 ```
-Load 
-```{r load_loops, eval=TRUE}
-```
-re-usable plot elements
-```{r plot_elements}
-zero.lines <- 
-    list(
-        geom_hline(
-            yintercept=0,
-            linewidth=0.5,
-            color='black',
-            linetype='dashed'
-        ),
-        geom_vline(
-            xintercept=0,
-            linewidth=0.5,
-            color='black',
-            linetype='dashed'
-        )
+List regions to plot
+```{r specify_regions_to_plot}
+regions.df <- 
+    GENOMIC_REGIONS %>%
+    filter(region.dist > 1e6, region.chr == 'chr16') %>% 
+    dplyr::select(region, region.chr, region.UCSC) %>%
+    dplyr::rename(
+        'chr'=region.chr,
+        'focus'=region.UCSC,
+        'region.title'=region
     )
 ```
-
-# Contact Heatmaps
+Load contacts
+```{r load_annotated_contacts}
+hyper.params.df <- 
+    expand_grid(
+        resolution=c(25, 10) * 1e3,
+        weight=c('balanced'),
+        chr=unique(regions.df$chr)
+    )
+contacts.df <- 
+    check_cached_results(
+        results_file=GGHIC_PLOT_OBJECTS_FILE,
+        force_redo=TRUE,
+        results_fnc=make_all_gghic_plot_objs,
+        hyper.params.df=hyper.params.df,
+        tads.df=load_TADs_for_gghic(),
+        loops.df=load_loops_for_gghic(),
+        tracks.df=load_tracks_for_gghic(),
+    ) %>%
+    left_join(
+        regions.df,
+        by=join_by(chr)
+    ) %>% 
+    mutate(resolution=scale_numbers(resolution)) %>% 
+    mutate(region.title=glue('{SampleID}@{resolution} in {region.title} ({focus})'))
+```
 
 # Heatmap + Feature Annotations
+
+Plot all regions
+```{r plot_chr16, fig.dim=c(10, 6)}
+contacts.df %>%
+    mutate(plot.idx=row_number()) %>% 
+    tail(1) %>% 
+    # head(5) %>% tail(3) %>% 
+    make_nested_plot_tabs(
+        # group.cols=c('weight', 'resolution'),
+        # group.cols=c('weight', 'resolution', 'SampleID', 'region.title'),
+        group.cols=c('plot.idx'),
+        max.header.lvl=2,
+        plot.fnc=plot_gghic,
+        # gtf_path=GENOME_GTF_FILE,
+        legend.position='top',
+        # plot_elements=list(scale_x_continuous(breaks = scales::pretty_breaks(n = 10))),
+        axis.text.x=element_text(angle=45, hjust=1),
+    )
+```
+Example plot of chr16p
+```{r plot_example, fig.dim=c(10, 6), eval=FALSE}
+tmp2$contacts[[1]]  %>% 
+    {.["chr16:0-33000000"]} %>% 
+    gghic(
+        loop=TRUE,
+        loop_style='arc',
+        stroke=0.5,
+        tad=TRUE,
+        tad_is_0based=TRUE,
+        tad_colour="#00ff83",
+        annotation=TRUE,
+        gtf_path=GENOME_GTF_FILE,
+        annotation_style="basic",
+        annotation_width_ratio = 1/50,
+        annotation_spacing_ratio = 1/3,
+        annotation_fontsize = 10,
+        annotation_colour = "#48CFCB",
+        annotation_fill = "#48CFCB",
+        track=FALSE
+    ) +
+    # geom_annotation(
+    #     gtf_path=GENOME_GTF_FILE,
+    #     style='basic'
+    # ) +
+    geom_ideogram(
+        genome="hg38",
+        highlight=TRUE,
+        length_ratio=1.0,
+        fontsize=8
+    ) +
+    theme_hic()
+```
+

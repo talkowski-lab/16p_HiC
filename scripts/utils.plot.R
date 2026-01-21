@@ -6,6 +6,7 @@ library(magrittr)
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
+library(GGally)
 library(scales)
 
 ###################################################
@@ -543,7 +544,7 @@ plot_violin <- function(
     y.var='',
     fill.var=NULL, 
     plot_pts=FALSE,
-    jitter.size=1,
+    jitter.size=0.1,
     quantile.color=NULL,
     draw.quantiles=0L,
     quantile.linewidth=NULL,
@@ -586,7 +587,8 @@ plot_violin <- function(
     {
         if (plot_pts){
             . +
-            geom_jitter(aes(size=jitter.size))
+            geom_jitter(size=jitter.size)
+            # geom_jitter(aes(size=jitter.size))
         } else {
             .
         }
@@ -701,347 +703,218 @@ plot_jitter <- function(
 }
 
 ###################################################
-# Contact Heatmaps
+# gghic utils
 ###################################################
-format_plot_params <- function(
-    region.df,
-    plot_dir,
-    title.prefix='RGD Region',
-    ...){
-    load_mcool_files(
-        return_metadata_only=TRUE,
-        pattern='*.mapq_30.1000.mcool',
-        region.df=region.df,
-        range1s=NULL,
-        range2s=NULL,
-        progress=TRUE
+load_TADs_for_gghic <- function(){
+    HITAD_TAD_RESULTS_FILE %>%
+    read_tsv(show_col_types=FALSE) %>%
+    post_process_hiTAD_TAD_results() %>% 
+    add_column(weight='balanced') %>% 
+    dplyr::select(-c(length)) %>% 
+    mutate(chr2=chr) %>% 
+    nest(TADs=c(chr, start, end)) %>% 
+    dplyr::rename(
+        'chr'=chr2,
+        'TAD.method'=method,
+        'SampleID'=Sample.Group
+    )
+}
+
+load_loops_for_gghic <- function(){
+    COOLTOOLS_LOOPS_RESULTS_FILE %>% 
+    read_tsv(show_col_types=FALSE) %>%
+    post_process_cooltools_dots_results() %>% 
+    filter(kernel == 'donut') %>% 
+    filter(log10.qval > -log10(0.1)) %>% 
+    dplyr::rename(
+        'start.P1'=anchor.left,
+        'start.P2'=anchor.right
     ) %>% 
-    # format querys for loading contacts via fetch()
-    rowwise() %>% 
     mutate(
-        range1=glue('{region.chr}:{max(0, region.start - window.size)}-{region.end + window.size}'),
-        range2=range1
-    ) %>%
-    ungroup() %>% 
-    mutate(
-        cis=TRUE,
-        region.title=glue('{title.prefix} {region} {region.UCSC}'),
-        output_dir=
-            file.path(
-                PLOT_DIR, 
-                glue('region_{region}'),
-                glue('normalization_{normalization}'),
-                glue('resolution_{scale_numbers(resolution)}'),
-                glue('context_{scale_numbers(window.size)}')
+        end.P1=start.P1 + resolution,
+        end.P2=start.P2 + resolution,
+        chr.P1=chr,
+        chr.P2=chr,
+    ) %>% 
+    dplyr::select(
+        weight, resolution, SampleID, chr,
+        chr.P1, start.P1, end.P1, 
+        chr.P2, start.P2, end.P2,
+    ) %>% 
+    nest(
+        loops=
+            c(
+                chr.P1, start.P1, end.P1, 
+                chr.P2, start.P2, end.P2,
             )
     )
-    # group_by(Sample.ID, region) %>% 
-    # add_tally(wt=IF, name='region.total.contacts') %>% 
-    # ungroup() %>%
-    # group_by(Sample.ID, region) %>% 
-    # add_count(name='region.nbins') %>% 
-    # ungroup() %>%
 }
 
-make_contact_plot_df <- function(
-    make_diagonal=FALSE,
-    make_symmetric=TRUE,
-    add_NAs=FALSE,
-    fill_var,
-    x_var,
-    y_var,
+load_tracks_for_gghic <- function(){
+    return(NULL)
+}
+
+make_gghic_plot_obj <- function(
+    cooler_path, resolution, 
+    chr,
+    TADs, loops, tracks=NULL,
     ...){
-    load_mcool_file(...) %>% 
-    # Explicitly add symetric pairs i.e. 1,2 -> 2,1
+    # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[1]]', sep='', collapse=';')
+    # cooler_path=tmp$cooler_path[[1]];Edit=tmp$Edit[[1]];Celltype=tmp$Celltype[[1]];Genotype=tmp$Genotype[[1]];SampleID=tmp$SampleID[[1]];resolution=tmp$resolution[[1]];focus=tmp$focus[[1]];TAD.method=tmp$TAD.method[[1]];TADs=tmp$TADs[[1]];weight=tmp$weight[[1]];loops=tmp$loops[[1]]
+    # make object with contacts
+    cc <- 
+        ChromatinContacts(
+            cooler_path=cooler_path,
+            focus=chr,
+            resolution=as.integer(resolution)
+        ) %>%
+        import()
+    # add TAD annotations
+    if (!is.null(TADs)){
+        features(cc, 'TADs') <- GRanges(TADs)
+    }
+    # add loop annotations
+    if (!is.null(loops)){
+        features(cc, 'loops') <- 
+            GInteractions(  
+                anchor1=
+                    loops %>% 
+                    dplyr::select(ends_with('.P1')) %>% 
+                    rename_with(~ str_remove(.x, '.P1')) %>% 
+                    GRanges(),
+                anchor2=
+                    loops %>% 
+                    dplyr::select(ends_with('.P2')) %>% 
+                    rename_with(~ str_remove(.x, '.P2')) %>% 
+                    GRanges()
+            ) %>% 
+            pairs() %>% 
+            makeGInteractionsFromGRangesPairs()
+    }
+    # add 1D track data
+    if (!is.null(tracks)){
+        features(cc, 'tracks') <- GRanges(tracks)
+    } 
+    # return annotated contacts plot object
+    cc
+}
+
+make_all_gghic_plot_objs <- function(
+    hyper.params.df,
+    tads.df=NULL,
+    loops.df=NULL,
+    tracks.df=NULL,
+    ...){
+    # tads.df=load_TADs_for_gghic(); loops.df=load_loops_for_gghic(); tracks.df=load_tracks_for_gghic(); 
+    # list all contact matrices
+    list_mcool_files() %>%
+    filter(isMerged) %>% 
+    dplyr::select(-c(CloneID, TechRepID,  ReadFilter, isMerged)) %>% 
+    dplyr::rename(cooler_path=filepath) %>% 
+    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
+    # Join hyper-params
+    cross_join(hyper.params.df) %>% 
+    # Join TADs
     {
-        if (make_symmetric) {
-            bind_rows(
+        if (!is.null(tads.df)) {
+            left_join(
                 .,
-                {.} %>% 
-                rename_with(
-                    .fn=~ case_when(
-                        .x == x_var ~ y_var,
-                        .x == y_var ~ x_var,
-                        TRUE ~ .x
-                      )
-                ) %>%
-                filter(!!sym(x_var) != !!sym(y_var))
-            )
-        } else {
-            . 
-        }
-    } %>% 
-    # Make empty bin-pairs explicit NAs
-    {
-        if (add_NAs) {
-            fill_list <- list(NA)
-            names(fill_list) <- fill_var
-            group_by(
-                .,
-                across(
-                    -c(
-                        x_var,
-                        y_var,
-                        fill_var
+                tads.df,
+                by=
+                    join_by(
+                        weight,
+                        resolution,
+                        SampleID,
+                        chr
                     )
-                )
-            ) %>% 
-            complete(
-                !!sym(x_var),
-                !!sym(y_var),
-                fill=fill_list
-            ) %>% 
-            ungroup()
+            )
         } else {
-            . 
+            add_column(., tads.df=NULL)
         }
     } %>% 
-    # Transoforming for triangle version, stolen from HiContacts library
-    # https://github.com/js2264/HiContacts/blob/146485f3e517429f7d4aa408898f6e89d4a04b36/R/plotting.R#L422
+    # Join Loops
     {
-        if (make_diagonal) {
-            mutate(
+        if (!is.null(loops.df)) {
+            left_join(
                 .,
-                distance=range2 - range1,
-                bin=range1 + (range2 - range1) / 2
+                loops.df,
+                by=
+                    join_by(
+                        weight,
+                        resolution,
+                        SampleID,
+                        chr,
+                    )
             )
         } else {
-            .
+            add_column(., loops.df=NULL)
         }
-    }
+    } %>% 
+    # Join tracks
+    {
+        if (!is.null(tracks.df)) {
+            left_join(
+                .,
+                tracks.df,
+                by=
+                    join_by(
+                        resolution,
+                        SampleID,
+                        chr,
+                    )
+            )
+        } else {
+            add_column(., tracks.df=NULL)
+        }
+    } %>% 
+        # {.} -> tmp; tmp
+        # tmp2 <- tmp %>% head(2) %>% 
+    mutate(
+        contacts=
+            pmap(
+                .l=.,
+                .f=make_gghic_plot_obj,
+                .progress=TRUE
+            )
+    )
 }
 
-plot_contacts_heatmap <- function(
+plot_gghic <- function(
     contacts,
-    resolution,
-    x_var='range1',
-    y_var='range2',
-    fill_var='IF',
-    transform_fnc=log10,
-    region.start=NULL, 
-    region.end=NULL,
-    facet_col=NULL,
-    facet_row=NULL,
-    scales='fixed',
-    cmap=coolerColors(),
-    axis.label.accuracy=0.01,
-    x_text_angle=25,
-    linetype='solid',
-    linecolor='black',
-    xlinewidth=0.7,
-    ylinewidth=0.7,
-    na.color="white",
-    ...){
-    figure <- 
-        contacts %>%
-        ggplot(
-            aes(
-                x=.data[[x_var]],
-                y=.data[[y_var]]
-            )
-        ) +
-        geom_tile(
-            aes(fill=transform_fnc(.data[[fill_var]])),
-            width=resolution
-        ) +
-        # geom_tile(aes(fill=fill_data)) +
-        scale_fill_gradientn(
-            colors=cmap,
-            na.value=na.color
-        ) +
-        scale_x_continuous(
-            expand=c(0,0,0,0),
-            labels=
-                label_bytes(
-                    units="auto_si",
-                    accuracy=axis.label.accuracy
-                )
-        ) +
-        scale_y_continuous(
-            expand=c(0,0,0,0),
-            labels=
-                label_bytes(
-                    units="auto_si",
-                    accuracy=axis.label.accuracy
-                )
-        ) +
-        theme(
-            axis.text.x=element_text(angle=x_text_angle, hjust=1),
-            legend.position='top'
-        ) 
-    # add vertical lines
-    if (xlinewidth > 0) {
-        figure <- 
-            figure +
-            geom_vline(
-                xintercept=c(region.start, region.end),
-                linetype=linetype,
-                color=linecolor,
-                linewidth=xlinewidth
-            )
-    }
-    # add horizontal lines
-    if (ylinewidth > 0) {
-        figure <- 
-            figure +
-            geom_hline(
-                yintercept=c(region.start, region.end),
-                linetype=linetype,
-                color=linecolor,
-                linewidth=ylinewidth
-            )
-    }
-    # add faceting
-    figure <- 
-        figure %>% 
-        add_faceting(
-            facet_col=facet_col,
-            facet_row=facet_row,
-            scales='fixed'
-        )
-    figure
-}
-
-heatmap_wrapper <- function(
-    filepath, normalization, resolution, cis, range1, range2,
-    make_diagonal=FALSE, make_symmetric=TRUE, add_NAs=FALSE, 
-    x_var, y_var, fill_var,
-    Sample.ID,
+    focus,
+    weight,
     region.title,
-    window.size,
-    xlab, ylab, fill_lab,
-    output_file, width=7, height=7,
+    gtf_path=NULL,
     ...){
-    contacts <- 
-        make_contact_plot_df(
-            make_diagonal=make_diagonal,
-            make_symmetric=make_symmetric,
-            add_NAs=add_NAs,
-            x_var=x_var,
-            y_var=y_var,
-            fill_var=fill_var,
-            filepath=filepath,
-            resolution=resolution,
-            normalization=normalization,
-            range1=range1,
-            range2=range2,
-            cis=cis
-        )
-    # Now we can plot the figure
-    if (make_diagonal) {
-        x_var <- 'bin'
-        y_var <- 'distance'
-    }
-    figure <- 
-        contacts %>% 
-        plot_contacts_heatmap(
-            resolution=resolution,
-            x_var=x_var,
-            y_var=y_var,
-            ...
+    # paste(colnames(contacts.df), '=contacts.df$', colnames(contacts.df), '[[1]]', sep='', collapse=';')
+    paste(colnames(tmp2), '=tmp2$', colnames(tmp2), '[[1]]', sep='', collapse=';')
+    # cooler_path=tmp2$cooler_path[[1]];Edit=tmp2$Edit[[1]];Celltype=tmp2$Celltype[[1]];Genotype=tmp2$Genotype[[1]];SampleID=tmp2$SampleID[[1]];resolution=tmp2$resolution[[1]];weight=tmp2$weight[[1]];chr=tmp2$chr[[1]];TAD.method=tmp2$TAD.method[[1]];TADs=tmp2$TADs[[1]];loops=tmp2$loops[[1]];contacts=tmp2$contacts[[1]]
+    # Handle faceting + scaling + theme options
+    contacts[focus] %>%
+    {
+        gghic(
+            .,
+            scale_column=weight,
+            loop=TRUE,
+            loop_style='arc',
+            stroke=0.5,
+            tad=TRUE,
+            tad_is_0based=TRUE,
+            tad_colour="#00ff83",
+            track=FALSE
         ) +
-        labs(
-            title=glue('{region.title} +/- {scale_numbers(window.size)}'),
-            subtitle=glue('{Sample.ID} | {scale_numbers(resolution)} | normalization={normalization}'),
-            fill=fill_lab,
-            x=xlab,
-            y=ylab
+        geom_annotation(
+            gtf_path=gtf_path,
+            style='basic'
         ) +
-        make_ggtheme() +
-        theme(
-            legend.position='right',
-            strip.text=element_text(face='bold', size=10),
-            axis.title=element_text(face='bold', size=10)
-        ) 
-    ggsave(
-        filename=output_file,
-        plot=figure,
-        width=width, 
-        height=height,
-        units='in',
-        create.dir=TRUE
-    )
-}
-
-###################################################
-# log2FC Heatmaps
-###################################################
-logfc_heatmap_wrapper <- function(
-    Sample.ID.A, Sample.ID.B,
-    filepath.A, filepath.B,
-    sample_priority_fnc,
-    contact.params, window.size, resolution, normalization,
-    region.title,
-    xlab, ylab, fill_lab,
-    output_file, width=7, height=7,
-    ...){
-    # Determine which sample should be numerator
-    if (sample_priority_fnc(Sample.ID.A) < sample_priority_fnc(Sample.ID.B)) {
-        tmp.ID.holder <- Sample.ID.A
-        tmp.filepath <- filepath.A
-        Sample.ID.A <- Sample.ID.B
-        filepath.A <- filepath.B
-        Sample.ID.B <- tmp.ID.holder
-        filepath.B <- tmp.filepath
-    }
-    # Contacts for sample A
-    contacts.A <- 
-        contact.params %>% 
-        pmap(
-            .f=make_contact_plot_df,
-            filepath=filepath.A
-        ) %>%
-        first()
-    # Contacts for sample B
-    contacts.B <- 
-        contact.params %>% 
-        pmap(
-            .f=make_contact_plot_df,
-            filepath=filepath.B
-        ) %>%
-        first()
-    # Join and calculate logFC of contacts with appropriate numerator
-    contacts <- 
-        inner_join(
-            contacts.A,
-            contacts.B,
-            suffix=c('.A', '.B'),
-            by=
-                join_by(
-                    chr,
-                    range1,
-                    range2
-                )
-        ) %>%
-        mutate(log2fc=log2(IF.A / IF.B))
-    # Now we can plot the figure
-    figure <- 
-        contacts %>% 
-        plot_contacts_heatmap(
-            resolution=resolution,
-            fill_var='log2fc',
-            ...
+        geom_ideogram(
+            genome="hg38",
+            highlight=TRUE,
+            length_ratio=1.0,
+            fontsize=8
         ) +
-        labs(
-            title=glue('{Sample.ID.A} vs {Sample.ID.B}'),
-            caption=glue('{region.title} +/- {scale_numbers(window.size)}\nresolution={scale_numbers(resolution)}\nnormalization={normalization}'),
-            fill=fill_lab,
-            x=xlab,
-            y=ylab
-        ) +
-        make_ggtheme() +
-        theme(
-            legend.position='right',
-            strip.text=element_text(face='bold', size=10),
-            axis.title=element_text(face='bold', size=10)
-        ) 
-    ggsave(
-        filename=output_file,
-        plot=figure,
-        width=width, 
-        height=height,
-        units='in',
-        create.dir=TRUE
-    )
+        ggtitle(region.title) +
+        theme_hic()
+    } #%>% post_process_plot(...)
 }
 
