@@ -3,7 +3,7 @@ library(tidyverse)
 library(magrittr)
 library(glue)
 # Factor levels for variaous metadata categories
-CNV.GROUPS <- 
+ALL_SAMPLE_GROUPS <- 
     c(
         '16p.NSC.DUP',
         '16p.NSC.DEL',
@@ -12,16 +12,16 @@ CNV.GROUPS <-
         '16p.iN.DEL',
         '16p.iN.WT'
     )
-SAMPLE_GROUP_COMPARISONS <- 
+ALL_SAMPLE_GROUP_COMPARISONS <- 
     tribble(
         ~Sample.Group.Numerator, ~Sample.Group.Denominator,
         # '16p.iN.DUP',       '16p.iN.DEL', 
         # '16p.NSC.DUP',      '16p.NSC.DEL',
-        # '16p.NSC.DUP',      '16p.iN.DUP',
-        # '16p.NSC.DEL',      '16p.iN.DEL',
-        # '16p.NSC.WT',       '16p.iN.WT',
-        # '16p.iN.DUP',       '16p.iN.WT',  
-        # '16p.iN.DEL',       '16p.iN.WT',  
+        '16p.NSC.DUP',      '16p.iN.DUP',
+        '16p.NSC.DEL',      '16p.iN.DEL',
+        '16p.NSC.WT',       '16p.iN.WT',
+        '16p.iN.DUP',       '16p.iN.WT',  
+        '16p.iN.DEL',       '16p.iN.WT',  
         '16p.NSC.DUP',      '16p.NSC.WT',
         '16p.NSC.DEL',      '16p.NSC.WT'
     )
@@ -42,35 +42,6 @@ CHROMOSOMES <-
         paste0('chr', 1:22), 
         'chrX',
         'chrY'
-    )
-RESOLUTIONS <- 
-    c(
-          1000,
-          5000,
-         10000,
-         25000,
-         40000,
-         50000,
-        100000,
-        500000,
-       1000000,
-       2500000,
-       5000000
-    )
-# Match ideal smoothing param to specified resolution based on this
-# https://github.com/TaoYang-dev/hicrep?tab=readme-ov-file#hicrep-parameters
-RESOLUTION_IDEAL_H <- 
-    tribble(
-       ~resolution, ~Ideal_H, 
-             10000,       20,
-             25000,       10,
-             40000,        5,
-             50000,        5,
-            100000,        3,
-            500000,        2,
-            500000,        1,
-           1000000,        1,
-           1000000,        0
     )
 # Genomic region boundaries to refernce during analysis plotting
 # 16p deleteion and telomere are to replicate Fig 4B in this paper:

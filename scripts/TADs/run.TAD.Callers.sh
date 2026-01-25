@@ -176,6 +176,7 @@ main() {
             ;;
         inplace) 
             CONDA_ENV_CMD="$(activate_conda "${METHOD}")"
+            echo ${CONDA_ENV_CMD}
             eval "${CONDA_ENV_CMD}" 
             ;;
         *) echo "Invalid launch method ${EVAL_METHOD}" && help && exit 1 ;;
@@ -203,7 +204,7 @@ main() {
 BASE_DIR="./"
 OUTPUT_DIR="${BASE_DIR}/results/TADs"
 EVAL_METHOD='txt'
-RESOLUTIONS=(100000 50000 25000 10000)
+RESOLUTIONS=(100000 50000 25000 10000 5000)
 THREADS=$(nproc)
 # Default SLURM params
 QUEUE="normal"; MEM_GB=30; NTASKS_PER_NODE=1; CPUS=2; LOG_DIR="${BASE_DIR}/slurm.logs"

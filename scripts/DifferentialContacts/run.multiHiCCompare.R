@@ -5,11 +5,10 @@ library(here)
 here::i_am('scripts/DifferentialContacts/run.multiHiCCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR,   'scripts/locations.R'))
-    source(file.path(BASE_DIR,   'scripts/constants.R'))
+    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
+    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-    source(file.path(SCRIPT_DIR, 'DifferentialContacts/utils.multiHiCCompare.R'))
+    source(file.path(SCRIPT_DIR, 'DifferentialContacts', 'utils.multiHiCCompare.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)
@@ -37,38 +36,31 @@ parsed.args <-
 ###################################################
 # Generate DAC results for each comparison
 ###################################################
-# GRanges object with Centro/Telomere regions to filter
-data('hg38_cyto') 
 # 2 group comparison + no covariates -> use exact test
 message(glue('using {parsed.args$threads} core to parallelize'))
-# register(MulticoreParam(workers=parsed.args$threads * 4 / 4), default=TRUE)
-# register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
+register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
 plan(multisession,      workers=parsed.args$threads * 2 / 4)
+# GRanges object with Centro/Telomere regions to filter
+data('hg38_cyto') 
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
-    tribble(
-        ~Sample.Group.Left, ~Sample.Group.Right,
-        '16p.NSC.DUP',      '16p.NSC.DEL',
-        # '16p.iN.DUP',       '16p.iN.DEL', 
-        # '16p.NSC.DUP',      '16p.iN.DUP',
-        '16p.NSC.DEL',      '16p.iN.DEL',
-        '16p.NSC.WT',       '16p.iN.WT',
-        # '16p.iN.DUP',       '16p.iN.WT',  
-        '16p.iN.DEL',       '16p.iN.WT',  
-        '16p.NSC.DUP',      '16p.NSC.WT',
-        '16p.NSC.DEL',      '16p.NSC.WT'
-    ) %>% 
+    ALL_SAMPLE_GROUP_COMPARISONS %>% 
     set_up_sample_comparisons(
         resolutions=parsed.args$resolutions,
         merging='individual'
-    )
-comparisons.df %>% 
+    ) %>% 
+    rename(
+        'Sample.Group.P1'=Sample.Group.Numerator,
+        'Sample.Group.P2'=Sample.Group.Denominator
+    ) %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
         remove.regions=hg38_cyto,
         covariates.df=NULL,
-        # chromosomes=CHROMOSOMES,
+        chromosomes=CHROMOSOMES,
         force_redo=parsed.args$force.redo,
-        sample_group_priority_fnc=sample_group_priority_fnc_16p
+        sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC,
+        group1_colname='Sample.Group.P1',
+        group2_colname='Sample.Group.P2',
     )
 

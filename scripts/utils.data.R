@@ -307,7 +307,7 @@ handle_CLI_args <- function(
                     .,
                     c('-r', '--resolutions'),
                     type='character',
-                    default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
+                    default=paste(c(5, 10, 25, 50, 100) * 1e3, collapse=','),
                     dest='resolutions'
                 )
             } else {

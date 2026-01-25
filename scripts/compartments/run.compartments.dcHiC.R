@@ -38,7 +38,7 @@ hyper.params.df <-
 comparisons.df <- 
     load_dcHiC_sample_groups() %>% 
     setup_dcHiC_group_comparisons(
-        comparisons.list=SAMPLE_GROUP_COMPARISONS ,
+        comparisons.list=ALL_SAMPLE_GROUP_COMPARISONS,
         cols_to_pair=
             c(
                 'resolution',
@@ -66,7 +66,6 @@ comparisons.df <-
             )
     )
 # generate list of commands to run, 1 per input file (pair of matrices)
-comparisons.df
 comparisons.df %>%
     # add command args
     add_column(

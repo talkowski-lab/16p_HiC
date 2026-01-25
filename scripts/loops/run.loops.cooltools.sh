@@ -63,7 +63,7 @@ call_loops() {
 CONDA_DIR="${HOME}/miniforge3"
 EXPECTED_CONTACTS_ROOT_DIR="./results/sample.QC/expected.coverage"
 # RESOLUTIONS=(100000 50000 25000 10000 5000)
-RESOLUTIONS=(25000 10000 5000)
+RESOLUTIONS=(50000 25000 10000 5000)
 CONTACT_TYPES=('cis')
 declare -rA WEIGHTS=([raw]='' [balanced]='weight')
 THREADS=$(nproc)

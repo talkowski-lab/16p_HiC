@@ -25,7 +25,6 @@ parsed.args <-
         args=c('threads', 'force', 'resolutions'),
         has.positional=FALSE
     )
-parsed.args$resolutions <- c(5000, parsed.args$resolutions)
 # TADCompare hypper-parameters
 hyper.params.df <- 
     expand_grid(
@@ -44,24 +43,22 @@ TADs.df <-
 ###################################################
 # List all pairs of matrices to compare
 comparisons.list <- 
-    tribble(
-        ~SampleID.Numerator, ~SampleID.Denominator,
-        # '16p.iN.DUP',       '16p.iN.DEL', 
-        # '16p.NSC.DUP',      '16p.NSC.DEL',
-        # '16p.NSC.DUP',      '16p.iN.DUP',
-        # '16p.NSC.DEL',      '16p.iN.DEL',
-        # '16p.NSC.WT',       '16p.iN.WT',
-        # '16p.iN.DUP',       '16p.iN.WT',  
-        # '16p.iN.DEL',       '16p.iN.WT',  
-        '16p.NSC.DUP',      '16p.NSC.WT',
-        '16p.NSC.DEL',      '16p.NSC.WT'
-    ) %>%
+    ALL_SAMPLE_GROUP_COMPARISONS %>% 
     mutate(
         across(
             everything(),
             ~ paste0(.x, '.Merged.Merged')
         )
     )
+    # ALL_SAMPLE_GROUP_COMPARISONS %>% 
+    # mutate(
+    #     across(
+    #         starts_with('Sample.Group'),
+    #         ~ str_replace_all(.x, 'All', '.*'),
+    #         .names='{.col}.Pattern'
+    #     )
+    # ) %>%
+    # set_up_sample_groups()
 # List of pairs of merged matrices to compare
 comparisons.df <- 
     # List merged matrices

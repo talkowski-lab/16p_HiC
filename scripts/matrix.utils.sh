@@ -10,7 +10,8 @@ CELLTYPES_16P=('iN' 'NSC')
 # CLONEIDS_16P=('A12' 'A3' 'B8' 'C5' 'D12' 'D9' 'FACS1' 'G7' 'H10' 'p44' 'p46' 'p49')
 # Edit information
 PROJECT_EDITS=('NIPBL' 'WAPL' 'RAD21' 'CTCF')
-GENOTYPES_EDITS=('WT' 'DEL' 'BIALLELIC')
+# GENOTYPES_EDITS=('WT' 'DEL' 'BIALLELIC')
+GENOTYPES_EDITS=('WT' 'DEL')
 CELLTYPES_EDITS=('iN')
 # Technical Args
 SEED=9  # Random seed for qc3C
@@ -294,6 +295,14 @@ merge_Cohesin_matrices() {
         #     "${read_filter}"  \
         #     "All.${sample_group}.Merged.Merged"
     done
+        sample_group="${edit}.${celltype}.BIALLELIC"
+        matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
+        merge_matrices        \
+            "${cooler_dir}"   \
+            "${sample_group}" \
+            "${read_filter}"  \
+            "${sample_group}.Merged.Merged"
+        echo '===================================================================='
     done
     done
 }
