@@ -11,7 +11,7 @@ library(viridis)
 library(cowplot)
 library(gtable)
 library(furrr)
-library(hictkR)
+# library(hictkR)
 
 ###################################################
 # Generate resutls
@@ -91,7 +91,7 @@ run_multiHiCCompare <- function(
     effect.col='Sample.Group',
     p.method='fdr',
     ...){
-    # row_index=1; sample_group_priority_fnc=sample_group_priority_fnc_16p; samples.df=tmp$samples.df[[row_index]]; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; covariates.df=NULL; frac.cutoff=0.8; effect.col='Sample.Group'; p.method='fdr';
+    # row_index=2; sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC; samples.df=tmp$samples.df[[row_index]]; zero.p=tmp$zero.p[[row_index]]; A.min=tmp$A.min[[row_index]]; resolution=tmp$resolution[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; md_plot_file=tmp$md_plot_file[[row_index]]; remove.regions=hg38_cyto; covariates.df=NULL; frac.cutoff=0.8; effect.col='Sample.Group'; p.method='fdr';
     # Handle covariates if specified
     design.info <- 
         handle_covariates(
@@ -117,7 +117,7 @@ run_multiHiCCompare <- function(
     # Load all contacts for samples + regions
     samples.contacts <- 
         samples.df %>%
-        select(-c(resolution)) %>% 
+        # select(-c(resolution)) %>% 
         pmap(
             .l=.,
             .f=load_mcool_file,
@@ -218,14 +218,14 @@ run_all_multiHiCCompare <- function(
     comparisons.df,
     hyper.params.df,
     sample_group_priority_fnc,
+    # remove.regions,
     force_redo=FALSE,
     covariates.df=NULL,
     chromosomes=CHROMOSOMES,
     group1_colname='Sample.Group.P1',
     group2_colname='Sample.Group.P2',
     ...){
-    # sample_group_priority_fnc=sample_group_priority_fnc_Cohesin; force_redo=FALSE; covariates.df=NULL; chromosomes=c('chr15', 'chr16'); group1_colname='Sample.Group.P1'; group2_colname='Sample.Group.P2'
-    # force_redo=FALSE; covariates.df=NULL; chromosomes=CHROMOSOMES; sample_group_priority_fnc=sample_group_priority_fnc_16p; remove.regions=hg38_cyto
+    # sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC; force_redo=FALSE; covariates.df=NULL; chromosomes=c('chr15', 'chr16'); group1_colname='Sample.Group.P1'; group2_colname='Sample.Group.P2'
     comparisons.df %>% 
     # for each comparison list all paramter combinations
     cross_join(hyper.params.df) %>% 
@@ -247,11 +247,11 @@ run_all_multiHiCCompare <- function(
             file.path(
                 MULTIHICCOMPARE_DIR,
                 'results',
-                glue('merged_{isMerged}'),
+                # glue('merged_{isMerged}'),
                 glue('zero.p_{zero.p}'),
                 glue('A.min_{A.min}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
-                glue('resolution.type_{resolution.type}'),
+                # glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
         md_plot_file=
@@ -271,7 +271,9 @@ run_all_multiHiCCompare <- function(
         } else{
             .
         }
-    } %T>% 
+    } %>% 
+    arrange(desc(chr)) %>% 
+    arrange(desc(resolution)) %T>% 
     {
         message('Generating the following results files')
         print(
@@ -286,10 +288,8 @@ run_all_multiHiCCompare <- function(
             rename_with(~ str_remove(., 'Sample.Group.'))
         )
     } %>%
-    arrange(desc(chr)) %>% 
-    # arrange(resolution) %>% 
-        # {.} -> tmp2
-        # tmp2 %>% head(2) %>% 
+        # {.} -> tmp
+        # tmp %>% head(2) %>% 
     future_pmap(
     # pmap(
         .l=.,
@@ -302,11 +302,11 @@ run_all_multiHiCCompare <- function(
                     results_fnc=run_multiHiCCompare,
                     sample_group_priority_fnc=sample_group_priority_fnc,
                     covariates.df=covariates.df,
-                    # all columns also passed as input arguments to run_multiHiCCompare() by pmap
+                    # all columns also passed as input to run_multiHiCCompare() by pmap
                     ...  # passed from the call run_all_multiHiCCompare()
                 )
             },
-        # ...,  # passed from the call to this function
+        ...,  # passed from the call to this function
         .progress=TRUE
     )
 }

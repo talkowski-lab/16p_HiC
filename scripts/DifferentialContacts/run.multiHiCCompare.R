@@ -5,16 +5,17 @@ library(here)
 here::i_am('scripts/DifferentialContacts/run.multiHiCCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
-    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
-    source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(SCRIPT_DIR, 'DifferentialContacts', 'utils.multiHiCCompare.R'))
-    library(tidyverse)
-    library(magrittr)
     library(purrr)
     library(optparse)
     library(BiocParallel)
     library(hictkR)
+    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
+    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
+    source(file.path(SCRIPT_DIR, 'utils.data.R'))
+    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+    source(file.path(SCRIPT_DIR, 'DifferentialContacts', 'utils.multiHiCCompare.R'))
+    library(magrittr)
+    library(tidyverse)
 })
 
 ###################################################
@@ -22,15 +23,16 @@ suppressPackageStartupMessages({
 ###################################################
 options(scipen=999)
 # All combinations of multiHiCCompare hyper-params to test
-hyper.params.df <- 
-    expand_grid(
-        zero.p=c(0.8),
-        A.min=c(5)
-    )
 parsed.args <- 
     handle_CLI_args(
         args=c('threads', 'force', 'resolutions'),
         has.positional=FALSE
+    )
+hyper.params.df <- 
+    expand_grid(
+        resolution=parsed.args$resolutions,
+        zero.p=c(0.8),
+        A.min=c(5)
     )
 
 ###################################################
@@ -45,14 +47,13 @@ data('hg38_cyto')
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
-    set_up_sample_comparisons(
-        resolutions=parsed.args$resolutions,
-        merging='individual'
-    ) %>% 
+    set_up_sample_comparisons(merging='individual') %>% 
     rename(
         'Sample.Group.P1'=Sample.Group.Numerator,
         'Sample.Group.P2'=Sample.Group.Denominator
-    ) %>% 
+    )
+# comparisons.df
+comparisons.df %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
         remove.regions=hg38_cyto,
@@ -61,6 +62,6 @@ comparisons.df <-
         force_redo=parsed.args$force.redo,
         sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC,
         group1_colname='Sample.Group.P1',
-        group2_colname='Sample.Group.P2',
+        group2_colname='Sample.Group.P2'
     )
 
