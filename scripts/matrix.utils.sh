@@ -46,6 +46,7 @@ modes:
             merge_16p)     args="\${COOLER_DIR}" ;;
             qc3C)          args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample{1..N}.lane1.hg38.0.bam" ;;
             multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
+            balance)       args="sample{1..N}.mcool" ;;
             coverage)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
             expected)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
             *) echo "Invalid mode: $mode" && help ;;
@@ -322,9 +323,12 @@ matrix_balance() {
             uri="${sample_file}::resolutions/${resolution}"
             echo "${uri}"
             # Caculate balancing weights
-            cooler balance           \
-                --nproc "${THREADS}" \
-                "${uri}"
+            if [[ ${FORCE_REDO} == 1 ]]; then
+                echo "cooler balance --force --nproc ${THREADS} ${uri}"
+                cooler balance --force --nproc "${THREADS}" "${uri}"
+            else
+                cooler balance --nproc "${THREADS}" "${uri}"
+            fi
             done
     done
 }
@@ -428,6 +432,7 @@ main() {
         multiqcs)      make_multiqc_reports "${@:2}" ;;
         dump)          dump_all_regions "${@:2}" ;;
         balance)       matrix_balance "${@:2}" ;;
+        coarsen)       matrix_balance "${@:2}" ;;
         coverage)      matrix_coverage "${@:2}" ;;
         expected)      matrix_expected "${@:2}" ;;
         *) echo "Invalid mode: ${mode}" && exit 1 ;;
@@ -439,12 +444,14 @@ main() {
 ###################################################
 CONDA_DIR="${HOME}/miniforge3"
 THREADS=$(nproc)
+FORCE_REDO=0
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && exit 1
-while getopts "a:t:h" flag; do
+while getopts "a:t:fh" flag; do
     case ${flag} in 
         a) CONDA_DIR="${OPTARG}" ;;
         t) THREADS="${OPTARG}" ;;
+        f) FORCE_REDO=1 ;;
         h) help ;;
         *) echo "Invalid flag ${flag}" && help ;;
     esac

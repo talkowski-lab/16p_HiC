@@ -28,6 +28,7 @@ parsed.args <-
 # TADCompare hypper-parameters
 hyper.params.df <- 
     expand_grid(
+        resolutions=parsed.args$resolutions,
         normalization=c('weight', 'NONE'),
         z_thresh=c(3),
         window_size=c(15),
@@ -50,15 +51,6 @@ comparisons.list <-
             ~ paste0(.x, '.Merged.Merged')
         )
     )
-    # ALL_SAMPLE_GROUP_COMPARISONS %>% 
-    # mutate(
-    #     across(
-    #         starts_with('Sample.Group'),
-    #         ~ str_replace_all(.x, 'All', '.*'),
-    #         .names='{.col}.Pattern'
-    #     )
-    # ) %>%
-    # set_up_sample_groups()
 # List of pairs of merged matrices to compare
 comparisons.df <- 
     # List merged matrices

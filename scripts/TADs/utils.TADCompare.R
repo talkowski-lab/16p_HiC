@@ -96,9 +96,9 @@ load_all_TAD_results_for_TADCompare <- function(){
             TAD.method='hiTAD'
         )
     # cooltools boundary results
-    cooltools.TADs.df <- 
-        load_cooltools_results_for_TADCompare() %>% 
-        add_column(TAD.method='cooltools')
+    # cooltools.TADs.df <- 
+    #     load_cooltools_results_for_TADCompare() %>% 
+    #     add_column(TAD.method='cooltools')
     # ConsensusTAD TAD results 
     consensusTAD.TADs.df <- 
         load_ConsensusTAD_results_for_TADCompare() %>% 
@@ -318,11 +318,11 @@ run_all_TADCompare <- function(
                     force_redo=force_redo,
                     return_data=FALSE,
                     results_fnc=run_TADCompare,
-                    # all columns also passed as input arguments to run_multiHiCCompare() by pmap
-                    ...  # passed from the call run_all_multiHiCCompare()
+                    # all args also passed as input arguments to run_all*() by pmap
+                    ...  # passed from the call to this wrapper()
                 )
             },
-        ...,  # passed from the call to this function
+        ...,  # passed from the call to from run_all_TADCompare
         .progress=TRUE
     )
 }

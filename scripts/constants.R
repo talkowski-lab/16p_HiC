@@ -1,5 +1,6 @@
 # Dependencies
-library(tidyverse)
+library(tibble)
+library(dplyr)
 library(magrittr)
 library(glue)
 # Factor levels for variaous metadata categories
@@ -25,6 +26,8 @@ ALL_SAMPLE_GROUP_COMPARISONS <-
         '16p.NSC.DUP',      '16p.NSC.WT',
         '16p.NSC.DEL',      '16p.NSC.WT'
     )
+# functions which determine which sample group will be numerator/denominator in comparisons
+SAMPLE_GROUP_PRIORITY_FNC <- sample_group_priority_fnc_16p
 # have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
     c(

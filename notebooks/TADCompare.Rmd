@@ -29,16 +29,13 @@ library(here)
 here::i_am('notebooks/TADCompare.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
-source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADs.R'))
 source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADCompare.R'))
 library(tidyverse)
 library(magrittr)
-library(purrr)
-library(ggplot2)
-library(ggh4x)
 ```
 Load TADCompare results
 ```{r load_TADCompare_data}
@@ -116,12 +113,14 @@ all.TADCompare.results.df %>%
         group.cols=c('resolution'),
         plot.fnc=plot_barplot,
         max.header.lvl=2,
+        x.scale.mode='discrete',
         x.var='comparison',
         y.var='n.diffs',
-        fill.var='isDifferential',
-        x.scale.mode='discrete',
+        # fill.var='isDifferential',
+        # facet.row='TAD.method',
+        fill.var='TAD.method',
+        facet.row='isDifferential',
         # label.var='n.diffs',
-        facet.row='TAD.method',
         # legend.position='top',
         axis.text.x=element_text(angle=45, hjust=1),
         # legend.text=element_text(angle=35, hjust=1),
