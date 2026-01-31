@@ -1,8 +1,8 @@
 ###################################################
 # Dependencies
 ###################################################
-library(tidyverse)
-library(magrittr)
+# library(tidyverse)
+# library(magrittr)
 library(tictoc)
 library(glue)
 library(optparse)
@@ -337,7 +337,8 @@ handle_CLI_args <- function(
 scale_numbers <- function(
     numbers,
     accuracy=2,
-    force_numeric=FALSE){
+    force_numeric=FALSE,
+    force_chr=FALSE){
     if ((is.character(numbers) | is.factor(numbers)) | force_numeric) {
         numbers %>%
         as.character() %>% 
@@ -358,7 +359,7 @@ scale_numbers <- function(
                 multiply_by(magnitude)
         ) %>% 
         pull(resolution) #%>% format(scientific=FALSE) %>% as.numeric()
-    } else if (is.numeric(numbers) & !force_numeric) {
+    } else if (is.numeric(numbers) | force_chr) {
         numbers %>%
         tibble(resolution=.) %>%
         mutate(
