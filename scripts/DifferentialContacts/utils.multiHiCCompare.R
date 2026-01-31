@@ -334,15 +334,12 @@ load_and_correct_multiHiCCompare_results <- function(
     )
 }
 
-load_all_multiHiCCompare_results <- function(
+list_all_multiHiCCompare_results <- function(
     resolutions=NULL,
     sample.group.comparisons=NULL,
-    gw.fdr.threshold=1,
-    fdr.threshold=1,
-    nom.threshold=1,
     file_suffix='-multiHiCCompare.tsv',
     ...){
-    # comparisons=NULL; resolutions=NULL; gw.fdr.threshold=1; fdr.threshold=1; nom.threshold=0.05; file_suffix='-multiHiCCompare.tsv'
+
     # Load all results
     parse_results_filelist(
         input_dir=file.path(MULTIHICCOMPARE_DIR, 'results'),
@@ -383,7 +380,21 @@ load_all_multiHiCCompare_results <- function(
         } else {
             .
         }
-    } %>% 
+    }
+}
+
+load_all_multiHiCCompare_results <- function(
+    resolutions=NULL,
+    sample.group.comparisons=NULL,
+    gw.fdr.threshold=1,
+    fdr.threshold=1,
+    nom.threshold=1,
+    ...){
+    # comparisons=NULL; resolutions=NULL; gw.fdr.threshold=1; fdr.threshold=1; nom.threshold=0.05; file_suffix='-multiHiCCompare.tsv'
+    list_all_multiHiCCompare_results(
+        resolutions=resolutions,
+        sample.group.comparisons=sample.group.comparisons
+    ) %>% 
     # Load all results + correct pvalues genome wide per comparison
     group_by(across(-c(filepath, region))) %>% 
     summarize(filepaths=list(c(filepath))) %>% 

@@ -22,15 +22,10 @@ get_smoothing_param <- function(resolution){
     )
 }
 
-load_all_hicrep_results <- function(
-    sample_metadata=NULL,
-    samples_to_keep=NULL){
-    # Load all files generated from ./scripts/run.hicrep.sh
-    # sample_metadata=NULL; samples_to_keep=NULL
-    # sample_metadata=sample.metadata %>% select( SampleID, Batch)
+list_all_hicrep_results_files <- function(samples_to_keep=NULL){
+    # List all results files that have been generated
     HICREP_DIR %>% 
     parse_results_filelist(
-        # input_dir=HICREP_DIR,
         suffix='-hicrep.txt',
         filename.column.name='file.pair',
         param_delim='_'
@@ -51,60 +46,12 @@ load_all_hicrep_results <- function(
         col_prefix='SampleInfo.P1.',
         keep_id=TRUE
     ) %>% 
-    # get_info_from_MatrixIDs(
-    #     matrix_ID_col='MatrixID.P1',
-    #     keep_id=FALSE,
-    #     sample_ID_col='SampleInfo.P1.SampleID',
-    #     col_prefix='SampleInfo.P1.',
-    #     nest_col=NA
-    # ) %>% 
-    # Add extra sample metadata as paired columns 
-    # # NOTE: using right_join to filter samples only present in the metadata table
-    # {
-    #     if (!is.null(sample_metadata)) {
-    #         right_join(
-    #             .,
-    #             sample_metadata %>% 
-    #             rename_with(
-    #                 .fn=~ str_replace(.x, '^', 'SampleInfo.P1.'),
-    #                 .cols=-c(SampleID)
-    #             ),
-    #             by=join_by(SampleInfo.P1.SampleID == SampleID)
-    #         )
-    #     } else {
-    #         .
-    #     }
-    # } %>% 
     # Repeat for the other sample in each pair
     get_info_from_SampleIDs(
         sample_ID_col='SampleInfo.P2.SampleID',
         col_prefix='SampleInfo.P2.',
         keep_id=TRUE
     ) %>% 
-    # get_info_from_MatrixIDs(
-    #     matrix_ID_col='MatrixID.P2',
-    #     keep_id=FALSE,
-    #     sample_ID_col='SampleInfo.P2.SampleID',
-    #     col_prefix='SampleInfo.P2.',
-    #     nest_col=NA
-    # ) %>% 
-    # Add extra sample metadata as paired columns 
-    # # NOTE: using right_join to filter samples only present in the metadata table
-    # {
-    #     if (!is.null(sample_metadata)) {
-    #         right_join(
-    #             .,
-    #             sample_metadata %>% 
-    #             rename_with(
-    #                 .fn=~ str_replace(.x, '^', 'SampleInfo.P2.'),
-    #                 .cols=-c(SampleID)
-    #             ),
-    #             by=join_by(SampleInfo.P2.SampleID == SampleID)
-    #         )
-    #     } else {
-    #         .
-    #     }
-    # } %>% 
     # keep only specified samples
     {
         if (!is.null(samples_to_keep)) {
@@ -115,48 +62,52 @@ load_all_hicrep_results <- function(
         }
     } %>% 
     # Now format sample metadata per pair for easy grouping+plotting
-    # mutate(
-    #     across(
-    #         ends_with('.isMerged'), 
-    #         ~ ifelse(.x, 'Merged', 'Individual') %>% factor(levels=c('Merged', 'Individual'))
-    #     )
-            
-    # ) %>% 
-    nest(
-        SampleInfo.P1=starts_with('SampleInfo.P1.'),
-        SampleInfo.P2=starts_with('SampleInfo.P2.')
+    pivot_longer(
+        starts_with('SampleInfo'),
+        names_prefix='SampleInfo.',
+        names_to='metadata.field',
+        values_to='value'
     ) %>%
-    rowwise() %>% 
-    mutate(
-        SamplePairInfo=
-            merge_sample_info(
-                SampleInfo.P1,
-                SampleInfo.P2,
-                prefix.P1='SampleInfo.P1.',
-                prefix.P2='SampleInfo.P2.'
-            ) %>%
-            list()
+    separate_wider_delim(
+        metadata.field,
+        delim='.',
+        names=c('pair.index', 'metadata.field')
     ) %>% 
-    ungroup() %>% 
-    select(-c(starts_with('SampleInfo'))) %>% 
-    unnest(SamplePairInfo) %>% 
-    {.} -> tmp; tmp
-   # Load hicrep scores for each comparison
+    pivot_wider(
+        names_from='pair.index',
+        values_from='value'
+    ) %>% 
+    mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
+    select(-c(P1, P2)) %>%
+    pivot_wider(
+        names_from=metadata.field,
+        values_from=metadata.value
+    )
+}
+
+load_hicrep_results <- function(
+    filepath,
+    ...){
+    read_tsv(
+        filepath,
+        skip=2,
+        progress=FALSE,
+        show_col_types=FALSE,
+        col_names=c('hicrep.score')
+    ) %>% 
+    # every line is a score per chromosome in order
+    add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
+}
+
+load_all_hicrep_results <- function(samples_to_keep=NULL){
+    # Load all files generated from ./scripts/run.hicrep.sh
+    list_all_hicrep_results_files(samples_to_keep=samples_to_keep) %>% 
+    # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
-            purrr::pmap(
+            future_pmap(
                 .l=.,
-                function(filepath, ...){
-                    read_tsv(
-                        filepath,
-                        skip=2,
-                        progress=FALSE,
-                        show_col_types=FALSE,
-                        col_names=c('hicrep.score')
-                    ) %>% 
-                    # every line is a score per chromosome in order
-                    add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
-                },
+                .f=load_hicrep_results,
                 .progress=TRUE
             )
     ) %>%

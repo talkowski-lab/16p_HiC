@@ -1,4 +1,4 @@
-library(tidyverse)
+# library(tidyverse)
 library(stringi)
 library(glue)
 library(furrr)
@@ -225,11 +225,15 @@ load_hiTAD_TADs <- function(
     )
 }
 
-load_all_hiTAD_TADs <- function(){
+list_all_hiTAD_TADs <- function(){
     TAD_DIR %>% 
     parse_results_filelist(suffix='-TAD.tsv') %>%
     filter(method == 'hiTAD') %>% 
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE)
+}
+
+load_all_hiTAD_TADs <- function(){
+    list_all_hiTAD_TADs() %>% 
     mutate(
         TADs=
             # pmap(
@@ -419,12 +423,12 @@ run_all_ConsensusTADs <- function(
             file.path(
                 TAD_DIR,
                 'method_ConsensusTAD',
-                glue('merged_{isMerged}'),
+                # glue('merged_{isMerged}'),
                 glue('z.thresh_{z_thresh}'),
                 glue('window.size_{window_size}'),
                 glue('gap.thresh_{gap_thresh}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
-                glue('resolution.type_{resolution.type}'),
+                # glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
             ),
         results_file=
@@ -453,7 +457,7 @@ run_all_ConsensusTADs <- function(
             )
         )
     } %>%
-    arrange(resolution) %>% 
+    arrange(desc(resolution)) %>% 
     # future_pmap(
     pmap(
         .l=.,
@@ -464,11 +468,11 @@ run_all_ConsensusTADs <- function(
                     force_redo=force_redo,
                     return_data=FALSE,
                     results_fnc=run_ConsensusTAD,
-                    # all columns also passed as input arguments to run_multiHiCCompare() by pmap
+                    # all extra args also passed as input to run_ConsensusTADs() by pmap
                     ...  # passed from the call run_all_multiHiCCompare()
                 )
             },
-        ...,  # passed from the call to this function
+        ...,  # passed from the call to this wrapper function by pmap()
         .progress=TRUE
     )
 }

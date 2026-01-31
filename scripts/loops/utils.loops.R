@@ -220,11 +220,15 @@ load_cooltools_dots <- function(
     )
 }
 
-load_all_cooltools_dots <- function(){
+list_all_cooltools_dots_results <- function(){
     LOOPS_DIR %>% 
     parse_results_filelist(suffix='-dots.tsv') %>%
     filter(method == 'cooltools') %>% 
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    get_info_from_MatrixIDs(keep_id=FALSE)
+}
+
+load_all_cooltools_dots <- function(){
+    list_all_cooltools_dots_results() %>% 
     mutate(
         loops=
             # pmap(

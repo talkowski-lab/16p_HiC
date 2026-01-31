@@ -358,7 +358,7 @@ load_TADCompare_results <- function(filepath, ...){
     filter(!(!isTADBoundary & !TAD.isDifferential))
 }
 
-load_all_TADCompare_results <- function(...){
+list_all_TADCompare_results <- function(){
     # Get a list of all results files
     file.path(TAD_DIR, 'results_TADCompare') %>%
     parse_results_filelist(
@@ -370,7 +370,11 @@ load_all_TADCompare_results <- function(...){
         pair.name,
         delim='_vs_',
         names=c('Sample.Group.Numerator', 'Sample.Group.Denominator')
-    ) %>% 
+    )
+}
+
+load_all_TADCompare_results <- function(...){
+    list_all_TADCompare_results() %>% 
     filter(TAD.method != 'cooltools') %>% 
     # Filter relevant results 
         # {.} -> tmp

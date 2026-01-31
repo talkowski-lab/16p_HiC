@@ -1,8 +1,8 @@
 ###################################################
 # Dependencies
 ###################################################
-library(tidyverse)
-library(magrittr)
+# library(tidyverse)
+# library(magrittr)
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
@@ -756,7 +756,7 @@ load_tracks_for_gghic <- function(){
 
 make_gghic_plot_obj <- function(
     cooler_path, resolution, 
-    chr,
+    focus,
     TADs, loops, tracks=NULL,
     ...){
     # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[1]]', sep='', collapse=';')
@@ -765,7 +765,7 @@ make_gghic_plot_obj <- function(
     cc <- 
         ChromatinContacts(
             cooler_path=cooler_path,
-            focus=chr,
+            focus=focus,
             resolution=as.integer(resolution)
         ) %>%
         import()
@@ -799,7 +799,8 @@ make_gghic_plot_obj <- function(
     cc
 }
 
-make_all_gghic_plot_objs <- function(
+set_up_gghic_plot_param_sets <- function(
+    regions.df,
     hyper.params.df,
     tads.df=NULL,
     loops.df=NULL,
@@ -812,7 +813,7 @@ make_all_gghic_plot_objs <- function(
     dplyr::select(-c(CloneID, TechRepID,  ReadFilter, isMerged)) %>% 
     dplyr::rename(cooler_path=filepath) %>% 
     mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
-    # Join hyper-params
+    cross_join(tibble(chr=unique(regions.df$chr))) %>% 
     cross_join(hyper.params.df) %>% 
     # Join TADs
     {
@@ -864,57 +865,136 @@ make_all_gghic_plot_objs <- function(
                     )
             )
         } else {
-            add_column(., tracks.df=NULL)
+            add_column(., tracks=list(NULL))
         }
     } %>% 
-        # {.} -> tmp; tmp
-        # tmp2 <- tmp %>% head(2) %>% 
+    # Specify regions to plot
+    left_join(
+        regions.df,
+        by=join_by(chr)
+    ) %>% 
+    # Set up plot params
+    rename('resolution.int'=resolution) %>% 
+    mutate(resolution=scale_numbers(resolution.int)) %>% 
+    mutate(panel.title=glue('{SampleID} @ {resolution}')) %>% 
+    arrange(weight, resolution, focus) %>% 
+    # Plot all genotypes for each condition together in a single plot
+    nest(
+        plot.df=
+            c(
+                Edit, Celltype, Genotype, SampleID,
+                cooler_path,
+                resolution.int,
+                TADs,
+                loops,
+                tracks,
+                panel.title
+            )
+    ) %>% 
+    # need to save as pdf for performance reasons
     mutate(
-        contacts=
-            pmap(
-                .l=.,
-                .f=make_gghic_plot_obj,
-                .progress=TRUE
+        # region.title=glue('{SampleID} @ {resolution} in {region.title} ({focus})'),
+        plot.title=glue('{region.title} ({focus})'),
+        results_file=
+            file.path(
+                PLOT_DIR,
+                glue('weight_{weight}'),
+                glue('resolution_{scale_numbers(resolution)}'),
+                glue('region_{region.title}-gghic.plot.pdf')
             )
     )
 }
 
 plot_gghic <- function(
-    contacts,
+    cooler_path,
+    resolution.int,
     focus,
     weight,
-    region.title,
+    TADs,
+    loops,
+    tracks,
+    panel.title,
     gtf_path=NULL,
     ...){
-    # paste(colnames(contacts.df), '=contacts.df$', colnames(contacts.df), '[[1]]', sep='', collapse=';')
-    paste(colnames(tmp2), '=tmp2$', colnames(tmp2), '[[1]]', sep='', collapse=';')
-    # cooler_path=tmp2$cooler_path[[1]];Edit=tmp2$Edit[[1]];Celltype=tmp2$Celltype[[1]];Genotype=tmp2$Genotype[[1]];SampleID=tmp2$SampleID[[1]];resolution=tmp2$resolution[[1]];weight=tmp2$weight[[1]];chr=tmp2$chr[[1]];TAD.method=tmp2$TAD.method[[1]];TADs=tmp2$TADs[[1]];loops=tmp2$loops[[1]];contacts=tmp2$contacts[[1]]
-    # Handle faceting + scaling + theme options
-    contacts[focus] %>%
+    # paste(colnames(plots.df), '=plots.df$', colnames(plots.df), '[[1]]', sep='', collapse=';')
+    # cooler_path=plots.df$cooler_path[[1]];Edit=plots.df$Edit[[1]];Celltype=plots.df$Celltype[[1]];Genotype=plots.df$Genotype[[1]];SampleID=plots.df$SampleID[[1]];chr=plots.df$chr[[1]];resolution.int=plots.df$resolution.int[[1]];weight=plots.df$weight[[1]];TAD.method=plots.df$TAD.method[[1]];TADs=plots.df$TADs[[1]];loops=plots.df$loops[[1]];tracks=plots.df$tracks[[1]];region.title=plots.df$region.title[[1]];focus=plots.df$focus[[1]];resolution=plots.df$resolution[[1]]
+    # make plot obj with contacts + annotation data
+    make_gghic_plot_obj(
+        cooler_path=cooler_path,
+        resolution=resolution.int, 
+        focus=focus,
+        TADs=TADs, 
+        loops=loops,
+        tracks=tracks
+    ) %>% 
+    # Make gghic plot with specified annotations
     {
         gghic(
             .,
             scale_column=weight,
+            genome="hg38", 
+            gtf_path=gtf_path,
+            annotation=!is.null(gtf_path),
+            ideogram=TRUE, 
             loop=TRUE,
-            loop_style='arc',
-            stroke=0.5,
             tad=TRUE,
             tad_is_0based=TRUE,
-            tad_colour="#00ff83",
-            track=FALSE
+            track=TRUE,
+            ...
         ) +
-        geom_annotation(
-            gtf_path=gtf_path,
-            style='basic'
-        ) +
-        geom_ideogram(
-            genome="hg38",
-            highlight=TRUE,
-            length_ratio=1.0,
-            fontsize=8
-        ) +
-        ggtitle(region.title) +
+        ggtitle(panel.title) +
         theme_hic()
-    } #%>% post_process_plot(...)
+    } #%>% 
+    # Handle faceting + scaling + theme options
+    # post_process_plot(...)
+}
+
+plot_all_regions_gghic <- function(
+    plot.df,
+    focus,
+    weight,
+    plot.title,
+    output_file=NA,
+    width=8,
+    height=14,
+    ...){
+    plot.df %>%
+    mutate(
+        plot_obj=
+            pmap(
+                .l=.,
+                .f=plot_gghic,
+                focus=focus,
+                weight=weight,
+                ...,
+                .progress=TRUE
+            )
+    ) %>%
+    pull(plot_obj) %>% 
+    # pmap(
+    #     .f=post_process_plot,
+    #     ...,
+    #     .progress=FALSE
+    # ) %>% 
+    {
+        wrap_plots(
+            .,
+            ncol=1
+        ) +
+        plot_annotation(title=unique(plot.df$plot.title))
+    } %>%
+    {
+        if (!is.na(output_file)){
+            ggsave(
+                output_file, 
+                plot=.,
+                width=width,
+                height=height,
+                units='in'
+            )
+        } else {
+            .
+        }
+    }
 }
 
