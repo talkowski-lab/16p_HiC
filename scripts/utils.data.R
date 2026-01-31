@@ -746,8 +746,9 @@ set_up_sample_groups <- function(
     sample.groups,
     resolutions=c(),
     use_merged=FALSE){
+    # sample.groups=ALL_SAMPLE_GROUPS; resolutions=parsed.args$resolutions; use_merged=FALSE
     list_mcool_files() %>%
-    get_min_resolution_per_matrix() %>% 
+    # get_min_resolution_per_matrix() %>% 
     distinct() %>% 
     {
         if (use_merged) {
@@ -756,17 +757,12 @@ set_up_sample_groups <- function(
             filter(., !isMerged)
         }
     } %>% 
-    # Now group samples by condition, 
+    # if any group spans multiple edits
     nest(samples.df=-c(isMerged)) %>% 
     cross_join(
-        sample.groups %>% 
-        mutate(
-            across(
-                starts_with('Sample.Group'),
-                ~ str_replace_all(.x, 'All', '.*'),
-                .names='{.col}.Pattern'
-            )
-        )
+        sample.groups %>%
+        tibble(Sample.Group=.) %>% 
+        mutate(Sample.Group.Pattern=str_replace_all(Sample.Group, 'All', '.*')),
     ) %>%
     # subset relevant samples for each comparison
     rowwise() %>% 
@@ -783,40 +779,40 @@ set_up_sample_groups <- function(
             filter(!is.na(Sample.Group)) %>% 
             list()
     ) %>%
-    # minimum and max resoltion of all individual matrices per comparison
-    mutate(
-        resolution.min=min(samples.df$resolution),
-        resolution.max=max(samples.df$resolution)
-    ) %>% 
-    ungroup() %>%
-    mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
-    unnest(resolution) %>% 
-    mutate(
-        resolution.type=
-            case_when(
-                resolution == resolution.max ~ 'max',
-                resolution == resolution.min ~ 'min',
-                TRUE                         ~ NA
-            )
-    ) %>% 
-    select(
-        -c(
-            resolution.min,
-            resolution.max,
-            ends_with('.Pattern')
-        )
-    )
-    
+    # # minimum and max resoltion of all individual matrices per comparison
+    # mutate(
+    #     resolution.min=min(samples.df$resolution),
+    #     resolution.max=max(samples.df$resolution)
+    # ) %>% 
+    # ungroup() %>%
+    # mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
+    # unnest(resolution) %>% 
+    # mutate(
+    #     resolution.type=
+    #         case_when(
+    #             resolution == resolution.max ~ 'max',
+    #             resolution == resolution.min ~ 'min',
+    #             TRUE                         ~ NA
+    #         )
+    # ) %>% 
+    # select(
+    #     -c(
+    #         resolution.min,
+    #         resolution.max,
+    #         ends_with('.Pattern')
+    #     )
+    # )
+    select(-c(ends_with('.Pattern')))
 }
 
 set_up_sample_comparisons <- function(
     comparison.groups,
-    resolutions=c(),
     merging='individual'){
+    # comparison.groups=ALL_SAMPLE_GROUP_COMPARISONS; resolutions=parsed.args$resolutions; merging='individual'
     # get info + filepaths for all contact matrices
     list_mcool_files() %>%
-    get_min_resolution_per_matrix() %>% 
-    distinct() %>% 
+    # get_min_resolution_per_matrix() %>% 
+    # distinct() %>% 
     {
         if (merging == 'individual' ) {
             filter(., !isMerged)
@@ -825,9 +821,17 @@ set_up_sample_comparisons <- function(
         } else {
             .
         }
-    } %>% 
-    # Now group samples by condition, 
-    nest(samples.df=-c(isMerged)) %>% 
+    } %>%
+    select(-c(isMerged)) %>% 
+    mutate(
+        across(
+            starts_with('Sample.Group.'),
+            ~ str_replace_all(.x, 'All', '.*'),
+            .names='{.col}.Pattern'
+        )
+    ) %>% 
+    nest(samples.df=everything()) %>%
+    # Now group samples by condition,
     cross_join(
         comparison.groups %>% 
         mutate(
@@ -837,7 +841,7 @@ set_up_sample_comparisons <- function(
                 .names='{.col}.Pattern'
             )
         )
-    ) %>%
+    ) %>% 
     # subset relevant samples for each comparison
     rowwise() %>% 
     mutate(
@@ -854,24 +858,25 @@ set_up_sample_comparisons <- function(
             filter(!is.na(Sample.Group)) %>% 
             list()
     ) %>%
-    # minimum and max resoltion of all individual matrices per comparison
-    mutate(
-        resolution.min=min(samples.df$resolution),
-        resolution.max=max(samples.df$resolution)
-    ) %>% 
-    # List every comparison + resolution that is either a min or max for 1 comparison
-    ungroup() %>%
-    mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
-    unnest(resolution) %>% 
-    mutate(
-        resolution.type=
-            case_when(
-                resolution == resolution.max ~ 'max',
-                resolution == resolution.min ~ 'min',
-                TRUE                         ~ NA
-            )
-    ) %>% 
-    select(-c(resolution.min, resolution.max)) %>%
+    # # minimum and max resoltion of all individual matrices per comparison
+    # mutate(
+    #     resolution.min=min(samples.df$resolution),
+    #     resolution.max=max(samples.df$resolution)
+    # ) %>% 
+    # # List every comparison + resolution that is either a min or max for 1 comparison
+    # ungroup() %>%
+    # mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
+    # unnest(resolution) %>% 
+    # mutate(
+    #     resolution.type=
+    #         case_when(
+    #             resolution == resolution.max ~ 'max',
+    #             resolution == resolution.min ~ 'min',
+    #             TRUE                         ~ NA
+    #         )
+    # ) %>% 
+    # select(-c(resolution.min, resolution.max)) %>%
+    ungroup() %>% 
     select(-c(ends_with('.Pattern')))
 }
 
@@ -910,19 +915,21 @@ sample_group_priority_fnc_Cohesin <- function(Sample.Group){
     # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
     # the SECOND factor level i.e. have  a larger priority number 
     # i.e. this works when the priority of NIPBL.DEL > NIPBL.WT 
-
     case_when(
-        grepl( 'CTCF.iN.DEL', Sample.Group) ~ 1, # always numerator since always last factor level
-        grepl('RAD21.iN.DEL', Sample.Group) ~ 2,
-        grepl( 'WAPL.iN.DEL', Sample.Group) ~ 3,
-        grepl('NIPBL.iN.DEL', Sample.Group) ~ 4,
-        grepl(  'All.iN.DEL', Sample.Group) ~ 5, 
-        grepl( 'CTCF.iN.WT',  Sample.Group) ~ 11,
-        grepl('RAD21.iN.WT',  Sample.Group) ~ 12,
-        grepl( 'WAPL.iN.WT',  Sample.Group) ~ 13,
-        grepl('NIPBL.iN.WT',  Sample.Group) ~ 14,
-        grepl(  'All.iN.WT',  Sample.Group) ~ 15,
-        TRUE                                ~ Inf
+        # last factor level -> numerator always
+        grepl( 'CTCF.iN.BIALLELIC', Sample.Group) ~  1, 
+        grepl( 'CTCF.iN.DEL',       Sample.Group) ~  2, 
+        grepl('RAD21.iN.DEL',       Sample.Group) ~  3,
+        grepl( 'WAPL.iN.DEL',       Sample.Group) ~  4,
+        grepl('NIPBL.iN.DEL',       Sample.Group) ~  5,
+        grepl(  'All.iN.DEL',       Sample.Group) ~  6, 
+        grepl( 'CTCF.iN.WT',        Sample.Group) ~ 11,
+        grepl('RAD21.iN.WT',        Sample.Group) ~ 12,
+        grepl( 'WAPL.iN.WT',        Sample.Group) ~ 13,
+        grepl('NIPBL.iN.WT',        Sample.Group) ~ 14,
+        grepl(  'All.iN.WT',        Sample.Group) ~ 15,
+        # first factor level -> always denominator
+        TRUE                                      ~ Inf
     )
 }
 
@@ -941,7 +948,7 @@ set_foldchange_direction_as_factor <- function(
     # Determine sample group priority i.e. 
     # which sample group is numerator in fold-change values (lower priority value) and 
     # which sample group is denominator in fold change values (higher priority value)
-    # use priority function to determine which sample group should represent the numerator 
+    # use priority function to determine which sample group should represent the numerator
     # in the fold change 
     mutate(
         across(
@@ -950,7 +957,7 @@ set_foldchange_direction_as_factor <- function(
             .names='{.col}.Priority'
         )
     ) %>%
-    # Create explicit and consistent Numerator column, i.e. if there is a log(FC) > 0 then 
+    # Create explicit+consistent Numerator column, i.e. if there is a log(FC) > 0 then
     # the Numerator is enriched for the signal being compared
     # The Denominator is set to be the opposite group
     mutate(
