@@ -27,19 +27,16 @@ knitr::opts_chunk$set(
 Set up file locations + load dependenies
 ```{r dependencies}
 library(here)
+library(kableExtra)
 here::i_am('notebooks/matrix.QC.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
-source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 source(file.path(SCRIPT_DIR, 'utils.qc.R'))
-library(tidyverse)
 library(magrittr)
-library(ggplot2)
-library(ggh4x)
-library(purrr)
-library(kableExtra)
+library(tidyverse)
 ```
 Load sample metadata
 ```{r load_metadata}
