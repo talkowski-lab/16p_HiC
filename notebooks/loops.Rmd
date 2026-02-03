@@ -44,8 +44,18 @@ library(magrittr)
 
 # Load Loop Annotations
 
-Load all cooltools loop annotations
-Transform annotations so each row is 1 kernel (multiple per loop)
+Using the default params we only keep loops < 2Mb in size, which is enough to capture most CTCF-associated loops in human cells. The loop calling params are explained in the [cooltools docs](https://cooltools.readthedocs.io/en/latest/notebooks/dots.html#Dot-calling-with-default-parameters):
+
+Here is a brief description of the steps involved in cooltools dots():
+
+- A set of convolution kernels are recommended based on the resolution of clr, if user-defined convolution kernels are not provided (i.e. kernels=None).
+- The requested portion of the heatmap (defined by view_df and max_loci_separation) is split into smaller tiles of size tile_size. This ensures the entire heatmap is not loaded into memory at once, and computationally intensive steps can be done in parallel using nproc workers. tile_size and nproc do not affect the outcome of the procedure.
+- Tiles of the heatmap are convolved with the provided kernels to calculate localy adjusted expected for each pixel. This is in turn used to calculate p-values, assuming a Poisson distribution of pixel counts.
+- Pixels are assigned to geometrically-spaced “lambda-bins” of locally-adjusted expected for statistical testing. Within each lambda-bin, signficantly enriched pixels are “caled” using BH-FDR multiple hypothesis testing procedure, and thresholds of significance are calculated for each lambda-bin and each kernel-type (controlled by lambda_bin_fdr).
+- Significantly-enriched pixels are extracted, based on the thresholds in each lambda bin. Note the cooltools implementation of this step involves a second pass with the same convolution kernels to re-score pixels, as this is less costly than storing all such scores in memory.
+- Additional clustering and empirical filtering is optionally performed (depending on clustering_radius and cluster_filtering).
+
+Load all cooltools loop annotations, only keep 1 kernel (donut)
 ```{r load_loops}
 per.kernel.loops.df <- 
     check_cached_results(
