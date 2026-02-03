@@ -244,7 +244,10 @@ Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 ```
 Generate Loop Annotations
 ```bash
+# generate loop annotations with cooltools + all default params
 ./scripts/loops/run.loops.cooltools.sh ./results/loops ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+# Use IDR2D to define which loops are reproducible between conditions
+Rscript scripts/loops/run.IDR2D.loops.R
 ```
 Generate Compartment annotations
 ```bash

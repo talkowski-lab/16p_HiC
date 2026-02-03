@@ -90,7 +90,9 @@ COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
 ###################################################
 LOOPS_DIR                    <- file.path(RESULTS_DIR, 'loops')
 COOLTOOLS_LOOPS_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
-LOOP_SIMILARITY_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loop.similarities.tsv')
+LOOPS_IDR2D_DIR              <- file.path(LOOPS_DIR, 'IDR2D')
+LOOPS_IDR2D_RESULTS_FILE     <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
+# LOOP_SIMILARITY_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loop.similarities.tsv')
 
 ###################################################
 # gghic objects

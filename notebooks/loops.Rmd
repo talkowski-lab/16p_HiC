@@ -258,6 +258,15 @@ per.kernel.loops.df %>%
     )
 ```
 
+# IDR2D Analysis 
+
+```{r idr2d_find_pairs}
+# Generate IDR2D results for all comparisons of sample groups
+idr2d.results.df <- 
+    LOOP_SIMILARITY_RESULTS_FILE %>%
+    read_tsv(show_col_types=FALSE)
+```
+
 # Compare Loops across Genotypes {.tabset}
 
 Pivot anchor data
