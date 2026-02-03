@@ -4,13 +4,13 @@ library(glue)
 # Script dir location
 ###################################################
 if (grepl('/home/', BASE_DIR)) {
-    SCRIPT_DIR <- here('../remote.16p/scripts')
+    SCRIPT_DIR <- file.path(BASE_DIR, '../remote.16p/scripts')
 } else {
     SCRIPT_DIR <- here('scripts')
 }
 
 ###################################################
-# distiller-nf 
+# distiller-nf  
 ###################################################
 SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
 REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
@@ -42,7 +42,7 @@ GENE_CONSTRAINTS_FILE   <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
 SAMPLE_QC_DIR                   <- file.path(RESULTS_DIR, 'sample.QC')
 COVERAGE_DIR                    <- file.path(SAMPLE_QC_DIR, 'coverage')
 RESOLTION_COVERAGE_SUMAMRY_FILE <- file.path(SAMPLE_QC_DIR, 'resolution.coverage.summaries.tsv')
-MIN_SAMPLE_RESOLUTION_FILE      <- file.path(SAMPLE_QC_DIR, 'minimum.viable.resolutions.data.tsv')
+MIN_SAMPLE_RESOLUTION_FILE      <- file.path(SAMPLE_QC_DIR, 'minimum.viable.resolutions.tsv')
 
 ###################################################
 # hicrep results
@@ -66,24 +66,24 @@ MULTIHICCOMPARE_RESULTS_FILE   <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompar
 # TAD Annotations
 ###################################################
 TAD_DIR                         <- file.path(RESULTS_DIR, 'TADs')
-HITAD_TAD_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.TAD.annotations.tsv')
+HITAD_TAD_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
 # HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 # HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
-COOLTOOLS_TAD_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.TAD.annotations.tsv')
+COOLTOOLS_TAD_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
 # COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
-CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.annotations.tsv')
+CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
 # CONSENSUSTAD_MOC_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
 # TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
 TADCOMPARE_RESULTS_FILE         <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
-ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
+# ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
 
 ###################################################
 # Compartment Annotations
 ###################################################
-DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
-COMPARTMENTS_DIR               <- file.path(RESULTS_DIR, 'compartments')
-COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
-COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
+# DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
+# COMPARTMENTS_DIR               <- file.path(RESULTS_DIR, 'compartments')
+# COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
+# COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
 
 ###################################################
 # Loop Annotations
@@ -97,5 +97,5 @@ LOOPS_IDR2D_RESULTS_FILE     <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.result
 ###################################################
 # gghic objects
 ###################################################
-GGHIC_PLOT_OBJECTS_FILE <- file.path(RESULTS_DIR, 'gghic.plot.objs.cached.rds')
+GGHIC_DIR <- file.path(RESULTS_DIR, 'gghic.plots')
 
