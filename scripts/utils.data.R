@@ -1039,56 +1039,102 @@ get_all_row_combinations <- function(
     select(-c(matches('\\.idx')))
 }
 
-merge_sample_info <- function(
-    SampleInfo.P1,
-    SampleInfo.P2,
-    suffix.P1='.P1',
-    suffix.P2='.P2',
+tidy_pair_metadata <- function(
+    sampleID.pairs.df,
+    SampleID.fields,
     ...){
-    # SampleInfo.P1=df$SampleInfo.P1[[1]]; prefix.P1='SampleInfo.P1.'; SampleInfo.P2=df$SampleInfo.P2[[1]]; prefix.P2='SampleInfo.P2.'
-    # Combine pair info
-    if (is.null(SampleInfo.P1)) {
-        return(NULL)
-    } else if (is.null(SampleInfo.P2)) {
-        return(NULL)
-    }
-    bind_rows(
-        SampleInfo.P1 %>% rename_with(~ str_remove(.x, suffix.P1)),
-        SampleInfo.P2 %>% rename_with(~ str_remove(.x, suffix.P2)),
+    # sampleID.pairs.df=tmp %>% select(all_of(c(sampleID_col.P1, sampleID_col.P2))); SampleID.fields=c('Edit', 'Celltype', 'Genotype')
+    sampleID_col.P1 <- colnames(sampleID.pairs.df)[[1]]
+    sampleID_col.P2 <- colnames(sampleID.pairs.df)[[2]]
+    sampleID.pairs.df %>% 
+    # necessary to make sure pairs stay unique when pivoting
+    mutate(row.index=row_number()) %>% 
+    # Separate IDs of 2 matrices being compared for each results file
+    # Extract sample metadata from IDs
+    get_info_from_SampleIDs(
+        sample_ID_col=sampleID_col.P1,
+        col_prefix='SampleInfo.P1.',
+        SampleID.fields=SampleID.fields,
+        # keep_id=FALSE,
+        ...
     ) %>% 
-    add_column(PairIndex=c('P1', 'P2')) %>% 
-    mutate(across(everything(), as.character)) %>% 
+    # Repeat for the other sample in each pair
+    get_info_from_SampleIDs(
+        sample_ID_col=sampleID_col.P2,
+        col_prefix='SampleInfo.P2.',
+        SampleID.fields=SampleID.fields,
+        # keep_id=FALSE,
+        ...
+    ) %>% 
+    # Now format sample metadata per pair for easy grouping+plotting
     pivot_longer(
-        -PairIndex,
-        names_to='SampleAttribute',
-        values_to='SampleValue'
+        starts_with('SampleInfo'),
+        names_prefix='SampleInfo.',
+        names_to='metadata.field',
+        values_to='value'
+    ) %>%
+    separate_wider_delim(
+        metadata.field,
+        delim='.',
+        names=c('pair.index', 'metadata.field')
     ) %>% 
     pivot_wider(
-        names_from=PairIndex,
-        values_from=SampleValue
+        names_from='pair.index',
+        values_from='value'
     ) %>% 
-    rowwise() %>% 
-    # Now store both pair values for a single metadata field in 1 column
-    # and keep order consistent for grouping downstream
-    # NOTE this means that the metadata columns are not always P1 vs P2
-    # sometimes it will be P2 vs P1 based on alphabetical order of the values
-    # but thats fine since you can just looks at the SampleIDs themselves if 
-    # you care about that info
+    mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
+    select(-c(P1, P2)) %>% 
+    pivot_wider(
+        names_from=metadata.field,
+        values_from=metadata.value
+    ) %>%
+    select(-c(row.index))
+}
+
+enumerate_pairwise_comparisons <- function(
+    data.df,
+    sample.group.comparisons,
+    pair_grouping_cols,
+    SampleID.fields,
+    sampleID_col='SampleID',
+    suffixes=c('.P1', '.P2'),
+    ...){
+    # data.df=loops.df %>% select(-c(SampleInfo.Edit, SampleInfo.Celltype, SampleInfo.Genotype)); sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr', 'resolution.int'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
+    sampleID_col.P1 <- glue('{sampleID_col}{suffixes[[1]]}') # SampleID.P1
+    sampleID_col.P2 <- glue('{sampleID_col}{suffixes[[2]]}') # SampleID.P2
+    tmp <- 
+    data.df %>% 
+    # get all possible pairs of rows of data.df 
+    join_all_rows(
+        cols_to_match=c(pair_grouping_cols),
+        suffix=suffixes
+    ) %>% 
+    # only keep explicitly specified comparisons
+    {
+        if (is.null(sample.group.comparisons)) {
+            .
+        } else {
+            inner_join(
+                .,
+                sample.group.comparisons,
+                by=colnames(sample.group.comparisons)
+            )
+        }
+    } %>% 
     mutate(
-        PairValue=
-            case_when(
-                P1 == P2 ~ glue('{P1} vs {P2}'),
-                P1 != P2 ~ 
-                    c(P1, P2) %>% 
-                    sort() %>%  
-                    paste(collapse=" vs ")
+        tidy.metadata=
+            tidy_pair_metadata(
+                sampleID.pairs.df=
+                    select(
+                        .data=., 
+                        all_of(c(sampleID_col.P1, sampleID_col.P2))
+                    ),
+                suffixes=suffixes,
+                SampleID.fields=SampleID.fields,
+                ...
             )
     ) %>%
-    select(SampleAttribute, PairValue) %>%
-    pivot_wider(
-        names_from=SampleAttribute,
-        values_from=PairValue
-    )
+    unnest(tidy.metadata)
 }
 
 ###################################################
@@ -1257,52 +1303,22 @@ calculate_all_boundary_similarities <- function(
     boundaries.df,
     pair_grouping_cols,
     sample.group.comparisons=NULL,
+    SampleID.fields=SampleID.fields,
     only_keep_overlaps=TRUE,
     ...){
-    # sample.group.comparisons=SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols= c('resolution', 'method', 'TAD.params', 'chr'); 
-    # sample.group.comparisons=SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); only_keep_overlaps=FALSE
+    # sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); only_keep_overlaps=FALSE
     # boundaries.df Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # 3 columns; start, end, length indicating each set of boundaries
     # pair_grouping_cols: list of cols, only compare pairs of boundaries sets that match
     boundaries.df %>% 
-    # List all pairs of annotations (SampleID + chr) with matching parameters 
-    join_all_rows(
-        cols_to_match=pair_grouping_cols,
-        suffix=c('.P1', '.P2')
-        # suffix=c('.Numerator', '.Denominator')
+    enumerate_pairwise_comparisons(
+        sample.group.comparisons=sample.group.comparisons,
+        pair_grouping_cols=pair_grouping_cols,
+        SampleID.fields=SampleID.fields,
+        sampleID_col='SampleID',
+        suffixes=c('.P1', '.P2'),
     ) %>% 
-    # only keep explicitly specified sample group pairs
-    {
-        if (is.null(sample.group.comparisons)) {
-            .
-        } else {
-            inner_join(
-                .,
-                sample.group.comparisons,
-                by=colnames(sample.group.comparisons)
-            )
-        }
-    } %>% 
-    # tidy metadata
-    {
-        if (any(grepl('SampleInfo', colnames(.)))){
-            rowwise(.) %>% 
-            mutate(
-                SamplePairInfo=
-                    merge_sample_info(
-                        SampleInfo.P1,
-                        SampleInfo.P2
-                    ) %>%
-                    list()
-            ) %>% 
-            ungroup() %>% 
-            select(-c(starts_with('SampleInfo'))) %>% 
-            unnest(SamplePairInfo)
-        } else {
-            .
-        }
-    } %>% 
     # Finally compute all MoCs for all listed pairs of annotations
         # {.} -> tmp; tmp
         # tmp2 <- tmp %>% head(2) %>% 
