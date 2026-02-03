@@ -149,7 +149,9 @@ get_info_from_SampleIDs <- function(
     sample_ID_col='SampleID',
     col_prefix='',
     keep_id=TRUE,
+    include_merged_col=FALSE,
     nest_col=NA,
+    SampleID.delim='.',
     SampleID.fields=
         c(
             'Edit',
@@ -160,19 +162,32 @@ get_info_from_SampleIDs <- function(
         ),
     ...){
     df %>%
-    mutate(
-        !!as.character(glue('{col_prefix}isMerged')) :=
-            ifelse(
-                grepl('Merged', !!sym(sample_ID_col)),
-                'Merged',
-                'Individual'
-            ) %>% 
-            factor()
-    ) %>% 
+    {
+        if (include_merged_col){
+            mutate(
+                .,
+                !!as.character(glue('{col_prefix}{SampleID.delim}isMerged')) :=
+                    ifelse(
+                        grepl('Merged', !!sym(sample_ID_col)),
+                        'Merged',
+                        'Individual'
+                    ) %>% 
+                    factor()
+            )
+        } else {
+            .
+        }
+    } %>% 
+    # Split SampleID into separate metadata columns specified as input
     separate_wider_delim(
         all_of(sample_ID_col),
-        delim=fixed('.'),
-        names=SampleID.fields %>% paste0(col_prefix, .),
+        delim=fixed(SampleID.delim),
+        names=
+            ifelse(
+                is.na(SampleID.fields),
+                NA,
+                paste0(col_prefix, SampleID.fields)
+            ),
         cols_remove=!keep_id
     ) %>% 
     {
@@ -184,9 +199,10 @@ get_info_from_SampleIDs <- function(
                     ., 
                     !!nest_col :=
                         all_of(
-                            c(
-                                SampleID.fields,
-                                'isMerged'
+                            ifelse(
+                                include_merged_col,
+                                c(SampleID.fields, 'isMerged'),
+                                SampleID.fields
                             )
                         )
                 )
@@ -385,26 +401,35 @@ rename_chrs <- function(
     chrs, 
     to_numeric=FALSE,
     to_label=FALSE){
-    if (is.character(chrs) & to_label){
-        chrs
-    } else if (is.numeric(chrs) & to_numeric){
-        chrs
-    } else if (is.character(chrs) | to_numeric){
+    if (is.character(chrs) & to_numeric){
         case_when(
-            chrs == 'chrX'     ~ 23,
-            chrs == 'chrY'     ~ 24,
-            grepl(chrs, 'chr') ~ str_remove(chrs, 'chr'),
-            TRUE               ~ NA
+            chrs == 'X'                  ~ 23,
+            chrs == 'Y'                  ~ 24,
+            chrs %in% as.character(1:22) ~ chrs,
+            grepl('chr', chrs)           ~ str_remove(chrs, 'chr'),
+            TRUE                         ~ NA
         ) %>%
         as.integer()
-    } else if (is.numeric(chrs) | to_label) {
+    } else if (is.numeric(chrs) & to_numeric){
+        chrs
+    } else if (is.numeric(chrs) & to_label) {
         case_when(
-            chrs == 23             ~ 'X',
-            chrs == 24             ~ 'Y',
-            chrs == 'Genome.Wide'  ~ 'Genome.Wide',
-            chrs  >  0 & chrs < 23 ~ as.character(chrs),
-            TRUE                   ~ NA
+            chrs == 23                   ~ 'X',
+            chrs == 24                   ~ 'Y',
+            chrs  >  0 & chrs < 23       ~ as.character(chrs),
+            TRUE                         ~ NA
         ) %>% 
+        as.character() %>% 
+        paste0('chr', .)
+    } else if (is.character(chrs) & to_label){
+        case_when(
+            chrs == 'Genome.Wide'        ~ 'Genome.Wide',
+            chrs == 'X'                  ~ 'X',
+            chrs == 'Y'                  ~ 'Y',
+            grepl('chr', chrs)           ~ str_remove(chrs, 'chr'),
+            chrs %in% as.character(1:22) ~ chrs,
+            TRUE                         ~ NA
+        ) %>%
         as.character() %>% 
         paste0('chr', .)
     }
@@ -534,7 +559,13 @@ load_mcool_file <- function(
     range2="",
     cis=TRUE,
     type='df',
+    include_ends=FALSE,
     ...){
+    if (normalization %in% c('weight', 'balanced', 'ICE')){
+        normalization <- "ICE"
+    } else {
+        normalization <- "NONE"
+    }
     filepath %>% 
     File(resolution=resolution) %>% 
     fetch(
@@ -551,19 +582,35 @@ load_mcool_file <- function(
             if (cis) {
                 as_tibble(.) %>%
                 filter(chrom1 == chrom2) %>% 
-                select(
-                    -c(
-                        chrom2,
-                        end1,
-                        end2
-                    )
-                ) %>% 
-                rename(
-                    'chr'=chrom1,
-                    'range1'=start1,
-                    'range2'=start2,
-                    'IF'=count
-                )
+                {
+                    if (include_ends){
+                        rename(
+                            .,
+                            'chr.A'=chrom1,
+                            'start.A'=start1,
+                            'end.A'=end1,
+                            'chr.B'=chrom2,
+                            'start.B'=start2,
+                            'end.B'=end2,
+                            'IF'=count
+                        )
+                    } else {
+                        select(
+                            .,
+                            -c(
+                                chrom2,
+                                end1,
+                                end2
+                            )
+                        ) %>% 
+                        rename(
+                            'chr'=chrom1,
+                            'range1'=start1,
+                            'range2'=start2,
+                            'IF'=count
+                        )
+                    }
+                }
             } else {
                 as_tibble(.) %>%
                 rename(
