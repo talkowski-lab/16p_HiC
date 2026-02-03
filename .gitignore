@@ -45,6 +45,9 @@ work*
 # Output files from R CMD build
 /*.tar.gz
 
-reference.files/hg38_100000_goldenpathData
-reference.files/functionsdchic_1.0.tar.gz
-reference.files/hashmap_0.2.2.tar.gz
+reference.files/gencode.v38.annotation.gtf.gz
+reference.files/genome.bins
+reference.files/genome.tracks
+reference.files/gene.constraints.CNVR.tsv
+reference.files/packages/
+

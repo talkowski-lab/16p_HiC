@@ -14,7 +14,6 @@ if (grepl('/home/', BASE_DIR)) {
 ###################################################
 SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
 REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
-GENOME_GTF_FILE         <- file.path(REF_DIR, 'hg38.knownGene.gtf')
 GENOME_REF_DIR          <- file.path(REF_DIR, 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
@@ -24,6 +23,18 @@ RESULTS_DIR             <- file.path(BASE_DIR, 'results')
 BAM_DIR                 <- file.path(RESULTS_DIR, 'mapped_parsed_sorted_chunks')
 PAIRS_DIR               <- file.path(RESULTS_DIR, 'pairs_library')
 COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
+
+###################################################
+# Non-HiC Data
+###################################################
+GENOME_GTF_FILE         <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
+# RNASeq
+EXPRESSION_DATA_DIR     <- file.path(RESULTS_DIR, 'RNASeq', 'expression')
+# Functional genome annotations
+CTCF_SITE_FILE          <- file.path(REF_DIR, 'CTCF.annotations.tsv')
+GENE_CONSTRAINTS_FILE   <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
+# FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
+# ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
 
 ###################################################
 # Sample QC Results
@@ -86,9 +97,3 @@ LOOP_SIMILARITY_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loop.similar
 ###################################################
 GGHIC_PLOT_OBJECTS_FILE <- file.path(RESULTS_DIR, 'gghic.plot.objs.cached.rds')
 
-###################################################
-# Functional genome annotations
-###################################################
-FUNCTIONAL_ANNOTATIONS_DIR     <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements'
-FUNCTIONAL_ANNOTATION_FILES    <- list.files(file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'encode3'))
-ABC_ANNOTATIONS_FILE           <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, 'abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
