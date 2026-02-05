@@ -57,28 +57,32 @@ Here is a brief description of the steps involved in cooltools dots():
 
 Load all cooltools loop annotations, only keep 1 kernel (donut)
 ```{r load_loops}
-per.kernel.loops.df <- 
+# this is applied to the donut kernel, but all loops are significant with
+# all kernels if sig with donut kernel
+q.thresh <- 0.1 
+loops.df <- 
     check_cached_results(
         results_file=COOLTOOLS_LOOPS_RESULTS_FILE,
         # force_redo=TRUE,
         results_fnc=load_all_cooltools_dots
     ) %>%
     post_process_cooltools_dots_results() %>% 
+    filter(weight == 'balanced') %>% 
+    # filter(resolution == 10000) %>% 
     filter(kernel == 'donut') %>% 
-    filter(log10.qval > -log10(0.1)) %>% 
-    filter(weight == 'balanced', resolution == 10000) %>% 
+    filter(log10.qval > -log10(q.thresh)) %>% 
     standardize_data_cols()
 ```
 Load annotation data
-```{r load_annotation_data, eval=FALSE}
-chr.sizes.df <- load_chr_sizes()
+```{r load_annotation_data}
+# chr.sizes.df <- load_chr_sizes()
+expression.df <- load_gene_expression_data()
 # functional.annotations.df <- load_functional_annotations()
-FUNCTIONAL_ANNOTATION_FILES
-annotations.df <- 
-    FUNCTIONAL_ANNOTATION_FILES %>%
-    {.[1]} %>%
-    read_tsv()
-annotations.df
+# annotations.df <- 
+#     FUNCTIONAL_ANNOTATION_FILES %>%
+#     {.[1]} %>%
+#     read_tsv()
+# annotations.df
 # abcs.df <- 
 #     ABC_ANNOTATIONS_FILE %>%
 #     read_tsv()
@@ -88,7 +92,7 @@ annotations.df
 
 ```{r n_loops}
 n.loops.per.chr.df <- 
-    per.kernel.loops.df %>%
+    loops.df %>%
     # cumulative number of loops at different threshold
     mutate(
         'sig.lvl.qval < 0.000001'=log10.qval > -log10(0.000001),
@@ -150,7 +154,7 @@ n.loops.per.chr.df %>%
         fill.var='SampleID', 
         facet.row='sig.lvl',
         facet.col='kernel',
-        legend.position='top',
+        legend.position='right',
         # axis.text.x=element_text(angle=45, hjust=1),
         # legend.text=element_text(angle=35, hjust=1),
         axis.title.x=element_blank(),
@@ -162,7 +166,7 @@ n.loops.per.chr.df %>%
 
 Plot size distribution of loops
 ```{r plot_loop_size_violin, results='asis', fig.dim=c(10,6)}
-per.kernel.loops.df %>% 
+loops.df %>% 
     # filter(kernel == 'donut') %>% 
     # filter(resolution == '25Kb') %>% filter(weight == 'raw') %>% 
     make_nested_plot_tabs(
@@ -192,8 +196,8 @@ per.kernel.loops.df %>%
 ## Distribution Plots {.tabset}
 
 Make violin plot with q-values
-```{r box_plot, results='asis', fig.dim=c(10,6), eval=FALSE}
-per.kernel.loops.df %>% 
+```{r box_plot, results='asis', fig.dim=c(10,6)}
+loops.df %>% 
     pivot_longer(
         c('enrichment', 'log10.qval'),
         names_to='metric', 
@@ -205,14 +209,13 @@ per.kernel.loops.df %>%
         max.header.lvl=3,
         plot.fnc=plot_boxplot,
         x.var='chr',
+        x.scale.mode='discrete',
         y.var='value',
         fill.var='SampleID',
         # plot_pts=TRUE,
-        facet.col='kernel',
+        # facet.col='kernel',
         facet.row='metric',
-        x.scale.mode='discrete',
         scales='free_y',
-        # size=0.25,
         strip.text.x=element_text(size=5),
         axis.text.x=element_text(angle=45, hjust=1)
     )
@@ -222,7 +225,7 @@ per.kernel.loops.df %>%
 
 Make manhattan plot with q-values
 ```{r manhattan_plot, results='asis', fig.dim=c(10,6)}
-per.kernel.loops.df %>% 
+loops.df %>% 
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
@@ -235,7 +238,7 @@ per.kernel.loops.df %>%
         x.var='SampleID',
         color.var='enrichment',
         facet.col='chr',
-        facet.row='kernel',
+        # facet.row='kernel',
         x.scale.mode='discrete',
         scales='free_y',
         size=0.25,
@@ -247,7 +250,7 @@ per.kernel.loops.df %>%
 
 Plot loop enrichment against log10 qvalue
 ```{r volcanoish, results='asis', fig.dim=c(10,6)}
-per.kernel.loops.df %>% 
+loops.df %>% 
     # filter(weight == 'raw', resolution == '10Kb') %>% 
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
@@ -258,6 +261,8 @@ per.kernel.loops.df %>%
         x.var='enrichment',
         y.var='log10.qval',
         color.var='SampleID',
+        regression_fnc='lm',
+        add_regression_SE=TRUE,
         facet.group='chr',
         facet.nrow=4,
         scales='fixed',
@@ -269,21 +274,117 @@ per.kernel.loops.df %>%
     )
 ```
 
-# IDR2D Analysis 
+# IDR2D Analysis  {.tabset}
 
-```{r idr2d_find_pairs}
+## Load IDR2D results
+
+```{r load_idr2d}
 # Generate IDR2D results for all comparisons of sample groups
 idr2d.results.df <- 
-    LOOP_SIMILARITY_RESULTS_FILE %>%
-    read_tsv(show_col_types=FALSE)
+    check_cached_results(
+        results_file=LOOPS_IDR2D_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_IDR2D_results
+    ) %>% 
+    filter(weight == 'balanced', resolution == 10000) %>% 
+    # filter(resolve.method == 'overlap') %>% 
+    # filter(metric == 'log10.qval') %>% 
+    mutate(comparison=glue('{SampleID.P1} vs {SampleID.P2}'))
+    mutate(
+        is.loop.shared=
+            case_when(
+                loop.type == 'P1.only' ~ loop.type,
+                loop.type == 'P2.only' ~ loop.type,
+                IDR < 0.1              ~ 'IDR < 0.1',
+                IDR < 1                ~ 'Irreproducible',
+                TRUE                   ~ NA
+            )
+    )
+idr2d.results.df  %>% count(is.loop.shared)
 ```
+
+## Compare resolving strategies + metrics
+
+```{r idr2d_hyperparams_histogram, results='asis', fig.dim=c(10,6)}
+idr2d.results.df %>% 
+    select(-c(diff.value, diff.rank, loop.type)) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=3,
+        # group.cols=c('weight', 'resolution', 'kernel'),
+        # group.cols=c('resolution', 'comparison'),
+        group.cols=c('resolution'),
+        # plot.fnc=plot_density,
+        plot.fnc=plot_histogram,
+        x.var='IDR',
+        fill.var='resolve.method',
+        facet.col='metric',
+        facet.row='chr',
+        # y.scale.mode='discrete',
+        scales='free',
+        legend.position='top',
+        strip.text=element_text(size=10),
+        axis.title.y=element_blank()
+        # group.cols=c('resolution'),
+        # plot.fnc=plot_violin,
+        # y.var='chr',
+        # y.scale.mode='discrete',
+        # x.var='IDR',
+        # color.var='metric',
+        # facet.row='resolve.method',
+        # scales='fixed',
+        # legend.position='top',
+        # strip.text=element_text(size=5),
+        # axis.text.x=element_text(angle=45, hjust=1),
+        # axis.title.x=element_blank()
+    )
+```
+
+## Compare resolving strategies + metrics
+
+```{r idr2d_hyperparams_boxplot, results='asis', fig.dim=c(10,6)}
+idr2d.results.df %>% 
+    select(-c(diff.value, diff.rank, IDR)) %>% 
+    count(
+        weight, resolution, kernel,
+        resolve.method, metric,
+        comparison, chr,
+        loop.type
+    ) %>% 
+    # mutate(hyper=glue('{metric} || {resolve.method}')) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=3,
+        # group.cols=c('weight', 'resolution', 'kernel'),
+        # group.cols=c('resolution', 'comparison'),
+        group.cols=c('resolution'),
+        # plot.fnc=plot_density,
+        plot.fnc=plot_barplot,
+        y.var='loop.type',
+        y.scale.mode='discrete',
+        x.var='n',
+        fill.var='resolve.method',
+        facet.col='metric',
+        # fill.var='hyper',
+        # facet.col='comparison',
+        facet.row='chr',
+        # y.scale.mode='discrete',
+        # scales='free_y',
+        legend.position='top',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank()
+    )
+```
+
+## Quantify reproducible loops across conditions
+
+## Plot expression of genes in loops
 
 # Compare Loops across Genotypes {.tabset}
 
 Pivot anchor data
-```{r compare_anchors}
+```{r compare_anchors, eval=FALSE}
 similarity.df <- 
-    per.kernel.loops.df %>%
+    loops.df %>%
     select(-c(count, enrichment, log10.qval)) %>% 
     rename(
         start=anchor.left,
@@ -297,19 +398,7 @@ similarity.df <-
                 length
             )
     ) %>% 
-    mutate(SampleID2=SampleID) %>% 
-    nest(
-        SampleInfo=
-            c(
-                Edit,
-                Genotype,
-                Celltype,
-                # CloneID,
-                # TechRepID,
-                SampleID
-            )
-    ) %>% 
-    rename(SampleID=SampleID2) %>% 
+    mutate(SampleID) %>% 
     check_cached_results(
         results_file=LOOP_SIMILARITY_RESULTS_FILE,
         # force_redo=TRUE,
@@ -333,7 +422,7 @@ similarity.df <-
 # similarity.df %>% dplyr::count(weight, resolution, SampleID)
 # similarity.df
 ```
-```{r compute_anchor_diffs}
+```{r compute_anchor_diffs, eval=FALSE}
 diff.df <- 
     similarity.df %>% 
     # separate_wider_delim(
@@ -343,7 +432,7 @@ diff.df <-
     #     cols_remove=FALSE
     # ) %>% 
     inner_join(
-        per.kernel.loops.df %>%
+        loops.df %>%
         select(-c(Edit, Celltype, Genotype, length)),
         by=
             join_by(
@@ -357,7 +446,7 @@ diff.df <-
             )
     ) %>% 
     inner_join(
-        per.kernel.loops.df %>%
+        loops.df %>%
         select(-c(Edit, Celltype, Genotype, length)),
         suffix=c('.P1', '.P2'),
         by=
@@ -427,7 +516,7 @@ diff.df <-
 
 ## Plot anchor differences boxplot {.tabset}
 
-```{r plot_compare_anchors_boxplot, results='asis', fig.dim=c(10,6)}
+```{r plot_compare_anchors_boxplot, results='asis', fig.dim=c(10,6), eval=FALSE}
 diff.df %>% 
     # filter(!metric %in% c('start', 'end', 'length')) %>% 
     filter(metric %in% c('length', 'enrichment', 'log10_qval')) %>% 
@@ -452,7 +541,7 @@ diff.df %>%
 
 ## Plot anchor differences scatter {.tabset}
 
-```{r plot_compare_anchors_scatter, results='asis', fig.dim=c(10,6)}
+```{r plot_compare_anchors_scatter, results='asis', fig.dim=c(10,6), eval=FALSE}
 diff.df %>% 
     # filter(metric %in% c(start, end, length)) %>% 
     # filter(!metric %in% c('start', 'end', 'length')) %>% 
@@ -480,7 +569,7 @@ diff.df %>%
 
 ## Plot Anchor MoCs {.tabset}
 
-```{r plot_compare_anchors_MoC, results='asis', fig.dim=c(10,6)}
+```{r plot_compare_anchors_MoC, results='asis', fig.dim=c(10,6), eval=FALSE}
 similarity.df %>% 
     # select(-c(ends_with('diff'))) %>% 
     group_by(weight, resolution, chr, kernel, SampleID) %>%
@@ -505,46 +594,6 @@ similarity.df %>%
         # size=0.25,
         legend.position='top',
         axis.title.x=element_blank(),
-        axis.text.x=element_text(angle=45, hjust=1)
-    )
-```
-
-# Loop Coverage {.tabset}
-
-How much of the genome is bewteen loops?
-```{r loop_coverage, results='asis', fig.dim=c(10,6), eval=FALSE}
-per.kernel.loops.df %>% 
-    filter(resolution == '25Kb') %>% filter(weight == 'raw') %>% 
-    group_by(weight, resolution, SampleID, chr, kernel) %>% 
-    rowwise() %>%
-    mutate(resolution.int=scale_numbers(resolution, force_numeric=TRUE)) %>% 
-    mutate(bins=seq(anchor.left, anchor.right, resolution.int)) %>% 
-    summarize(bp.in_loops=unique(c(bins))) %>% 
-    {.}
-    left_join(
-        chr.sizes.df,
-        by=join_by(chr)
-    ) %>% 
-    mutate(
-        bp.out_loops=chr.size.bp - bp.in_loops,
-        pct.in_loops=bp.in_loops / chr.size.bp * 100
-    )
-    make_nested_plot_tabs(
-        # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
-        group.cols=c('weight', 'resolution'),
-        max.header.lvl=3,
-        plot.fnc=plot_barplot,
-        # y.var='log10.qval',
-        # x.var='chr',
-        # color.var='Genotype',
-        # shape.var='Genotype',
-        # x.var='Genotype',
-        # color.var='enrichment',
-        # facet.col='chr',
-        # facet.row='kernel',
-        x.scale.mode='discrete',
-        scales='free_y',
-        size=0.25,
         axis.text.x=element_text(angle=45, hjust=1)
     )
 ```
