@@ -13,7 +13,7 @@ declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
 COOLTOOLS_WINDOW_SIZES="60 100" # numer of bins, not bp 
 COOLTOOLS_MFVP=(0.66 0.9)
 COOLTOOLS_THRESHOLD=(Li)
-declare -rA COOLTOOLS_WEIGHTS=(["ICE"]="weight" ["Raw"]="")
+declare -rA COOLTOOLS_WEIGHTS=(["balanced"]="weight" ["raw"]="")
 
 ###################################################
 # Functions
