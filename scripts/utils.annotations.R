@@ -101,19 +101,51 @@ load_gene_expression_data <- function(){
 ###################################################
 # Genome Feature Annotations
 ###################################################
-load_CTCF_sites <- function(){
-    ah <- AnnotationHub()
-    #> snapshotDate(): 2025-10-29
-    query_data <- 
-        ah %>% 
-        subset(
-            species == 'Homo sapiens' &
-            genome == 'hg38' &
-            # dataprovider == 'JASPAR 2022' &
-            # dataprovider == 'CTCFBSDB 2.0' &
-            preparerclass == "CTCF"
-        )
-    query_data
-    table(query_data$dataprovider)
-    query_data$species
+load_CTCF_sites <- function(force.redo=FALSE){
+    # https://dozmorovlab.github.io/CTCF/
+    # annotation object
+    check_cached_results(
+        results_file=CTCF_SITE_FILE,
+        force_redo=force.redo,
+        results_fnc=
+            function(){
+                AnnotationHub() %>% 
+                # subset specific set of CTCF sites predicted in humans by JASPAR 2022
+                subset(
+                    species == 'Homo sapiens' &
+                    genome == 'hg38' &
+                    dataprovider == 'JASPAR 2022' &
+                    preparerclass == "CTCF"
+                ) %>%
+                {.[['AH104727']]} %>%
+                # make tidy tibble
+                as_tibble() %>% 
+                # separate_wider_delim(
+                #     name,
+                #     delim='_',
+                #     names=
+                #         c(
+                #             'db',
+                #             'db.set',
+                #             'bioset',
+                #             'genomic.feature',
+                #             'MotifID'
+                #         )
+                # ) %>%
+                dplyr::rename(
+                    'length'=width,
+                    'chr'=seqnames
+                ) %>% 
+                select(
+                    -c(
+                        # db,
+                        # db.set,
+                        # bioset,
+                        # genomic.feature,
+                        sequence
+                    )
+                )
+            }
+    )
 }
+
