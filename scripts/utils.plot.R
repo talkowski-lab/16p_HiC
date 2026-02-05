@@ -538,6 +538,74 @@ plot_boxplot <- function(
     post_process_plot(...)
 }
 
+plot_density <- function(
+    plot.df,
+    x.var='',
+    fill.var=NULL, 
+    alpha=0.7,
+    ...){
+    # Set fill group if specified
+    {
+        if (is.null(fill.var)) {
+            ggplot(
+                plot.df,
+                aes(x=.data[[x.var]])
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    group=.data[[fill.var]],
+                    fill=.data[[fill.var]]
+                )
+            )
+        }
+    } %>% 
+    # make it a boxplot 
+    { . + geom_density(alpha=alpha) } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(...)
+}
+
+plot_histogram <- function(
+    plot.df,
+    x.var='',
+    fill.var=NULL, 
+    alpha=0.7,
+    binwidth=0.05,
+    ...){
+    # Set fill group if specified
+    {
+        if (is.null(fill.var)) {
+            ggplot(
+                plot.df,
+                aes(x=.data[[x.var]])
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    group=.data[[fill.var]],
+                    fill=.data[[fill.var]]
+                )
+            )
+        }
+    } %>% 
+    # make it a boxplot 
+    { 
+        . + 
+        geom_histogram(
+            position="identity",
+            alpha=alpha,
+            binwidth=binwidth
+        ) 
+    } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(...)
+}
+
 plot_violin <- function(
     plot.df,
     x.var='',
