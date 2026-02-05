@@ -38,7 +38,6 @@ modes:
     merge_16p 
     qc3C 
     multiqcs
-    coverage 
     expected"
     else 
         case ${1} in 
@@ -47,7 +46,6 @@ modes:
             qc3C)          args="\${OUTPUT_DIR} \${ENZYME1} \${ENZYME2} sample{1..N}.lane1.hg38.0.bam" ;;
             multiqcs)      args="\${OUTPUT_DIR} \${DISTILLER_OUTPUT_DIR}" ;;
             balance)       args="sample{1..N}.mcool" ;;
-            coverage)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
             expected)      args="\${OUTPUT_DIR} sample{1..N}.mcool" ;;
             *) echo "Invalid mode: $mode" && help ;;
         esac
@@ -69,36 +67,6 @@ activate_conda() {
     esac
     source "${CONDA_DIR}/etc/profile.d/conda.sh"
     conda activate "${env_name}"
-}
-
-dump_all_regions() {
-    mkdir -p "${1}"
-    output_dir="$(readlink -e "${1}")"
-    activate_conda 'cooler'
-    # hic_samples=${@:2}
-    # for sample_file in ${hic_samples[@]}; do
-    for sample_file in "${@:2}"; do
-        sample_file="$(readlink -e ${sample_file})"
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.mcool}"
-        for uri in $(cooler ls "${sample_file}"); do
-        for chr in "${CHROMOSOMES[@]}"; do
-            param_dir="${output_dir}/weight_${weight_name}/resolution_${resolution}/chr_${chr}"
-            mkdir -p "${param_dir}"
-            output_file="${param_dir}/${sample_ID}.matrix.txt.gz"
-            [[ -f "$output_file" ]] && continue
-            basename "${output_file}"
-            cooler dump                \
-                --nproc "${THREADS}"   \
-                --range "${chr}"       \
-                --table pixels         \
-                --join                 \
-                --no-balance           \
-                --out "${output_file}" \
-                "$uri"
-        done
-        done
-    done
 }
 
 ###################################################
@@ -333,44 +301,6 @@ matrix_balance() {
     done
 }
 
-matrix_coverage() {
-    output_dir="$(readlink -e "${1}")"
-    mkdir -p "${1}"
-    echo "Saving results in ${output_dir}"
-    activate_conda 'cooltools'
-    for sample_file in "${@:2}"; do
-        # Extract SampleID
-        sample_ID="$(basename "$sample_file")"
-        sample_ID="${sample_ID%%.mcool}"
-        sample_file="$(readlink -e "${sample_file}")"
-        # loop over all resolutions + normalizations
-        for resolution in "${RESOLUTIONS[@]}"; do
-            uri="${sample_file}::resolutions/${resolution}"
-        # for uri in $(cooler ls "${sample_file}"); do 
-            # resolution="$(echo "${uri}" | rev | cut -d '/' -f1 | rev)"
-            for weight_name in "${WEIGHT_NAMES[@]}"; do
-                weight="${WEIGHTS[${weight_name}]}"
-                if [[ ${weight} != '' ]]; then
-                    weight_flag="--clr_weight_name ${weight} "
-                else 
-                    weight_flag=""
-                fi
-                # name output file directory with params
-                param_dir="${output_dir}/weight_${weight_name}/resolution_${resolution}"
-                mkdir -p "${param_dir}"
-                output_file="${param_dir}/${sample_ID}-coverage.tsv"
-                # echo "${output_file}"
-                [[ -f "${output_file}" ]] && continue # skip if output file exists
-                # Caculate total IF of each bin
-                echo "${output_file}"
-                cooltools coverage ${weight_flag}--nproc "${THREADS}" \
-                    --output "${output_file}" \
-                    "${uri}"
-            done
-        done
-    done
-}
-
 matrix_expected() {
     output_dir="$(readlink -e "${1}")"
     echo "Saving results in ${output_dir}"
@@ -432,8 +362,6 @@ main() {
         multiqcs)      make_multiqc_reports "${@:2}" ;;
         dump)          dump_all_regions "${@:2}" ;;
         balance)       matrix_balance "${@:2}" ;;
-        coarsen)       matrix_balance "${@:2}" ;;
-        coverage)      matrix_coverage "${@:2}" ;;
         expected)      matrix_expected "${@:2}" ;;
         *) echo "Invalid mode: ${mode}" && exit 1 ;;
     esac

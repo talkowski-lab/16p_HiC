@@ -33,8 +33,10 @@ BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(BASE_DIR, 'scripts', 'constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-source(file.path(SCRIPT_DIR, 'utils.qc.R'))
+source(file.path(SCRIPT_DIR, 'coverage' 'utils.coverage.R'))
+source(file.path(SCRIPT_DIR, 'coverage' 'utils.qc.R'))
 library(magrittr)
 library(tidyverse)
 ```
@@ -51,27 +53,6 @@ sample.metadata.df <-
 The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D) as follows
 
 >We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
-
-```{r coallate_marginal_contacts_rachita, eval=F}
-coverage.summary <- 
-    check_cached_results(
-        results_file=RACHITA_COVERAGE_RESULTS_FILE,
-        # force_redo=TRUE,
-        resolutions=c(100, 50, 25, 10, 5) * 1e3,  # Kbs
-        sample.metadata.df=sample.metadata.df,
-        results_fnc=
-           function(resolutions, sample.metadata.df, ...){
-                load_all_coverage_data(resolutions=resolutions) %>% 
-                # standardize_data_cols() %>% 
-                left_join(
-                    sample.metadata.df %>%
-                    select(SampleID, FlowcellID),
-                    by=join_by(SampleID)
-                ) %>%
-                mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
-           }
-    )
-```
 
 ```{r calc_resolution}
 coverage.summary <- 
@@ -140,7 +121,7 @@ min.resolutions %>%
 coverage.summary %>% 
     filter(
         weight == 'raw',
-        isGenome == 'Per.Chr',
+        # isGenome == 'Per.Chr',
         count.type == 'cis'
     ) %>% 
     filter(metric %in% 
@@ -163,7 +144,7 @@ coverage.summary %>%
     make_nested_plot_tabs(
         plot.fnc=plot_heatmap,
         # group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
-        group.cols=c('isMerged', 'metric', 'resolution'),
+        group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
         max.header.lvl=3,
         x.var='chr',
         y.var='SampleID',
