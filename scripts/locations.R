@@ -53,7 +53,7 @@ HICREP_RESULTS_FILE            <- file.path(HICREP_DIR, 'all.hicrep.scores.tsv')
 ###################################################
 # Reproducing figure from Elise Robinson
 ###################################################
-ROBINSON_REPLICATION_DIR       <- file.path(RESULTS_DIR, 'Robinson.replication')
+ROBINSON_REPLICATION_DIR       <- file.path(RESULTS_DIR, 'robinson.replication')
 ROBINSON_REPLICATION_DATA_FILE <- file.path(ROBINSON_REPLICATION_DIR, 'replication.data.chr16.tsv')
 
 ###################################################

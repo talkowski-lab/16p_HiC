@@ -50,25 +50,24 @@ CHROMOSOMES <-
 # 16p deleteion and telomere are to replicate Fig 4B in this paper:
 # https://www.nature.com/articles/s41588-022-01203-y
 GENOMIC_REGIONS <- 
-	tribble(
-    ~region.group, ~region,                    ~region.chr, ~region.start, ~region.end,
-    "16p",         "16p11.2 CNV",              "chr16",          29488679,    30188679,
-    "16p",         "chr16p.telomere",          "chr16",                 0,     5149999,
-    "16p",         "chr16p11.2",               "chr16",          24288679,    30188679,
-    "16p",         "chr16p",                   "chr16",                 0,    36800000,
-    "16p",         "chr16q",                   "chr16",          36800001,    90338345,
-    "16p",         "chr16",                    "chr16",                 0,    90338345,
-    "10q",         "chr10q CNV",               "chr10",          79791504,    87313680,
-    "RGDs",        "1q21",                     "chr1",          146081967,   148779515,
-    "RGDs",        "7q11.23_WBS",              "chr7",           73174795,    74833380,
-    "RGDs",        "8p23.1",                   "chr8",             523442,     5539949,
-    "RGDs",        "15q_AS_PWS_large",         "chr15",          22420444,    28730223,
-    "RGDs",        "15q13.3",                  "chr15",          30377807,    32441361,
-    "RGDs",        "16p13.11",                 "chr16",          14816373,    16353400,
-    "RGDs",        "16p11.2",                  "chr16",          29449194,    30335547,
-    "RGDs",        "17q12",                    "chr17",          36222499,    38194356,
-    "RGDs",        "17q21.31",                 "chr17",            452200,     1272274,
-    "RGDs",        "22q11.21_DGS_VCFS_common", "chr22",          18518837,    21562827,
+    tribble(
+        ~region.group, ~region,                    ~region.chr, ~region.start, ~region.end,
+        "16p",         "16p11.2 CNV",              "chr16",          29488679,    30188679,
+        "16p",         "16p Telomere",             "chr16",                 0,     5149999,
+        "16p",         "16p11.2",                  "chr16",          24288679,    30188679,
+        "16p",         "16p",                      "chr16",                 0,    36800000,
+        "16p",         "16q",                      "chr16",          36800001,    90338345,
+        "16p",         "chr16",                    "chr16",                 0,    90338345,
+        "10q",         "chr10q CNV",               "chr10",          79791504,    87313680,
+        "RGDs",        "1q21",                     "chr1",          146081967,   148779515,
+        "RGDs",        "7q11.23_WBS",              "chr7",           73174795,    74833380,
+        "RGDs",        "8p23.1",                   "chr8",             523442,     5539949,
+        "RGDs",        "15q_AS_PWS_large",         "chr15",          22420444,    28730223,
+        "RGDs",        "15q13.3",                  "chr15",          30377807,    32441361,
+        "RGDs",        "16p13.11",                 "chr16",          14816373,    16353400,
+        "RGDs",        "17q12",                    "chr17",          36222499,    38194356,
+        "RGDs",        "17q21.31",                 "chr17",            452200,     1272274,
+        "RGDs",        "22q11.21_DGS_VCFS_common", "chr22",          18518837,    21562827,
 	) %>%	
     mutate(
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
