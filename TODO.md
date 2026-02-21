@@ -1,22 +1,166 @@
 # TODO
 
-## Tasks
-
-- [ ] multiHiCCompare results with new samples
-  - [ ] 16p Samples
-  - [x] NIPBL+WAPL Samples
-- [x] finish running HiC samples
-- [x] write code to compare cooltools insulation TAD boundary annotations
-- [x] write code to load cooltools and HiTAD annotations separtely
 - [x] validate FC direction
 - [ ] fix manhattan lines locations
-- [ ] NIPBL,WAPL LFC vs LFC off diagonals -> find loations
-- [ ] plot insulation scores correlations 
-  - [ ] between biological replicates ?
-  - [ ] between conditions per chr, 
-  - [ ] comapre vs MHC hits
+
+- [x] properly de-dup TAD MoC pairs used for correlation
+- [ ] plot insulation lineplots
+- [ ] plot insulation scores correlations
+
+- [ ] NIPBL,WAPL LFC vs LFC off diagonals -> find locations
 - [ ] compare significant bin-paris with insulation scores
 - [ ] RBFOX1 location signals
+
+- [?] generate GC track phase files for compartment calling
+- [ ] look at other compartment calling tools
+- [ ] generate compartment annotations
+
+- [x] scb merge datasets
+- [x] re-write to specify marker gene list per annotation+dataset
+  - [x] make all the comparison directories
+  - [x] write the data-set specific marker files there
+
+- [x] rename RAD21 results with new genotypes
+- [x] RAD21 MiSeq
+- [x] CTCF MiSeq
+- [x] make multiQC reports
+- [x] produce coverage files
+
+# Matrix QC + coverage
+
+- [x] make Merged Matrices
+  - WAPL.iN.DEL
+  - WAPL.iN.WT
+  - NIPBL.iN.DEL
+  - NIPBL.iN.WT
+  - All.iN.DEL
+  - All.iN.WT
+
+- [x] balance Merged Matrices
+
+- [ ] calculate matrix bin-wise coverage
+  - [x] individual
+  - [ ] merged
+
+- [ ] print minimum usable resolution per matrix 
+  - [x] individual 
+  - [ ] merged
+
+- [x] heatmaps showing samples vs chr of 
+  - [x] total contacts
+  - [x] median contacts
+  - [x] number of bin-pairs > 0
+  - [x] plot line plot bin-wise total contacts across 
+
+- [-] plot lineplot number of bin-pairs > 0 vs chr length in bins
+  - one line per sample
+
+# Call TADs method
+
+- [x] Dont bother with individual TAD calling, only call on merged matrices
+
+- Plot TAD comparisons
+  - [x] heatmap N TADs         per condition per chr
+  - [x] boxplot TAD Lengths    per condition
+  - [x] boxplot TAD Lengths    per condition per chr
+  - [x] boxplot TAD MoCs       per condition 
+  - [x] boxplot mean TAD MoCs  per condition per chr
+  - [x] heatmap mean TAD MoCs  per condition per chr
+
+- per TAD metrics to compare
+  - TAD intensities?
+    - [ ] intra.TAD.contacts = sum of all contacts for all bin-pairs with BOTH   bins inside the TAD
+    - [ ] outra.TAD.contacts = sum of all contacts for all bin-pairs with ONLY 1 bin  inside the TAD
+    - normalize by
+      - [ ] total number of bin the TAD covers (linear)
+      - [ ] total number of bin-pairs with > 0 IF within the TAD
+    - can compare distributions or summary stats
+      - mean, median, min, max, 
+      - Can do a t.test of intra vs intra between conditions
+      - [ ] boxplot distribution of each TAD-pair differences
+        - intra.TAD.contacts difference per TAD pair
+
+- compare individual pairs of TADs?
+  - Define the pairs of TADs to analyze i.e. the "same" TAD in both conditions
+    - Not all TADs will have a pair
+      - count how many TADs are unpaired after the matching
+      - nTADs.unpaired.P1, nTADs.unpaired.P2
+    - 2 TADs are a pair if they have the max "similarity" of all other TADs
+    - Can define this for all TADs i.e. build a similarity matrix
+      - cacluate all individual TAD similarities (MoC modified Jacard) 
+      - filter all entries with similarity == 0
+      - Solve the "Assignment Problem" using filtered similarity table (i.e. an edge-list)
+      - The matching is all your pairs, ignore unpaired TADs
+
+  - compare coordinates? 
+    - total difference between start/end positions -> low total distance == same positions
+      - [ ]    start.dist      = start.Numerator      - start.Denominator
+      - [ ]      end.dist      =   end.Numerator      -   end.Denominator
+      - [ ]     union.coverage = max(end.P2, end.P11) - min(start.P1, start.P2)
+      - [ ] intersect.coverage = min(end.P2, end.P11) - max(start.P1, start.P2)
+      - [ ] position.dist.bp   =     (abs(start.diff) + abs(end.diff)) 
+      - [ ] position.dist.bins =     position.diff.bp / resolution
+      - [ ] MoC
+
+  - compare per TAD metrics
+
+- examine cooltools insulation results?
+  - [ ] compare param.combos
+    - [x] heatmap N Boundaries
+    - [x] boxplot Boundary strength
+  - [ ] compare conditions
+    - [x] heatmap N Boundaries      per condition per chr
+    - [x] boxplot Boundary strength per condition 
+    - [ ] boxplot Boundary strength per condition per chr
+  - [ ] compare individual boundaries
+    - position.dist = position.Numerator - position.Denominator
+      - [ ] boxplot Min Boundary distances       per condition
+      - [ ] boxplot Min Boundary distances       per condition per chr
+    - strength.diff = strength.NUmerator - strength.Denominator
+      - [ ] boxplot Min Boundary intensity diff  per condition
+      - [ ] boxplot Min Boundary intensity diff  per condition per chr
+
+- compare insulation profiles?
+  - compare hyper.parameter differences
+  - plot insulation across the genome
+    - on chr5,10,1,X,17
+    - one line per condition
+  - calculate difference in insulation score
+    - insluation.P1 - inslation.P2 
+  - heatmap correlation Condition vs Condition
+    - total insulation difference
+      - per chr and genome-wide
+      - boxplot of chrs per condition
+MHC comparisons
+
+# multiHiCCompare
+
+- no merged comparison
+- [x] individual matrices
+  - [x] NIPBL.WT  vs  WAPL.WT  # background/noise/stochastic ? patient differences?
+  - [x] NIPBL.DEL vs   All.WT  # NIBPL effect Main Result
+  - [x] NIPBL.DEL vs NIBPL.WT  # NIBPL effect -> should replicate Main Result
+  - [x]  WAPL.DEL vs   All.WT  #  WAPL effect Main Result
+  - [x]  WAPL.DEL vs  WAPL.WT  #  WAPL effect -> should replicate Main Result
+  - [x] NIPBL.DEL vs  WAPL.WT  # NIBPL effect -> should replicate Main Result
+  - [x]  WAPL.DEL vs NIBPL.WT  #  WAPL effect -> should replicate Main Result
+  - [-]   All.DEL vs   All.WT  
+    - # ??? Common off targets? 
+    - general deletion effect i.e. noise? -> no, it will just be all effects?
+    - need to separate noise vs effects -> get intersection of NIPBL + WAPL deletion effects?
+- use exact test
+- [x] Plot significant contacts
+- [x] Plot common hits across multiple comparisons
+  - [x] NIPBL.WT vs WAPL.WT hits at the same significance lvl
+  - [x] hits found in all 3 comparisons (robust to downsampling)
+    - NIPBL.DEL vs   All.WT 
+    - NIPBL.DEL vs NIBPL.WT
+    - NIPBL.DEL vs  WAPL.WT
+
+# TODO
+
+## Tasks
+
 - [ ] redo stuff with new 16p HiC samples
   - [x] create multiQC reports
   - [ ] merge matrices
@@ -27,11 +171,33 @@
   - [ ] redo Weiner et al. 2022 notebook
   - [x] generate TAD annotations for new samples
   - [ ] redo TAD analysis notebook
+
+### TADs
+
+- [ ] plot insulation scores correlations 
+  - [ ] between biological replicates ?
+  - [ ] between conditions per chr, 
+
+### Loops
+
 - [ ] read loop callers review paper
-- [ ] pick and install loop calling tools
+- [ ] write wrapper script for loop calling
+  - [x] cooltools dots
   - [ ] mustache
-  - [ ] ???
-- [ ] write wrapper script to  call loops 
+  - [ ] Fit-HiC-2
+
+### multiHiCCompare
+
+- [ ] multiHiCCompare results with new samples
+  - [ ] 16p iN Samples
+  - [x] Cohesin Samples
+- [ ] fix manhattan lines locations
+- [ ] Cohesin LFC vs LFC off diagonals -> find loations
+
+### Integrations
+
+- [ ] compare significant bin-paris with insulation scores
+- [ ] RBFOX1 location signals
 
 ## Plots to Make
 
@@ -90,11 +256,11 @@
 
 ### Loops
 
-- [ ] cooltools dots results
-  - [ ] number of loops per Param Set
-  - [ ] number of loops per Genotype per Chromosome
+- [x] cooltools dots results
+  - [x] number of loops per Genotype per Chromosome
+  - [x] size of loops per Genotype per Chromosome
+  - [x] distribution of loops/significance across each chr
   - [ ] APA plots of loops
-  - [ ] distribution of loops/significance across each chr
 - [ ] mustache loop results
   - [ ] number of loops per Param Set
   - [ ] number of loops per Genotype per Chromosome

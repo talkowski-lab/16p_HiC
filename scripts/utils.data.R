@@ -29,6 +29,7 @@ check_cached_results <- function(
     } else {
         # Set read/write functions based on filetype
         output_filetype <- results_file %>% str_extract('\\.[^\\.]*$') 
+        message(output_filetype)
         if (output_filetype == '.rds') {
             load_fnc <- readRDS
             save_fnc <- saveRDS
@@ -36,7 +37,7 @@ check_cached_results <- function(
             load_fnc <- partial(read_tsv, show_col_types=show_col_types)
             save_fnc <- write_tsv
         } else {
-            stop(glue('Invalid file extesion: {extension}'))
+            stop(glue('Invalid file extesion: {output_filetype}'))
         }
         if (file.exists(results_file) & !force_redo) {
             message(glue('{results_file} exists, not recomputing results'))
@@ -715,7 +716,7 @@ load_mcool_files <- function(
 ###################################################
 set_up_sample_groups <- function(
     sample.groups,
-    resolutions=c(),
+    # resolutions=c(),
     use_merged=FALSE){
     # sample.groups=ALL_SAMPLE_GROUPS; resolutions=parsed.args$resolutions; use_merged=FALSE
     list_mcool_files() %>%
@@ -755,7 +756,7 @@ set_up_sample_groups <- function(
     #     resolution.min=min(samples.df$resolution),
     #     resolution.max=max(samples.df$resolution)
     # ) %>% 
-    # ungroup() %>%
+    ungroup() %>%
     # mutate(resolution=list(unique(c(resolutions, resolution.min, resolution.max)))) %>%
     # unnest(resolution) %>% 
     # mutate(
@@ -1020,9 +1021,7 @@ get_all_row_combinations <- function(
 
 tidy_pair_metadata <- function(
     sampleID.pairs.df,
-    SampleID.fields,
     ...){
-    # sampleID.pairs.df=tmp %>% select(all_of(c(sampleID_col.P1, sampleID_col.P2))); SampleID.fields=c('Edit', 'Celltype', 'Genotype')
     sampleID_col.P1 <- colnames(sampleID.pairs.df)[[1]]
     sampleID_col.P2 <- colnames(sampleID.pairs.df)[[2]]
     sampleID.pairs.df %>% 
@@ -1033,16 +1032,14 @@ tidy_pair_metadata <- function(
     get_info_from_SampleIDs(
         sample_ID_col=sampleID_col.P1,
         col_prefix='SampleInfo.P1.',
-        SampleID.fields=SampleID.fields,
-        # keep_id=FALSE,
+        keep_id=FALSE,
         ...
     ) %>% 
     # Repeat for the other sample in each pair
     get_info_from_SampleIDs(
         sample_ID_col=sampleID_col.P2,
         col_prefix='SampleInfo.P2.',
-        SampleID.fields=SampleID.fields,
-        # keep_id=FALSE,
+        keep_id=FALSE,
         ...
     ) %>% 
     # Now format sample metadata per pair for easy grouping+plotting
@@ -1061,31 +1058,38 @@ tidy_pair_metadata <- function(
         names_from='pair.index',
         values_from='value'
     ) %>% 
-    mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
+    # mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
+    rowwise() %>% 
+    mutate(
+        metadata.value=
+            sort(c(P1, P2)) %>% 
+            paste(collapse=' vs ')
+    ) %>%
+    ungroup() %>% 
     select(-c(P1, P2)) %>% 
     pivot_wider(
         names_from=metadata.field,
         values_from=metadata.value
     ) %>%
-    select(-c(row.index))
+    select(-all_of(c('row.index')))
+    # select(-all_of(c('row.index', sampleID_col.P1, sampleID_col.P2)))
 }
 
 enumerate_pairwise_comparisons <- function(
     data.df,
     sample.group.comparisons,
-    pair_grouping_cols,
-    SampleID.fields,
+    pair_grouping_cols=c(),
+    SampleID.fields=NULL,
     sampleID_col='SampleID',
     suffixes=c('.P1', '.P2'),
     ...){
-    # data.df=loops.df %>% select(-c(SampleInfo.Edit, SampleInfo.Celltype, SampleInfo.Genotype)); sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr', 'resolution.int'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
+    # data.df=nested.loops.df; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% dplyr::rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
     sampleID_col.P1 <- glue('{sampleID_col}{suffixes[[1]]}') # SampleID.P1
     sampleID_col.P2 <- glue('{sampleID_col}{suffixes[[2]]}') # SampleID.P2
-    tmp <- 
     data.df %>% 
     # get all possible pairs of rows of data.df 
     join_all_rows(
-        cols_to_match=c(pair_grouping_cols),
+        cols_to_match=pair_grouping_cols,
         suffix=suffixes
     ) %>% 
     # only keep explicitly specified comparisons
@@ -1100,20 +1104,27 @@ enumerate_pairwise_comparisons <- function(
             )
         }
     } %>% 
-    mutate(
-        tidy.metadata=
-            tidy_pair_metadata(
-                sampleID.pairs.df=
-                    select(
-                        .data=., 
-                        all_of(c(sampleID_col.P1, sampleID_col.P2))
-                    ),
-                suffixes=suffixes,
-                SampleID.fields=SampleID.fields,
-                ...
-            )
-    ) %>%
-    unnest(tidy.metadata)
+    {
+        if(!is.null(SampleID.fields)) {
+            mutate(
+                .,
+                tidy.metadata=
+                    tidy_pair_metadata(
+                        sampleID.pairs.df=
+                            select(
+                                .data=., 
+                                all_of(c(sampleID_col.P1, sampleID_col.P2))
+                            ),
+                        suffixes=suffixes,
+                        SampleID.fields=SampleID.fields,
+                        ...
+                    )
+            ) %>%
+            unnest(tidy.metadata)
+        } else {
+            .
+        }
+    }
 }
 
 ###################################################
@@ -1255,7 +1266,7 @@ calculate_boundary_similarities <- function(
     # summarize similarity statistics across those "most similar" boundary pair sets
     stats.df <- 
         pairs.df %>% 
-        rename_with(~ str_remove(.x, '.diff$')) %>% 
+        dplyr::rename_with(~ str_remove(.x, '.diff$')) %>% 
         select(c(start, end, length, jaccard)) %>% 
         pivot_longer(
              everything(),
@@ -1282,10 +1293,11 @@ calculate_all_boundary_similarities <- function(
     boundaries.df,
     pair_grouping_cols,
     sample.group.comparisons=NULL,
-    SampleID.fields=SampleID.fields,
+    sampleID_col='Sample.Group',
+    SampleID.fields=c(NA, 'Celltype', 'Genotype'),
     only_keep_overlaps=TRUE,
     ...){
-    # sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); only_keep_overlaps=FALSE
+    # boundaries.df=TADs.df %>% select(-c(Celltype, Genotype, SampleID)) %>% nest(boundaries=c(start, end, length)); sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols=c('resolution', 'TAD.method', 'TAD.params', 'chr'); sample.group.comparisons=NULL; SampleID.fields=c(NA, 'Celltype', 'Genotype'); only_keep_overlaps=TRUE
     # boundaries.df Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # 3 columns; start, end, length indicating each set of boundaries
@@ -1295,7 +1307,7 @@ calculate_all_boundary_similarities <- function(
         sample.group.comparisons=sample.group.comparisons,
         pair_grouping_cols=pair_grouping_cols,
         SampleID.fields=SampleID.fields,
-        sampleID_col='SampleID',
+        sampleID_col=sampleID_col,
         suffixes=c('.P1', '.P2'),
     ) %>% 
     # Finally compute all MoCs for all listed pairs of annotations
@@ -1303,10 +1315,11 @@ calculate_all_boundary_similarities <- function(
         # tmp2 <- tmp %>% head(2) %>% 
     mutate(
         similarities=
-            pmap(
+            # pmap(
+            future_pmap(
                 .l=.,
-                # .f=calculate_boundary_similarities,
-                .f=get_boundary_pairs,
+                .f=calculate_boundary_similarities,
+                # .f=get_boundary_pairs,
                 only_keep_overlaps=only_keep_overlaps,
                 .progress=TRUE
             )

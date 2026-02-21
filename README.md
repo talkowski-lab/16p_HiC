@@ -238,23 +238,25 @@ Generate TADCompare results
 # requires 120Gb for the largest matrix comparison (i.e. chr1 @5Kb)
 Rscript ./scripts/TADs/run.TADCompare.R
 ```
-Generate multiHiCCompare results
-```bash
-Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
-```
-Generate Loop Annotations
+Generate Loop results
 ```bash
 # generate loop annotations with cooltools + all default params
 ./scripts/loops/run.loops.cooltools.sh ./results/loops ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Use IDR2D to define which loops are reproducible between conditions
 Rscript scripts/loops/run.IDR2D.loops.R
+# Map loops + reproducibility to gene coordinates
+Rscript scripts/loops/map.loops.to.genes.R
+```
+Generate multiHiCCompare results
+```bash
+Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 ```
 Generate Compartment annotations
 ```bash
 # pre-process input matrices for dcHiC
 # Rscript ./scripts/compartments/preprocess.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/preprocess.dcHiC.cmds.txt
 # Rscript ./scripts/compartments/run.compartments.dcHiC.R && parallel -j 8 --eta :::: ./results/compartments/run.dcHiC.cmds.txt
-Rscript ./scripts/compartments/run.compartments.HiCDOC.R
+# Rscript ./scripts/compartments/run.compartments.HiCDOC.R
 ```
 
 ### File Summary One-liners
