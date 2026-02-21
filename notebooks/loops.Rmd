@@ -46,8 +46,6 @@ library(magrittr)
 
 Using the default params we only keep loops < 2Mb in size, which is enough to capture most CTCF-associated loops in human cells. The loop calling params are explained in the [cooltools docs](https://cooltools.readthedocs.io/en/latest/notebooks/dots.html#Dot-calling-with-default-parameters):
 
-Here is a brief description of the steps involved in cooltools dots():
-
 - A set of convolution kernels are recommended based on the resolution of clr, if user-defined convolution kernels are not provided (i.e. kernels=None).
 - The requested portion of the heatmap (defined by view_df and max_loci_separation) is split into smaller tiles of size tile_size. This ensures the entire heatmap is not loaded into memory at once, and computationally intensive steps can be done in parallel using nproc workers. tile_size and nproc do not affect the outcome of the procedure.
 - Tiles of the heatmap are convolved with the provided kernels to calculate localy adjusted expected for each pixel. This is in turn used to calculate p-values, assuming a Poisson distribution of pixel counts.
@@ -138,25 +136,69 @@ n.loops.per.chr.df <-
         name='n.loops'
     )
 ```
-Plot number of sig. loops per condition
-```{r plot_n_loops_heatmap, results='asis', fig.dim=c(10,6)}
+
+## Genome-Wide
+
+```{r plot_n_loops_heatmap_gw, results='asis', fig.dim=c(10,6)}
 n.loops.per.chr.df %>% 
+    group_by(across(-c(chr, n.loops))) %>% 
+    summarize(n.loops=sum(n.loops)) %>%
+    ungroup() %>%
+    add_column(chr='Genome-Wide') %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='.',
+        names=c(NA, 'Celltype', 'Genotype'),
+        cols_remove=FALSE
+    ) %>%
     # filter(kernel == 'donut') %>% 
     # filter(resolution == '25Kb') %>% 
+    filter(sig.lvl %in% c('qval < 0.1', 'N.S.')) %>% 
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
         plot.fnc=plot_barplot,
-        max.header.lvl=2,
+        max.header.lvl=3,
+        x.var='SampleID',
+        y.var='n.loops',
+        fill.var='SampleID', 
+        facet.row='sig.lvl',
+        facet.col='Celltype',
+        legend.position='right',
+        scales='free_x',
+        # axis.text.x=element_text(angle=45, hjust=1),
+        # legend.text=element_text(angle=35, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+## Per Chr
+
+```{r plot_n_loops_heatmap_chr, results='asis', fig.dim=c(10,6)}
+n.loops.per.chr.df %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='.',
+        names=c(NA, 'Celltype', 'Genotype'),
+        cols_remove=FALSE
+    ) %>%
+    # filter(kernel == 'donut') %>% 
+    # filter(resolution == '25Kb') %>% 
+    filter(sig.lvl %in% c('qval < 0.1', 'N.S.')) %>% 
+    make_nested_plot_tabs(
+        # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
+        group.cols=c('weight', 'resolution'),
+        plot.fnc=plot_barplot,
+        max.header.lvl=3,
         x.var='chr',
         x.scale.mode='discrete',
         y.var='n.loops',
         fill.var='SampleID', 
-        facet.row='sig.lvl',
-        facet.col='kernel',
+        facet.col='sig.lvl',
+        facet.row='Celltype',
         legend.position='right',
-        # axis.text.x=element_text(angle=45, hjust=1),
-        # legend.text=element_text(angle=35, hjust=1),
+        axis.text.x=element_text(angle=45, hjust=1),
         axis.title.x=element_blank(),
         axis.title.y=element_blank()
     )
@@ -174,16 +216,15 @@ loops.df %>%
         group.cols=c('weight', 'resolution'),
         max.header.lvl=2,
         plot.fnc=plot_boxplot,
-        quantile.linetype=TRUE,
-        # position='dodge',
-        # adjust=0.5,
+        # quantile.linetype=TRUE,
         x.var='chr',
-        x.scale.mode='discrete',
+        # x.scale.mode='discrete',
         y.var='length',
         y.scale.mode='mb',
         fill.var='SampleID', 
         facet.row='kernel',
-        legend.position='top',
+        legend.position='right',
+        outlier.size=0.25,
         axis.text.x=element_text(angle=45, hjust=1),
         # legend.text=element_text(angle=35, hjust=1),
         axis.title.x=element_blank(),
@@ -191,9 +232,7 @@ loops.df %>%
     )
 ```
 
-# Loop Sigificance + Enrichment {.tabset}
-
-## Distribution Plots {.tabset}
+# Distribution Plots {.tabset}
 
 Make violin plot with q-values
 ```{r box_plot, results='asis', fig.dim=c(10,6)}
@@ -206,7 +245,7 @@ loops.df %>%
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
-        max.header.lvl=3,
+        max.header.lvl=2,
         plot.fnc=plot_boxplot,
         x.var='chr',
         x.scale.mode='discrete',
@@ -216,12 +255,13 @@ loops.df %>%
         # facet.col='kernel',
         facet.row='metric',
         scales='free_y',
+        outlier.size=0.25,
         strip.text.x=element_text(size=5),
         axis.text.x=element_text(angle=45, hjust=1)
     )
 ```
 
-## Manhattan Plots {.tabset}
+# Manhattan Plots {.tabset}
 
 Make manhattan plot with q-values
 ```{r manhattan_plot, results='asis', fig.dim=c(10,6)}
@@ -229,27 +269,52 @@ loops.df %>%
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
-        max.header.lvl=3,
+        max.header.lvl=2,
         plot.fnc=plot_jitter,
-        y.var='log10.qval',
-        # x.var='chr',
+        # x.var='SampleID',
+        # y.var='log10.qval',
         # color.var='Genotype',
         # shape.var='Genotype',
-        x.var='SampleID',
+        x.var='chr',
+        y.var='log10.qval',
         color.var='enrichment',
-        facet.col='chr',
-        # facet.row='kernel',
-        x.scale.mode='discrete',
-        scales='free_y',
+        facet.row='SampleID',
         size=0.25,
+        axis.title.x=element_blank(),
         axis.text.x=element_text(angle=45, hjust=1)
     )
 ```
 
-## Volcano-ish plot Plots {.tabset}
+# Volcano-ish plot Plots {.tabset}
 
-Plot loop enrichment against log10 qvalue
-```{r volcanoish, results='asis', fig.dim=c(10,6)}
+## Genome-Wide {.tabset}
+
+```{r volcanoish_gw, results='asis', fig.dim=c(10,8)}
+loops.df %>% 
+    # filter(weight == 'raw', resolution == '10Kb') %>% 
+    make_nested_plot_tabs(
+        # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
+        # group.cols=c('weight', 'resolution', 'metric', 'kernel'),
+        group.cols=c('weight', 'resolution', 'kernel'),
+        max.header.lvl=3,
+        plot.fnc=plot_jitter,
+        x.var='enrichment',
+        y.var='log10.qval',
+        color.var='SampleID',
+        regression_fnc='lm',
+        add_regression_SE=TRUE,
+        # facet.group='chr',
+        # facet.nrow=4,
+        scales='fixed',
+        legend.position='right',
+        # size=0.25,
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+
+## Per Chr {.tabset}
+
+```{r volcanoish_chr, results='asis', fig.dim=c(10,6)}
 loops.df %>% 
     # filter(weight == 'raw', resolution == '10Kb') %>% 
     make_nested_plot_tabs(
@@ -266,11 +331,10 @@ loops.df %>%
         facet.group='chr',
         facet.nrow=4,
         scales='fixed',
-        legend.position='top',
+        # legend.position='top',
         # size=0.25,
-        strip.text=element_text(size=5),
-        axis.text.x=element_text(angle=45, hjust=1),
-        axis.title.x=element_blank()
+        strip.text=element_text(size=8),
+        axis.text.x=element_text(angle=45, hjust=1)
     )
 ```
 
