@@ -1,7 +1,7 @@
 library(TADCompare)
 
 ###################################################
-# Utilities
+# Load TADs to compare
 ###################################################
 TADCompare_load_matrix <- function(
     filepath,
@@ -18,17 +18,17 @@ TADCompare_load_matrix <- function(
 load_hiTAD_results_for_TADCompare <- function(){
     check_cached_results(
         results_file=HITAD_TAD_RESULTS_FILE,
-        force_redo=FALSE,
+        # force_redo=TRUE,
         results_fnc=load_all_hiTAD_TADs
     ) %>% 
-    post_process_hiTAD_TAD_results() %>%
-    filter(isMerged == 'Merged') %>% 
-    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
-    select(SampleID, resolution, chr, TAD.start, TAD.end) %>% 
-    rename_with(~ str_replace(.x, 'TAD.', '')) %>% 
+    filter(weight == 'balanced') %>% 
+    filter(isMerged) %>% 
+    select(SampleID, resolution, chr, start, end) %>% 
+    mutate(Sample.Group=str_replace_all(SampleID, '.Merged.Merged', '')) %>% 
     mutate(region=chr) %>% 
-    nest(TADs=c(chr, start, end)) %>% 
-    rename('chr'=region)
+    mutate(length=end - start) %>% 
+    nest(TADs=c(chr, start, end, length)) %>% 
+    dplyr::rename('chr'=region)
 }
 
 load_cooltools_results_for_TADCompare <- function(){
@@ -55,7 +55,7 @@ load_cooltools_results_for_TADCompare <- function(){
     group_by(resolution, TAD.params, SampleID, region) %>% 
     nest(TADs=c(chr, start, end)) %>% 
     ungroup() %>% 
-    rename('chr'=region) %>% 
+    dplyr::rename('chr'=region) %>% 
     select(resolution, TAD.params, SampleID, chr, TADs)
 }
 
@@ -65,26 +65,29 @@ load_ConsensusTAD_results_for_TADCompare <- function(){
         # force_redo=TRUE,
         results_fnc=load_all_ConsensusTAD_TADs
     ) %>% 
-    # Only keep boundaries
-    filter(isConsensusBoundary) %>% 
-    # Clean up 
     post_process_ConsensusTAD_TAD_results() %>% 
     mutate(SampleID=glue('{Sample.Group}.Merged.Merged')) %>% 
-    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
-    select(resolution, TAD.params, SampleID, chr, bin.start) %>% 
+    dplyr::select(
+        method, TAD.params, resolution, 
+        SampleID, Sample.Group,
+        chr, bin.start
+    ) %>% 
+    mutate(chr2=chr) %>% 
     # remove entries with < 2 boundaries
     nest(boundaries=c(bin.start)) %>% 
-    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    rowwise() %>% 
+    filter(nrow(boundaries) > 1) %>% 
     # convert boundaries to start/end format
     mutate(TADs=list(convert_boundaries_to_TADs(boundaries=boundaries))) %>% 
-    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
-    # Nest for downstream analysis
-    mutate(region=chr) %>% 
-    group_by(resolution, TAD.params, SampleID, region) %>% 
-    nest(TADs=c(chr, start, end)) %>% 
     ungroup() %>% 
-    rename('chr'=region) %>% 
-    select(resolution, TAD.params, SampleID, chr, TADs)
+    select(-c(boundaries)) %>% 
+    unnest(TADs) %>% 
+    mutate(length=end - start) %>% 
+    nest(TADs=c(chr, start, end, length)) %>% 
+    dplyr::rename(
+        'TAD.method'=method,
+        'chr'=chr2
+    )
 }
 
 load_all_TAD_results_for_TADCompare <- function(){
@@ -101,24 +104,23 @@ load_all_TAD_results_for_TADCompare <- function(){
     #     add_column(TAD.method='cooltools')
     # ConsensusTAD TAD results 
     consensusTAD.TADs.df <- 
-        load_ConsensusTAD_results_for_TADCompare() %>% 
-        add_column(TAD.method='ConsensusTAD')
+        load_ConsensusTAD_results_for_TADCompare()
     # default TADCompare method estimates TADs itself, include nothing
     spectralTAD.TADs.df <- 
         expand_grid(
             SampleID=unique(hiTAD.TADs.df$SampleID),
             chr=CHROMOSOMES,
-            resolution=parsed.args$resolutions
+            resolution=unique(hiTAD.TADs.df$resolution)
         ) %>% 
         add_column(
-            TADs=NULL,
+            TADs=NULL, # will be estimated by TADCompare
             TAD.params=NULL,
             TAD.method='spectralTAD'
         )
     # Bind everything together
     bind_rows(
         hiTAD.TADs.df,
-        cooltools.TADs.df,
+        # cooltools.TADs.df,
         consensusTAD.TADs.df,
         spectralTAD.TADs.df
     ) %>%
@@ -132,7 +134,8 @@ load_all_TAD_results_for_TADCompare <- function(){
           resolution
         )
     ) %>% 
-    rename('pre_tads'=TADs)
+    dplyr::select(-c(TAD.set.index)) %>% 
+    dplyr::rename('pre_tads'=TADs)
 }
 
 ###################################################
@@ -153,8 +156,7 @@ run_TADCompare <- function(
     window_size,
     gap_thresh,
     ...){
-    # tmp[165,] %>% t()
-    # row_index=165; filepath.Numerator=tmp$filepath.Numerator[[row_index]]; SampleID.Numerator=tmp$SampleID.Numerator[[row_index]]; pre_tads.Numerator=tmp$pre_tads.Numerator[[row_index]]; filepath.Denominator=tmp$filepath.Denominator[[row_index]]; SampleID.Denominator=tmp$SampleID.Denominator[[row_index]]; pre_tads.Denominator=tmp$pre_tads.Denominator[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]; z_thresh=tmp$z_thresh[[row_index]]; window_size=tmp$window_size[[row_index]]; gap_thresh=tmp$gap_thresh[[row_index]];
+    # paste0(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', collapse='; ')
     # chr1 @ 10Kb -> 24896x24896 matrix -> 40Gb is enough
     # Run TADCompare on the 2 matrices being compared
     matrix.numerator <-
@@ -190,17 +192,33 @@ run_TADCompare <- function(
             pre_tads=pre_tads
         )
     # Format results to include boundary+gap scores for all bins + differential annotations
+    # tad.compare.results$Boundary_Scores %>% as_tibble()
+    # tad.compare.results$TAD_Frame %>% as_tibble()
     tad.compare.results$Boundary_Scores %>% 
     as_tibble() %>%
-    left_join(
+    full_join(
         tad.compare.results$TAD_Frame %>%
         as_tibble() %>% 
         add_column(isTADBoundary=TRUE),
         suffix=c('.All', '.TADs'),
         by=join_by(Boundary)
     ) %>% 
+        # {.} -> tcr; tcr
+        # tcr %>% count(isTADBoundary, Differential.All, Differential.TADs, Type.All, Type.TADs)
+        # tcr %>% 
     mutate(
         isTADBoundary=ifelse(is.na(isTADBoundary), FALSE, isTADBoundary),
+        Differential=
+            case_when(
+                is.na(Differential.TADs) ~ Differential.All,
+                TRUE                     ~ Differential.TADs
+            ),
+        is.Differential=!grepl('Non-Differential', Differential),
+        Type=
+            case_when(
+                is.na(Type.TADs) ~ Type.All,
+                TRUE             ~ Type.TADs
+            ),
         Enriched.Condition=
             case_when(
                 Enriched_In.TADs == 'Matrix 1' ~ SampleID.Numerator,
@@ -208,22 +226,6 @@ run_TADCompare <- function(
                 Enriched_In.All  == 'Matrix 1' ~ SampleID.Numerator,
                 Enriched_In.All  == 'Matrix 2' ~ SampleID.Denominator,
                 TRUE                      ~ NA
-            ),
-        Differential=
-            case_when(
-                is.na(Differential.TADs) ~ Differential.All,
-                TRUE                     ~ Differential.TADs
-            ),
-        Differential=
-            ifelse(
-                Differential %in% c('Differential', 'Non-Differential'),
-                Differential, 
-                'Differential'
-            ),
-        Type=
-            case_when(
-                is.na(Type.TADs) ~ Type.All,
-                TRUE             ~ Type.TADs
             ),
         TAD_Score1=
             case_when(
@@ -241,14 +243,14 @@ run_TADCompare <- function(
                 TRUE                  ~ Gap_Score.TADs
             )
     ) %>%
-    rename(
+    dplyr::rename(
         'TAD.Score.Numerator'=TAD_Score1,
         'TAD.Score.Denominator'=TAD_Score2,
         'TAD.isDifferential'=Differential,
         'TAD.Difference.Type'=Type
     ) %>% 
     rename_with(~ str_replace_all(.x, '_', '.')) %>% 
-    select(-c(ends_with('.All'), ends_with('.TADs')))
+    dplyr::select(-c(ends_with('.All'), ends_with('.TADs')))
 }
 
 run_all_TADCompare <- function(
@@ -332,30 +334,30 @@ load_TADCompare_results <- function(filepath, ...){
     read_tsv(
         show_col_types=FALSE,
         progress=FALSE
-    ) %>%
+    ) # %>%
         # dplyr::count(isTADBoundary, TAD.isDifferential)
-    mutate(
-        isTADBoundary= 
-            case_when(
-                isTADBoundary == 'Differential' ~ TRUE,
-                isTADBoundary == 'Non-Differential' ~ FALSE,
-                TRUE ~ isTADBoundary,
-                # TRUE ~ NA
-                # isTADBoundary == 'Differential' ~ 'TRUE',
-                # isTADBoundary == 'Non-Differential' ~ 'FALSE',
-                # TRUE ~ isTADBoundary
-            ),
-        TAD.isDifferential=
-            case_when(
-                TAD.isDifferential == 'Differential' ~ TRUE,
-                TAD.isDifferential == 'Non-Differential' ~ FALSE,
-                # TRUE ~ TAD.isDifferential
-            )
-    ) %>%
-        # dplyr::count(isTADBoundary, TAD.isDifferential)
-    # Only keep TAD boundaries (differential or not) or differential non-boundary bins
-    filter(!is.na(isTADBoundary) & !is.na(TAD.isDifferential)) %>% 
-    filter(!(!isTADBoundary & !TAD.isDifferential))
+    # mutate(
+    #     isTADBoundary= 
+    #         case_when(
+    #             isTADBoundary == 'Differential' ~ TRUE,
+    #             isTADBoundary == 'Non-Differential' ~ FALSE,
+    #             TRUE ~ isTADBoundary,
+    #             # TRUE ~ NA
+    #             # isTADBoundary == 'Differential' ~ 'TRUE',
+    #             # isTADBoundary == 'Non-Differential' ~ 'FALSE',
+    #             # TRUE ~ isTADBoundary
+    #         ),
+    #     TAD.isDifferential=
+    #         case_when(
+    #             TAD.isDifferential == 'Differential' ~ TRUE,
+    #             TAD.isDifferential == 'Non-Differential' ~ FALSE,
+    #             # TRUE ~ TAD.isDifferential
+    #         )
+    # ) %>%
+    #     # dplyr::count(isTADBoundary, TAD.isDifferential)
+    # # Only keep TAD boundaries (differential or not) or differential non-boundary bins
+    # filter(!is.na(isTADBoundary) & !is.na(TAD.isDifferential)) %>% 
+    # filter(!(!isTADBoundary & !TAD.isDifferential))
 }
 
 list_all_TADCompare_results <- function(){
@@ -375,7 +377,7 @@ list_all_TADCompare_results <- function(){
 
 load_all_TADCompare_results <- function(...){
     list_all_TADCompare_results() %>% 
-    filter(TAD.method != 'cooltools') %>% 
+    # filter(TAD.method != 'cooltools') %>% 
     # Filter relevant results 
         # {.} -> tmp
         # row_index=2884; tmp$filepath[[row_index]]; filepath <- tmp$filepath[[row_index]]

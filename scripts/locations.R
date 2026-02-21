@@ -78,8 +78,9 @@ COOLTOOLS_TAD_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
 CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
 # CONSENSUSTAD_MOC_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
 # TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
+ALL_TAD_RESULTS_FILE            <- file.path(TAD_DIR, 'all.TADs.tsv')
 TADCOMPARE_RESULTS_FILE         <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
-# ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
+ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
 
 ###################################################
 # Compartment Annotations

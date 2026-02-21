@@ -12,15 +12,15 @@ convert_boundaries_to_TADs <- function(
     start.col.name='start',
     end.col.name='end',
     ...){
+    # boundaries=tmp$boundaries[[1]]; start.col.name='start'; end.col.name='end'
     # convert list of TAD boundaries to start/end format
     # every bnoundary is a start+end excpet for the first and last ones
-    boundaries <- unlist(boundaries)
     tibble(
-        TAD.start=boundaries[1:length(boundaries)-1],
-        TAD.end=boundaries[2:length(boundaries)]
+        TAD.start=boundaries %>% deframe() %>% {.[1:length(.)-1]},
+        TAD.end=boundaries %>% deframe() %>% {.[2:length(.)]}
     ) %>%
     add_row(TAD.start=NA, TAD.end=NA) %>% 
-    rename(
+    dplyr::rename(
        !!start.col.name := TAD.start,
        !!end.col.name := TAD.end
     )
@@ -195,7 +195,7 @@ load_all_hiTAD_DIs <- function(){
     ) %>%
     get_info_from_MatrixIDs(keep_id=FALSE) %>% 
     filter(method == 'hiTAD') %>% 
-    filter(weight == 'ICE') %>%
+    filter(weight == 'balanced') %>%
     mutate(
         DIs=
             # pmap(
@@ -250,19 +250,20 @@ load_all_hiTAD_TADs <- function(){
 post_process_hiTAD_TAD_results <- function(results.df){
     results.df %>% 
     # Subset to only relevant parameters
-    mutate(length=end - start) %>% 
-    mutate(Sample.Group=str_replace_all(SampleID, '.Merged.Merged', '')) %>% 
-    filter(weight == 'ICE') %>% 
+    filter(weight == 'balanced') %>% 
     filter(isMerged) %>% 
+    mutate(length=end - start) %>% 
+    # mutate(Sample.Group=str_replace_all(SampleID, '.Merged.Merged', '')) %>% 
     dplyr::select(
         -c(
             weight,
-            threshold,
-            mfvp,
+            # threshold,
+            # mfvp,
             ReadFilter,
             isMerged,
             Edit, Celltype, Genotype, CloneID, TechRepID,
-            SampleID
+            # Sample.Group
+            # SampleID
         )
     )
 }
@@ -356,8 +357,7 @@ run_ConsensusTAD <- function(
     window_size,
     gap_thresh,
     ...){
-    # row_index=750; samples.df=tmp$samples.df[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; range1=tmp$range1[[row_index]]; range2=tmp$range2[[row_index]]
-    # filepath=samples.df$filepath[[1]]
+    # isMerged=tmp$isMerged[[1]]; samples.df=tmp$samples.df[[1]]; Sample.Group=tmp$Sample.Group[[1]]; resolution=tmp$resolution[[1]]; normalization=tmp$normalization[[1]]; z_thresh=tmp$z_thresh[[1]]; window_size=tmp$window_size[[1]]; gap_thresh=tmp$gap_thresh[[1]]; chr=tmp$chr[[1]]; range1=tmp$range1[[1]]; range2=tmp$range2[[1]]; output_dir=tmp$output_dir[[1]]; results_file=tmp$results_file[[1]]
     sampleID.mapping <- 
         samples.df %>%
         mutate(
@@ -397,7 +397,7 @@ run_ConsensusTAD <- function(
         by=join_by(Coordinate)
     ) %>% 
     mutate(isConsensusBoundary=ifelse(is.na(isConsensusBoundary), FALSE, isConsensusBoundary)) %>% 
-    rename(
+    dplyr::rename(
         all_of(sampleID.mapping),
         'bin.start'=Coordinate,
         'consensus.score'=Consensus_Score
@@ -458,8 +458,9 @@ run_all_ConsensusTADs <- function(
         )
     } %>%
     arrange(desc(resolution)) %>% 
-    # future_pmap(
-    pmap(
+        # {.} -> tmp
+    # pmap(
+    future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_ConsensusTAD
             function(results_file, ...){ 
@@ -514,29 +515,10 @@ post_process_ConsensusTAD_TAD_results <- function(results.df){
         window.size,
         gap.thresh,
     ) %>% 
-    # nest(scores=ends_with('.score'))
     # Only keep boundaries
+    # mutate(length=end - start) %>% 
     filter(isConsensusBoundary) %>% 
-    # Clean up 
-    rename('chr'=region) %>% 
-    select(method, resolution, TAD.params, Sample.Group, chr, bin.start) %>% 
-    nest(boundaries=c(bin.start)) %>% 
-    # remove entries with < 2 boundaries
-    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
-    # convert boundaries to start/end format
-    mutate(
-        TADs=
-            list(
-                convert_boundaries_to_TADs(
-                    boundaries=boundaries,
-                    start.col.name='start',
-                    end.col.name='end',
-                )
-            )
-    ) %>% 
-    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
-    # Nest for downstream analysis
-    mutate(length=end - start)
+    dplyr::rename('chr'=region)
 }
 
 ###################################################

@@ -5,10 +5,11 @@ library(here)
 here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
+library(hictkR)
     source(file.path(BASE_DIR, 'scripts', 'locations.R'))
-    source(file.path(SCRIPT_DIR, 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+    source(file.path(BASE_DIR, 'scripts', 'constants.R'))
+    source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
     source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADs.R'))
     source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADCompare.R'))
     library(tidyverse)
@@ -36,49 +37,47 @@ hyper.params.df <-
     )
 # Load TAD annotations to compare 
 TADs.df <- 
-    load_all_TAD_results_for_TADCompare() %>% 
-    select(-c(TAD.set.index))
-
-###################################################
-# Generate TADCompare results from merged matrices
-###################################################
+    load_all_TAD_results_for_TADCompare()
 # List all pairs of matrices to compare
 comparisons.list <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
+    rename_with(~ str_replace(.x, 'Sample.Group', 'SampleID')) %>% 
     mutate(
         across(
             everything(),
             ~ paste0(.x, '.Merged.Merged')
         )
     )
+
+###################################################
+# Generate TADCompare results from merged matrices
+###################################################
 # List of pairs of merged matrices to compare
 comparisons.df <- 
     # List merged matrices
     list_mcool_files() %>%
     filter(isMerged) %>% 
     select(SampleID, filepath) %>%
-    filter(!is.na(filepath)) %>% 
     # add the TAD boundaries to compare between matrices
     left_join(
         TADs.df,
         by=join_by(SampleID)
     ) %>% 
-    mutate(chr=as.character(chr)) %>% 
     # Specify which comparisons to evaluate
-    join_all_rows(
-        cols_to_match=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
-        suffix=c('.Numerator', '.Denominator')
-    ) %>% 
-    inner_join(
-        comparisons.list,
-        by=join_by(SampleID.Numerator, SampleID.Denominator)
+    enumerate_pairwise_comparisons(
+        sample.group.comparisons=comparisons.list,
+        pair_grouping_cols=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
+        sampleID_col='SampleID',
+        # suffixes=c('.P1', '.P2'),
+        suffixes=c('.Numerator', '.Denominator'),
+        SampleID.fields=c(NA, 'Celltype', 'Genotype', NA, NA),
+        include_merged_col=FALSE
     )
 # used by calls to future_pmap() in functions below
-message(glue('using {parsed.args$threads} core to parallelize'))
-plan(multisession, workers=parsed.args$threads)
+# message(glue('using {parsed.args$threads} core to parallelize'))
+# plan(multisession, workers=parsed.args$threads)
 # Run TADCompare on everything
 comparisons.df %>% 
-    filter(TAD.method != 'cooltools') %>% 
     run_all_TADCompare(    
         hyper.params.df=hyper.params.df,
         TADs.df=TADs.df,
