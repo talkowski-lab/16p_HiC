@@ -30,6 +30,9 @@ COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
 GENOME_GTF_FILE         <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
 # RNASeq
 EXPRESSION_DATA_DIR     <- file.path(RESULTS_DIR, 'RNASeq', 'expression')
+EXPRESSION_RESULTS_FILE <- file.path(RESULTS_DIR, 'RNASeq', 'all.expression.data.tsv')
+DESEQ2_DATA_DIR         <- file.path(RESULTS_DIR, 'RNASeq', 'DESeq2')
+DESEQ2_RESULTS_FILE     <- file.path(RESULTS_DIR, 'RNASeq', 'all.DESeq2.results.tsv')
 # Functional genome annotations
 CTCF_SITE_FILE          <- file.path(REF_DIR, 'CTCF.annotations.tsv')
 GENE_CONSTRAINTS_FILE   <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
