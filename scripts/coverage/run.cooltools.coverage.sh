@@ -20,9 +20,7 @@ help() {
 }
 
 compute_matrix_coverage() {
-    output_dir="$(readlink -e "${1}")"
-    mkdir -p "${1}"
-    echo "Saving results in ${output_dir}"
+    echo "Saving results in ${OUTPUT_DIR}"
     for sample_file in "${@:2}"; do
         # Extract SampleID
         sample_ID="$(basename "$sample_file")"
@@ -41,7 +39,7 @@ compute_matrix_coverage() {
                     weight_flag=""
                 fi
                 # name output file directory with params
-                param_dir="${output_dir}/weight_${weight_name}/resolution_${resolution}"
+                param_dir="${OUTPUT_DIR}/weight_${weight_name}/resolution_${resolution}"
                 output_file="${param_dir}/${sample_ID}-coverage.tsv"
                 # skip if output file exists and no -f flag
                 if [[ -f "${output_file}" && ${FORCE_REDO} == 0 ]]; then
@@ -64,9 +62,9 @@ THREADS=$(nproc)
 FORCE_REDO=0
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && help
-while getopts "a:t:fh" flag; do
+while getopts "o:t:fh" flag; do
     case ${flag} in 
-        o) OUTPUT_DIR="${OPTARG}" ;;
+        o) OUTPUT_DIR="$(readlink -e ${OPTARG})" ;;
         t) THREADS="${OPTARG}" ;;
         f) FORCE_REDO=1 ;;
         h) help ;;

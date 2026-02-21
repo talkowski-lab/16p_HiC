@@ -6,26 +6,29 @@ date: "`r Sys.Date()`"
 
 <style type="text/css">
 .main-container {
-  max-width: 1800px !important;
+  <!-- max-width: 1800px !important; -->
   margin-left: auto;
   margin-right: auto;
 }
 </style>
 
-# Dependencies
+# Dependencies + Load data
 
 ```{r knitr}
 library(knitr)
 knitr::opts_chunk$set(
+    # eval=FALSE,
     results=FALSE,
     message=FALSE,
     warning=FALSE,
-    dev=c('png', 'pdf', 'svg'),
+    # dev=c('png', 'pdf', 'svg'),
+    dev=c('pdf'),
+    # dev=c('svg'),
     dpi=300
 )
 ```
-Set up file locations + load dependenies
-```{r dependencies}
+Set up file locations + load dependencies
+```{r dependencies, eval=TRUE}
 library(here)
 library(kableExtra)
 here::i_am('notebooks/matrix.QC.Rmd')
@@ -35,26 +38,18 @@ source(file.path(SCRIPT_DIR, 'utils.data.R'))
 source(file.path(BASE_DIR, 'scripts', 'constants.R'))
 source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
 source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-source(file.path(SCRIPT_DIR, 'coverage' 'utils.coverage.R'))
-source(file.path(SCRIPT_DIR, 'coverage' 'utils.qc.R'))
+source(file.path(SCRIPT_DIR, 'coverage', 'utils.coverage.R'))
+source(file.path(SCRIPT_DIR, 'coverage', 'utils.qc.R'))
 library(magrittr)
 library(tidyverse)
 ```
 Load sample metadata
-```{r load_metadata}
+```{r load_metadata, eval=TRUE}
 sample.metadata.df <- 
-    load_sample_metadata()
+    load_sample_metadata(filter=FALSE)
 ```
-
-# Bin-wise coverage of contacts {.tabset}
-
-## Minimum Viable Resolution
-
-The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D) as follows
-
->We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
-
-```{r calc_resolution}
+Load marginal coverage
+```{r load_marginal_coverage_summary_stats}
 coverage.summary <- 
     check_cached_results(
         results_file=RESOLTION_COVERAGE_SUMAMRY_FILE,
@@ -62,76 +57,144 @@ coverage.summary <-
         results_fnc=compute_all_coverage_summaries,
         resolutions=c(100, 50, 25, 10, 5) * 1e3   # Kbs
     ) %>%
-    standardize_data_cols() %>% 
+    filter(
+        ReadFilter == 'mapq_30',
+        count.type == 'cis',
+        weight == 'raw',
+        # isGenome == 'Per.Chr',
+        metric %in% c(
+            'bins.n.covered',  
+            'bins.n.detected', 
+            'bins.n.nz',       
+            'bins.n.total',    
+            'bins.pct.covered',
+            'bins.pct.nz',     
+            'coverage.mean',   
+            'coverage.median', 
+            # 'coverage.min',    
+            # 'coverage.q25',    
+            # 'coverage.q75',    
+            'coverage.total'
+        )
+    ) %>% 
+    left_join(
+        sample.metadata.df %>% select(SampleID, FlowcellID),
+        by=join_by(SampleID)
+    ) %>%
+    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID)) %>% 
+    standardize_data_cols()
+```
+Load pairtools stats files
+```{r pair_plot_df, eval=TRUE}
+pair.stats.list <- 
+    load_pairtools_stats()
+pairs.plot.df <- 
+    pair.stats.list %>%
+    make_pair_qc_df() %>% 
+    get_info_from_SampleIDs(include_merged_col=TRUE) %>%
     left_join(
         sample.metadata.df %>%
-        select(SampleID, FlowcellID),
+        select(SampleID, FlowcellID, Included),
         by=join_by(SampleID)
     ) %>%
     mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 ```
-Now print all resolutions which are usable according to the Rao et al. 2014 definition
-```{r print_valid_resolutions, results=TRUE, paged.print=TRUE, max.print=10000}
-min.resolutions <- 
-    coverage.summary %>% 
+
+# Minimum Viable Resolution {.tabset}
+
+The minimum usable resolution for a HiC dataset is defined in [Rao et al. 2014](https://www.cell.com/cell/fulltext/S0092-8674(14)01497-4?cc=y%3D) as follows
+
+>We define the “matrix resolution” of a Hi-C map as the locus size used to construct a particular contact matrix and the “map resolution” as the smallest locus size such that 80% of loci have at least 1,000 contacts.
+
+Now show which resolutions which are usable according to the Rao et al. 2014 definition
+Heatmap of valid resolutions
+
+## Merged {.tabset}
+
+```{r min_res_heatmap_merged, results='asis', fig.dim=c(8,6)}
+coverage.summary %>% 
     pivot_wider(
         names_from='metric',
         values_from='value'
     ) %>% 
     # Pick relevant coverage results
-    filter(
-        ReadFilter == 'mapq_30',
-        count.type == 'cis',
-        chr == 'Genome.Wide',
-        bins.pct.covered >= 0.80
-    ) %>% 
-    # Pick smallest resolution with sufficient coverage
-    group_by(SampleID) %>% 
-    slice_min(resolution, n=1) %>% 
-    ungroup() %>% 
+    filter(chr == 'Genome.Wide') %>% 
+    filter(isMerged == 'Merged') %>% 
     # format results for human readability
-    mutate(bins.pct.covered=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
-    arrange(SampleID) %T>%
-    write_tsv(MIN_SAMPLE_RESOLUTION_FILE) %>% 
-    # mutate(resolution=scale_numbers(resolution)) %>% 
-    rename(
-        'Min. Viable Resolution'=resolution, 
-        '# Total Bins'=bins.n.total,
-        '# Bins > 0'=bins.n.nz,
-        '% Bins > 0'=bins.pct.nz,
-        '# Bins >= 1K'=bins.n.covered,
-        '% Bins >= 1K'=bins.pct.covered,
+    mutate(`% Bins >= 1K`=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
+    mutate(is.valid.resolution=bins.pct.covered >= 0.80) %>% 
+    # count(SampleID, resolution)
+    make_nested_plot_tabs(
+        group.cols=c('weight'),
+        max.header.lvl=3,
+        plot.fnc=plot_heatmap,
+        x.var='resolution',
+        y.var='SampleID',
+        fill.var='is.valid.resolution',
+        facet.row='Celltype',
+        label.var='% Bins >= 1K',
+        label.size=5,
+        scales='free',
+        legend.position='top',
+        axis.title.y=element_blank(),
+        axis.text.x=element_text(angle=45, hjust=1)
     )
-min.resolutions %>% 
-    arrange(SampleID) %>%
-    select(
-        SampleID,
-        `Min. Viable Resolution`,
-        `% Bins >= 1K`,
-        `# Bins >= 1K`,
-        `# Total Bins`
-    ) #%>% 
-    # kbl() %>% 
-    # kable_styling(bootstrap_options=c("striped", "hover"))
 ```
 
-## Summary Stats {.tabset}
+## Individual {.tabset}
 
-```{r total_heatmaps, results='asis', fig.dim=c(8,5)}
+```{r min_res_heatmap_indv, results='asis', fig.dim=c(12,9)}
 coverage.summary %>% 
-    filter(
-        weight == 'raw',
-        # isGenome == 'Per.Chr',
-        count.type == 'cis'
+    pivot_wider(
+        names_from='metric',
+        values_from='value'
     ) %>% 
-    filter(metric %in% 
-        c(
+    # Pick relevant coverage results
+    filter(chr == 'Genome.Wide') %>% 
+    filter(isMerged == 'Individual') %>% 
+    # format results for human readability
+    mutate(`% Bins >= 1K`=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
+    mutate(is.valid.resolution=bins.pct.covered >= 0.80) %>% 
+    # count(SampleID, resolution)
+    make_nested_plot_tabs(
+        group.cols=c('weight'),
+        max.header.lvl=3,
+        plot.fnc=plot_heatmap,
+        x.var='resolution',
+        y.var='SampleID',
+        fill.var='is.valid.resolution',
+        facet.row='Celltype',
+        label.var='% Bins >= 1K',
+        label.size=3,
+        scales='free',
+        legend.position='top',
+        axis.title.y=element_blank(),
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+
+# Summary Stats {.tabset}
+
+## Genome Wide {.tabset}
+
+```{r total_heatmaps_gw, results='asis', fig.dim=c(12,7)}
+coverage.summary %>% 
+    filter(isGenome == 'Genome.Wide') %>% 
+    filter(
+        metric %in% c(
+            # 'bins.n.total',
+            # 'bins.n.detected',
+            # 'bins.n.nz',
+            'bins.n.covered',
+            # 'bins.pct.nz',
+            # 'bins.pct.covered',
+            # 'coverage.min',
+            # 'coverage.q25',
             'coverage.median',
             'coverage.mean',
+            # 'coverage.q75',
             # 'coverage.max',
-            'coverage.total',
-            'bins.pct.nz',
-            'bins.pct.covered'
+            'coverage.total'
         )
     ) %>% 
     mutate(
@@ -142,17 +205,64 @@ coverage.summary %>%
             )
     ) %>% 
     make_nested_plot_tabs(
-        plot.fnc=plot_heatmap,
-        # group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
-        group.cols=c('isGenome', 'isMerged', 'metric', 'resolution'),
+        group.cols=c('isMerged', 'weight', 'resolution'),
         max.header.lvl=3,
+        plot.fnc=plot_barplot,
+        x.var='SampleID',
+        x.scale.mode='discrete',
+        y.var='value',
+        y.scale.mode='m',
+        fill.var='Genotype', 
+        facet.col='Celltype',
+        facet.row='metric',
+        scales='free',
+        legend.position='right',
+        axis.title.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_text(angle=45, hjust=1)
+    )
+```
+
+## Per Chr {.tabset}
+
+```{r total_heatmaps_chr, results='asis', fig.dim=c(15,8)}
+coverage.summary %>% 
+    filter(isGenome != 'Genome.Wide') %>% 
+    filter(
+        metric %in% c(
+            # 'bins.n.total',
+            # 'bins.n.detected',
+            # 'bins.n.nz',
+            # 'bins.n.covered',
+            'bins.pct.nz',
+            'bins.pct.covered',
+            # 'coverage.min',
+            # 'coverage.q25',
+            'coverage.median',
+            'coverage.mean',
+            # 'coverage.q75',
+            # 'coverage.max',
+            'coverage.total'
+        )
+    ) %>% 
+    mutate(
+        labels=
+            case_when(
+                grepl('.pct.', metric) ~ scales::number(value, accuracy=0.01, stype_positive='none'),
+                TRUE                   ~ scales::number(value, accuracy=0.1,  stype_positive='none', scale_cut=cut_short_scale())
+            )
+    ) %>% 
+    make_nested_plot_tabs(
+        group.cols=c('isMerged', 'weight', 'metric', 'resolution'),
+        max.header.lvl=3,
+        plot.fnc=plot_heatmap,
         x.var='chr',
         y.var='SampleID',
         fill.var='value', 
         facet.row='Celltype',
         scales='free',
         label.var='labels',
-        label.size=1.75,
+        label.size=2.75,
         label.color='white',
         legend.position='top',
         legend.text=element_text(angle=45, hjust=1),
@@ -164,29 +274,12 @@ coverage.summary %>%
                     labels=scales::label_number(scale_cut=scales::cut_short_scale())
                 )
             )
-                    
     )
 ```
 
 # Plot pairs by distance {.tabset}
 
-```{r pair_plot_df, include=FALSE}
-sample.metadata.df <- 
-    load_sample_metadata(filter=FALSE)
-pair.stats.list <- 
-    load_pairtools_stats()
-pairs.plot.df <- 
-    pair.stats.list %>%
-    make_pair_qc_df() %>% 
-    get_info_from_SampleIDs() %>%
-    left_join(
-        sample.metadata.df %>%
-        select(SampleID, FlowcellID, Included),
-        by=join_by(SampleID)
-    ) %>%
-    # filter(Included | isMerged == 'Merged') %>% select(-c(Included)) %>% 
-    # filter(isMerged == 'Merged') %>% select(-c(Included)) %>% 
-    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
+```{r theme obj, eval=TRUE}
 barplot.ggtheme <- 
     make_ggtheme(
         legend.position='right',
@@ -202,7 +295,7 @@ barplot.ggtheme <-
 ```{r plot_n_pairs, fig.dim=c(7,5)}
 pairs.plot.df %>% 
     filter(Included | isMerged == 'Merged') %>% 
-    rename('Unique Pairs'=value) %>% 
+    dplyr::rename('Unique Pairs'=value) %>% 
     plot_barplot(
         x.var='Category',
         y.var='Unique Pairs',
@@ -223,7 +316,7 @@ pairs.plot.df %>%
 ```{r plot_pct_pairs, fig.dim=c(7,5)}
 pairs.plot.df %>% 
     filter(Included | isMerged == 'Merged') %>% 
-    rename('Unique Pairs'=frac) %>% 
+    dplyr::rename('Unique Pairs'=frac) %>% 
     plot_barplot_with_threshold_lines(
         # normal barplot arguments
         x.var='Category',
@@ -249,7 +342,7 @@ pairs.plot.df %>%
 
 ```{r plot_pct_pairs_batch, results='asis', fig.dim=c(10, 6)}
 pairs.plot.df %>% 
-    rename('Unique Pairs'=frac) %>% 
+    dplyr::rename('Unique Pairs'=frac) %>% 
     # filter(FlowcellID == 'Merged', isMerged == 'Individual') %>% 
     # dplyr::count(FlowcellID, isMerged)
     make_nested_plot_tabs(
@@ -297,7 +390,7 @@ Get number of contacts between all pairs of chromosomes (intra & inter)
 ```{r cis_trans_plot_df, include=FALSE}
 plot.df  <- 
     pair.stats.list$chr.stats %>% 
-    rename('contacts'=value) %>% 
+    dplyr::rename('contacts'=value) %>% 
     mutate(
         across(
             starts_with('chr'),
@@ -318,6 +411,7 @@ plot.df  <-
     ) %>% 
     get_info_from_SampleIDs(
         sample_ID_col='SampleID',
+        include_merged_col=TRUE,
         keep_id=TRUE,
         nest_col=NA
     )
@@ -326,9 +420,9 @@ Plot all contacts between all chromosomes as heatmaps
 ```{r plot_cis_trans, results='asis', fig.dim=c(10,10)}
 plot.df %>% 
     make_nested_plot_tabs(
-        plot.fnc=plot_heatmap,
         group.cols=c('isMerged', 'Genotype', 'metric'),
         max.header.lvl=2,
+        plot.fnc=plot_heatmap,
         x.var='chr1',
         y.var='chr2',
         fill.var='value',
@@ -349,7 +443,6 @@ plot.df %>%
                 theme(axis.title=element_blank())
             )
     )
-                    
 ```
 
 # Plot read orientation frequency over distance {.tabset}
@@ -373,7 +466,8 @@ pair.orientation.df <-
             str_replace_all(fixed('+'), '>') %>% 
             str_replace_all(fixed('-'), '<')
     ) %>% 
-    get_info_from_SampleIDs()
+    get_info_from_SampleIDs(include_merged_col=TRUE)
+        
 ```
 Now plot distance vs # of pairs for each pair orientation
 ```{r plot_pair_orientation, results='asis', fig.dim=c(11,10)}
@@ -398,6 +492,35 @@ pair.orientation.df %>%
 `.tsv` of stats per sample 
 ```{r download_stats}
 library(downloadthis)
+min.resolutions <- 
+    coverage.summary %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
+    pivot_wider(
+        names_from='metric',
+        values_from='value'
+    ) %>% 
+    # Pick relevant coverage results
+    filter(
+        chr == 'Genome.Wide',
+        bins.pct.covered >= 0.80
+    ) %>% 
+    # Pick smallest resolution with sufficient coverage
+    group_by(SampleID) %>% 
+    slice_min(resolution, n=1) %>% 
+    ungroup() %>% 
+    # format results for human readability
+    mutate(bins.pct.covered=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
+    arrange(SampleID) %T>%
+    write_tsv(MIN_SAMPLE_RESOLUTION_FILE) %>% 
+    # mutate(resolution=scale_numbers(resolution)) %>% 
+    dplyr::rename(
+        'Min. Viable Resolution'=resolution, 
+        '# Total Bins'=bins.n.total,
+        '# Bins > 0'=bins.n.nz,
+        '% Bins > 0'=bins.pct.nz,
+        '# Bins >= 1K'=bins.n.covered,
+        '% Bins >= 1K'=bins.pct.covered,
+    )
 make_summary_stats_table(
     min.resolutions,
     pair.stats.list,
@@ -410,4 +533,40 @@ download_this(
     output_extension=".csv",
     csv2=TRUE
 )
+```
+
+# RPRR 2026 Figure {.tabset} 
+
+```{r rprr_2026, fig.dim=c(6,4), eval=TRUE}
+txt.size=10
+pairs.plot.df %>% 
+    # filter(Included | isMerged == 'Merged') %>% 
+    filter(isMerged == 'Merged') %>% 
+    dplyr::rename('Unique Pairs'=frac) %>% 
+    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
+    plot_barplot_with_threshold_lines(
+        # normal barplot arguments
+        x.var='Category',
+        y.var='Unique Pairs',
+        fill.var='SampleID',
+        facet.col='Celltype',
+        facet.row='isMerged',
+        x.scale.mode='discrete',
+        y.scale.mode='pct',
+        theme.obj=barplot.ggtheme,
+        legend.cols=1,
+        # where to draw lines
+        scales='free_y',
+        lines.df=
+            tribble(
+                ~Category, ~y_lower, ~y_upper,
+                'Long Range  >  20Kb', 0.15, 0.40
+            )
+    ) +
+    theme(
+        axis.text.x=element_text(size=txt.size, angle=45),
+        axis.text.y=element_text(size=txt.size),
+        legend.text=element_text(size=txt.size),
+        legend.title=element_blank()
+    )
 ```

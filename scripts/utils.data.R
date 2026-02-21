@@ -526,29 +526,12 @@ standardize_data_cols <- function(
 }
 
 ###################################################
-# Load Filetypes
+# Load mcool files
 ###################################################
-load_genome_coverage <- function(
-    filepath,
-    ...){
-    filepath %>% 
-    read_tsv(
-        show_col_types=FALSE,
-        progress=FALSE
-    ) %>%
-    rename_with(~ str_remove(.x, '_(raw|weight)')) %>% 
-    rename(
-        'chr'=chrom,
-        'coverage.cis'=cov_cis,
-        'coverage.total'=cov_tot,
-    ) %>% 
-    pivot_longer(
-        starts_with('coverage'),
-        names_to='metric',
-        names_prefix='coverage.',
-        values_to='coverage'
-    ) %>%  
-    standardize_data_cols()
+list_included_samples <- function(){
+    load_sample_metadata() %>%
+    filter(Included) %>%
+    pull(SampleID)
 }
 
 load_mcool_file <- function(
@@ -562,9 +545,12 @@ load_mcool_file <- function(
     include_ends=FALSE,
     ...){
     if (normalization %in% c('weight', 'balanced', 'ICE')){
-        normalization <- "ICE"
+        normalization <- "weight"
     } else {
         normalization <- "NONE"
+    }
+    if (range2 == "") {
+        range2 <- range1
     }
     filepath %>% 
     File(resolution=resolution) %>% 
@@ -584,7 +570,7 @@ load_mcool_file <- function(
                 filter(chrom1 == chrom2) %>% 
                 {
                     if (include_ends){
-                        rename(
+                        dplyr::rename(
                             .,
                             'chr.A'=chrom1,
                             'start.A'=start1,
@@ -603,7 +589,7 @@ load_mcool_file <- function(
                                 end2
                             )
                         ) %>% 
-                        rename(
+                        dplyr::rename(
                             'chr'=chrom1,
                             'range1'=start1,
                             'range2'=start2,
@@ -613,7 +599,7 @@ load_mcool_file <- function(
                 }
             } else {
                 as_tibble(.) %>%
-                rename(
+                dplyr::rename(
                     'chr1'=chrom1,
                     'chr2'=chrom2,
                     'range1'=start1,
@@ -629,8 +615,7 @@ load_mcool_file <- function(
 
 list_mcool_files <- function(
     pattern='.hg38.mapq_30.1000.mcool',
-    resolutions=NULL,
-    normalizations=NULL,
+    only_use_included_samples=TRUE, 
     ...){
     # List all cooler files 
     COOLERS_DIR %>% 
@@ -641,7 +626,7 @@ list_mcool_files <- function(
     ) %>% 
     tibble(filepath=.) %>% 
     # parse sample metadata
-    mutate(MatrixID=basename(filepath)) %>% 
+    mutate(MatrixID=str_remove(basename(filepath), '.mcool')) %>% 
     get_info_from_MatrixIDs(
         matrix_ID_col='MatrixID',
         sample_ID_col='SampleID',
@@ -649,17 +634,9 @@ list_mcool_files <- function(
         keep_id=FALSE,
         nest_col=NA,
     ) %>% 
-    # List all paramter combinations
     {
-        if (!is.null(normalizations)) {
-            cross_join(., tibble(normalization=normalizations))
-        } else {
-            .
-        }
-    } %>% 
-    {
-        if (!is.null(resolutions)) {
-            cross_join(., tibble(resolution=resolutions))
+        if (only_use_included_samples){
+            filter(., SampleID %in% list_included_samples() | grepl('.Merged.Merged', SampleID))
         } else {
             .
         }

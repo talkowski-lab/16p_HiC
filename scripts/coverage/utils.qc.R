@@ -9,7 +9,7 @@ library(glue)
 # Load various QC data files/sets of files
 ###################################################
 load_pairtools_stats <- function(
-    stats_file_suffix='.hg38.dedup.stats',
+    file.suffix='.hg38.dedup.stats',
     samples.to.include=NULL,
     SampleID.fields=
         c(
@@ -20,18 +20,18 @@ load_pairtools_stats <- function(
             'TechRepID'
         ),
     ...){
-    # stats_file_suffix='.hg38.dedup.stats'; samples.to.include=NULL; SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', 'Batch')
+    # file.suffix='.hg38.dedup.stats'; samples.to.include=NULL; SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', 'Batch')
     # Load all stats
     all.stats.df <- 
         PAIRS_DIR %>%
         list.files(
             full.names=FALSE,
             recursive=TRUE,
-            pattern=glue('*{stats_file_suffix}$')
+            pattern=glue('*{file.suffix}$')
         ) %>%
         tibble(fileinfo=.) %>% 
         mutate(filepath=file.path(PAIRS_DIR, fileinfo)) %>% 
-        mutate(SampleID=str_remove(basename(fileinfo), stats_file_suffix)) %>% 
+        mutate(SampleID=str_remove(basename(fileinfo), file.suffix)) %>% 
         {
             if (!is.null(samples.to.include)) {
                 filter(., SampleID %in% samples.to.include)
@@ -64,6 +64,7 @@ load_pairtools_stats <- function(
         all.stats.df %>% 
         get_info_from_SampleIDs(
             keep_id=FALSE,
+            include_merged_col=FALSE,
             SampleID.fields=SampleID.fields
         ) %>% 
         group_by(across(all_of(c(setdiff(SampleID.fields, c('CloneID', 'TechRepID')), 'stat')))) %>%
@@ -231,7 +232,7 @@ make_summary_stats_table <- function(
         `# Bins >= 1K`,
         `% Bins >= 1K`
     ) %>% 
-    rename('Min. MAPQ Threshold'=ReadFilter) %>% 
+    dplyr::rename('Min. MAPQ Threshold'=ReadFilter) %>% 
     mutate(across(where(is.numeric), as.character)) %>% 
     pivot_longer(
         -c(SampleID),
@@ -246,7 +247,7 @@ make_summary_stats_table <- function(
             Category,
             value
         ) %>%
-        rename(
+        dplyr::rename(
             'metric'=Category,
             'value'=value
         ) %>%
@@ -266,7 +267,7 @@ make_summary_stats_table <- function(
             value
         ) %>%
         mutate(value=as.character(value)) %>% 
-        rename('metric'=stat)
+        dplyr::rename('metric'=stat)
     ) %>% 
     pivot_wider(
         names_from=metric,
