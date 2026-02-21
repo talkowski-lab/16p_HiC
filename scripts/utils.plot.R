@@ -55,6 +55,10 @@ scale_x_axis <- function(
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
+    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$x), figure@data)
+    if (!is.numeric(scale.data)) {
+        scale.mode <- 'discrete'
+    }
     # Scale y axis based on scale.mode argumetn
     if (scale.mode == 'pct') {
         figure +
@@ -63,6 +67,19 @@ scale_x_axis <- function(
             expand=expand,
             n.breaks=n.breaks,
             labels=label_percent(),
+            ...
+        )
+    } else if (scale.mode == 'm') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_x_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_number(
+                    scale_cut=cut_short_scale(),
+                    accuracy=axis.label.accuracy
+                ),
             ...
         )
     } else if (scale.mode == 'mb') {
@@ -124,6 +141,11 @@ scale_y_axis <- function(
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
+    # autodetect discrete scale
+    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$y), figure@data)
+    if (!is.numeric(scale.data)) {
+        scale.mode <- 'discrete'
+    }
     # Scale y axis based on scale_mode argumetn
     if (scale.mode == 'pct') {
         figure +
@@ -132,6 +154,19 @@ scale_y_axis <- function(
             expand=expand,
             n.breaks=n.breaks,
             labels=label_percent(),
+            ...
+        )
+    } else if (scale.mode == 'm') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_y_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_number(
+                    scale_cut=cut_short_scale(),
+                    accuracy=axis.label.accuracy
+                ),
             ...
         )
     } else if (scale.mode == 'mb') {
@@ -177,6 +212,93 @@ scale_y_axis <- function(
             figure + 
             coord_cartesian(ylim=limits) +
             scale_y_continuous(
+                expand=expand,
+                ...
+            )
+        }
+    }
+}
+
+scale_fill_axis <- function(
+    figure,
+    scale.mode='',
+    log.base=10,
+    axis.label.accuracy=0.1,
+    n.breaks=NULL,
+    limits=NULL,
+    expand=c(0.00, 0.00, 0.00, 0.00),
+    ...){
+    # autodetect discrete scale
+    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$fill), figure@data)
+    if (!is.numeric(scale.data)) {
+        scale.mode <- 'discrete'
+    }
+    # Scale fill axis based on scale_mode argument
+    if (scale.mode == 'pct') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_fill_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=label_percent(),
+            ...
+        )
+    } else if (scale.mode == 'm') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_fill_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_number(
+                    scale_cut=cut_short_scale(),
+                    accuracy=axis.label.accuracy
+                ),
+            ...
+        )
+    } else if (scale.mode == 'mb') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_fill_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis.label.accuracy
+                ),
+            ...
+        )
+    } else if (scale.mode == 'log10') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_fill_log10(
+            expand=expand,
+            guide='axis_logticks',
+            labels=
+                label_log(
+                    base=log.base,
+                    digits=max(1, -log10(axis.label.accuracy)),
+                    signed=FALSE
+                ),
+            ...
+        )
+    } else if (scale.mode == 'discrete') {
+        figure +
+        scale_fill_discrete(expand=expand)
+    } else if (scale.mode == '') {
+        if (is.null(limits)) {
+            figure + 
+            scale_fill_continuous(
+                labels=
+                    function(x) {
+                        format(x, digits=max(1, -log10(axis.label.accuracy)))
+                    }
+            )
+        } else {
+            figure + 
+            coord_cartesian(ylim=limits) +
+            scale_fill_continuous(
                 expand=expand,
                 ...
             )
@@ -249,6 +371,12 @@ post_process_plot <- function(
     y.n.breaks=NULL,
     y.limits=NULL,
     y.expand=c(0.00, 0.00, 0.00, 0.00),
+    fill.scale.mode='',
+    fill.log.base=10,
+    fill.axis.label.accuracy=0.1,
+    fill.n.breaks=NULL,
+    fill.limits=NULL,
+    fill.expand=c(0.00, 0.00, 0.00, 0.00),
     plot.elements=NULL,
     ...){
     figure %>% 
@@ -277,6 +405,15 @@ post_process_plot <- function(
         n.breaks=y.n.breaks,
         limits=y.limits,
         expand=y.expand
+    ) %>% 
+    # Set fill scaling (log, Mb, percent etc.)
+    scale_fill_axis(
+        scale.mode=fill.scale.mode,
+        log.base=fill.log.base,
+        axis.label.accuracy=fill.axis.label.accuracy,
+        n.breaks=fill.n.breaks,
+        limits=fill.limits,
+        expand=fill.expand
     ) %>% 
     # Add theme elements, as either an object or individual args
     {
@@ -533,7 +670,9 @@ plot_boxplot <- function(
         }
     } %>% 
     # make it a boxplot 
-    { . + geom_boxplot(outlier.size=1) } %>% 
+    { 
+        . + geom_boxplot(outlier.size=1) 
+    } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...)
 }
