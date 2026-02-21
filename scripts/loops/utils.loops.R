@@ -118,7 +118,7 @@ post_process_cooltools_dots_results <- function(results.df){
 }
 
 ###################################################
-# Analysis
+# IDR2D Analysis
 ###################################################
 tidy_IDR2D_sided_results <- function(
     results.obj,
@@ -173,7 +173,6 @@ tidy_IDR2D_results <- function(
         reproducible.loops.P1 %>% filter(!is.na(IDR)),
         reproducible.loops.P2 %>% filter(!is.na(IDR)),
     ) %>% 
-    distinct() %>% 
     # loops detected in exactly one of the replicates
     bind_rows(
         reproducible.loops.P1 %>% 
@@ -183,6 +182,7 @@ tidy_IDR2D_results <- function(
             filter(is.na(IDR)) %>%
             add_column(loop.type='P2.only'),
     ) %>%
+    distinct(pick(-c('loop.type')), .keep_all=TRUE) %>% 
     # create column indicating which loops are reproduced between conditions
     mutate(
         loop.type=
@@ -204,6 +204,7 @@ run_IDR2D_analysis <- function(
     metric_colname,
     value_transformation,
     ambiguity_resolution_method,
+    max_gap,
     ...){
     # paste0(colnames(tmp), "=tmp$", colnames(tmp), "[[1]]", collapse=';')
     loops.P1 <- 
@@ -232,6 +233,7 @@ run_IDR2D_analysis <- function(
         loops.P2, 
         value_transformation=value_transformation,
         ambiguity_resolution_method=ambiguity_resolution_method,
+        max_gap=max_gap
         # ...,
     ) %>% 
     # tidy up results into nice tabular format
@@ -252,7 +254,7 @@ run_all_IDR2D_analysis <- function(
     sampleID_col='SampleID',
     suffixes=c('.P1', '.P2'),
     ...){
-    # all.loops.df=loops.df; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
+    # sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
     # list + format metadata for all specified sample groups to compare
     nested.loops.df %>% 
     enumerate_pairwise_comparisons(
@@ -261,8 +263,7 @@ run_all_IDR2D_analysis <- function(
         sampleID_col=sampleID_col,
         suffixes=suffixes,
         SampleID.fields=SampleID.fields,
-        include_merged_col=FALSE,
-        keep_id=FALSE
+        include_merged_col=FALSE
     ) %>% 
     # Evaluate all comparisons for all combinations of specified parameters
     cross_join(hyper.params.df) %>% 
@@ -275,6 +276,7 @@ run_all_IDR2D_analysis <- function(
                 glue('kernel_{kernel}'),
                 glue('metric_{metric_colname}'),
                 glue('resolve.method_{ambiguity_resolution_method}'),
+                glue('max.gap_{max_gap}'),
                 glue('region_{chr}')
             ),
         results_file=
@@ -286,7 +288,6 @@ run_all_IDR2D_analysis <- function(
     arrange(desc(chr)) %>% 
         # {.} -> tmp; tmp
         # tmp %>% head(3) %>% 
-            # pmap(
     future_pmap(
         .l=.,
         .f=check_cached_results,
@@ -347,6 +348,87 @@ load_all_IDR2D_results <- function(){
         -c(
             region,
             filepath
+        )
+    )
+}
+
+###################################################
+# Expression Analysis
+###################################################
+join_expr_and_IDR2D_results <- function(
+    idr2d.results.df,
+    expression.df,
+    ...){
+    # samples.avail <- expression.df %>% colnames() %>% grep('16p.', ., value=TRUE)
+    samples.avail <- unique(expression.df$SampleID)
+    idr2d.results.df %>% 
+    filter(
+           SampleID.P1 %in% samples.avail,
+           SampleID.P2 %in% samples.avail
+    ) %>% 
+    inner_join(
+        expression.df,
+        by=
+            join_by(
+                chr,
+                between(y$start, x$anchor.left, x$anchor.right),
+                between(y$end,   x$anchor.left, x$anchor.right)
+            )
+    )
+}
+
+calc_expr_loop_ztest <- function(
+    idr2d.results.df,
+    expression.df,
+    ...){
+    idr2d.results.df %>% 
+    inner_join(
+        expression.df,
+        by=
+            join_by(
+                SampleID.P1 == SampleID,
+                chr,
+                between(y$start, x$anchor.left, x$anchor.right),
+                between(y$end,   x$anchor.left, x$anchor.right)
+            )
+    ) %>% 
+    inner_join(
+        expression.df,
+        suffix=c('.P1', '.P2'),
+        by=
+            join_by(
+                SampleID.P2 == SampleID,
+                chr,
+                start, end,
+                symbol, EnsemblID
+            )
+    ) %>%
+    # for each gene compute pvalue if mean expression is different between conditions
+    add_column(
+        n.rna.replicates.P1=6,
+        n.rna.replicates.P2=6
+    ) %>% 
+    mutate(
+        TPM.se.P1=TPM.sd.P1**2 / n.rna.replicates.P1,
+        TPM.se.P2=TPM.sd.P2**2 / n.rna.replicates.P2,
+        expr.Z=(TPM.mean.P2 - TPM.mean.P1) / sqrt(TPM.se.P1 + TPM.se.P2),
+        expr.p=2 * (1 - pnorm(abs(expr.Z)))
+    ) %>%
+    # adjust p-values genome-wide
+    group_by(
+        weight, resolution, kernel,
+        resolve.method, metric,
+        SampleID.P1, SampleID.P2
+    ) %>% 
+    mutate(expr.p.adjust=p.adjust(expr.p, method='BH')) %>% 
+    ungroup() %>% 
+    select(
+        -c(
+            n.rna.replicates.P1, n.rna.replicates.P2,
+            TPM.se.P1, TPM.se.P2,
+            # TPM.sd.P1, TPM.sd.P2,
+            # TPM.mean.P1, TPM.mean.P2,
+            expr.Z, expr.p
         )
     )
 }
@@ -417,6 +499,4 @@ plot_pairs <- function(
         strip.text=element_text(size=text.size)
     )
 }
-
-
 

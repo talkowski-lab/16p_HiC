@@ -32,7 +32,8 @@ hyper.params.df <-
         'enrichment',    'identity',  # high enrichment => most important loops 
         'log10.qval',    'identity'   # high log10.qval => most important loops
     ) %>% 
-    cross_join(tibble(ambiguity_resolution_method=c("overlap", "midpoint", "value")))
+    cross_join(tibble(ambiguity_resolution_method=c("overlap", "midpoint", "value"))) %>% 
+    cross_join(tibble(max_gap=c(-1L)))
 q.thresh <- 0.1 
 
 ###################################################
@@ -51,7 +52,6 @@ nested.loops.df <-
         results_fnc=load_all_cooltools_dots
     ) %>%
     post_process_cooltools_dots_results() %>% 
-    # standardize_data_cols() %>% 
     # filter relevant results
     filter(weight == 'balanced') %>% 
     filter(kernel == 'donut') %>% 
@@ -79,6 +79,7 @@ nested.loops.df <-
             )
     )
 # run IDR2D on all comparisons of sample groups + param sets
+# force.redo=parsed.args$force.redo; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype')
 nested.loops.df %>% 
     run_all_IDR2D_analysis(
         hyper.params.df=hyper.params.df,

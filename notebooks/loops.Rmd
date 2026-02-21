@@ -74,7 +74,6 @@ loops.df <-
 Load annotation data
 ```{r load_annotation_data}
 # chr.sizes.df <- load_chr_sizes()
-expression.df <- load_gene_expression_data()
 # functional.annotations.df <- load_functional_annotations()
 # annotations.df <- 
 #     FUNCTIONAL_ANNOTATION_FILES %>%
@@ -340,8 +339,6 @@ loops.df %>%
 
 # IDR2D Analysis  {.tabset}
 
-## Load IDR2D results
-
 ```{r load_idr2d}
 # Generate IDR2D results for all comparisons of sample groups
 idr2d.results.df <- 
@@ -350,233 +347,284 @@ idr2d.results.df <-
         # force_redo=TRUE,
         results_fnc=load_all_IDR2D_results
     ) %>% 
-    filter(weight == 'balanced', resolution == 10000) %>% 
-    # filter(resolve.method == 'overlap') %>% 
+    # filter(weight == 'balanced') %>%
+    # filter(resolution == 10000) %>% 
+    # filter(resolve.method == 'value') %>% 
     # filter(metric == 'log10.qval') %>% 
-    mutate(comparison=glue('{SampleID.P1} vs {SampleID.P2}'))
+    mutate(comparison=glue('{SampleID.P1} vs {SampleID.P2}')) %>% 
     mutate(
         is.loop.shared=
             case_when(
                 loop.type == 'P1.only' ~ loop.type,
                 loop.type == 'P2.only' ~ loop.type,
-                IDR < 0.1              ~ 'IDR < 0.1',
-                IDR < 1                ~ 'Irreproducible',
+                IDR <= 0.1             ~ 'IDR < 0.1',
+                IDR <= 1               ~ 'Irreproducible',
                 TRUE                   ~ NA
             )
-    )
-idr2d.results.df  %>% count(is.loop.shared)
+    ) %>%
+    standardize_data_cols()
 ```
 
-## Compare resolving strategies + metrics
+## Compare resolving strategies + metrics {.tabset}
 
-```{r idr2d_hyperparams_histogram, results='asis', fig.dim=c(10,6)}
+```{r idr2d_hyperparams_heatmap, results='asis', fig.dim=c(10,6), eval=FALSE}
 idr2d.results.df %>% 
-    select(-c(diff.value, diff.rank, loop.type)) %>% 
-    make_nested_plot_tabs(
-        max.header.lvl=3,
-        # group.cols=c('weight', 'resolution', 'kernel'),
-        # group.cols=c('resolution', 'comparison'),
-        group.cols=c('resolution'),
-        # plot.fnc=plot_density,
-        plot.fnc=plot_histogram,
-        x.var='IDR',
-        fill.var='resolve.method',
-        facet.col='metric',
-        facet.row='chr',
-        # y.scale.mode='discrete',
-        scales='free',
-        legend.position='top',
-        strip.text=element_text(size=10),
-        axis.title.y=element_blank()
-        # group.cols=c('resolution'),
-        # plot.fnc=plot_violin,
-        # y.var='chr',
-        # y.scale.mode='discrete',
-        # x.var='IDR',
-        # color.var='metric',
-        # facet.row='resolve.method',
-        # scales='fixed',
-        # legend.position='top',
-        # strip.text=element_text(size=5),
-        # axis.text.x=element_text(angle=45, hjust=1),
-        # axis.title.x=element_blank()
-    )
-```
-
-## Compare resolving strategies + metrics
-
-```{r idr2d_hyperparams_boxplot, results='asis', fig.dim=c(10,6)}
-idr2d.results.df %>% 
-    select(-c(diff.value, diff.rank, IDR)) %>% 
     count(
         weight, resolution, kernel,
         resolve.method, metric,
-        comparison, chr,
-        loop.type
+        comparison, 
+        # SampleID.P1, SampleID.P2,
+        # chr,
+        is.loop.shared
     ) %>% 
-    # mutate(hyper=glue('{metric} || {resolve.method}')) %>% 
     make_nested_plot_tabs(
         max.header.lvl=3,
-        # group.cols=c('weight', 'resolution', 'kernel'),
         # group.cols=c('resolution', 'comparison'),
-        group.cols=c('resolution'),
+        # group.cols=c('weight', 'resolution', 'kernel'),
+        group.cols=c('weight', 'resolution'),
         # plot.fnc=plot_density,
-        plot.fnc=plot_barplot,
-        y.var='loop.type',
-        y.scale.mode='discrete',
-        x.var='n',
-        fill.var='resolve.method',
-        facet.col='metric',
-        # fill.var='hyper',
-        # facet.col='comparison',
-        facet.row='chr',
-        # y.scale.mode='discrete',
-        # scales='free_y',
-        legend.position='top',
+        plot.fnc=plot_heatmap,
+        x.var='metric',
+        y.var='resolve.method',
+        fill.var='n',
+        label.var='n',
+        facet.row='is.loop.shared',
+        facet.col='comparison',
+        scales='fixed',
+        legend.position='right',
+        fill.scale.mode='m',
         strip.text=element_text(size=10),
         axis.text.x=element_text(angle=45, hjust=1),
-        axis.title.x=element_blank()
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
     )
 ```
 
-## Quantify reproducible loops across conditions
+## Reproducible loops Heatmaps {.tabset}
 
-## Plot expression of genes in loops
+### Genome-Wide
+
+```{r idr2d_hyperparams_boxplot_gw, results='asis', fig.dim=c(8,8)}
+idr2d.results.df %>% 
+    filter(resolve.method == 'value') %>% 
+    filter(metric == 'log10.qval') %>% 
+    count(
+        weight, resolution, kernel,
+        # resolve.method, metric,
+        comparison, 
+        SampleID.P1, SampleID.P2,
+        # chr,
+        is.loop.shared
+    ) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=4,
+        group.cols=c('weight', 'resolution'),
+        plot.fnc=plot_heatmap,
+        y.var='comparison',
+        x.var='is.loop.shared',
+        fill.var='n',
+        label.var='n',
+        label.size=5,
+        # facet.group='chr',
+        # facet.ncol=6,
+        # facet.row='SampleID.P1',
+        # facet.col='SampleID.P2',
+        scales='fixed',
+        legend.position='right',
+        fill.scale.mode='m',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+### Per Chr
+
+```{r idr2d_hyperparams_boxplot_chr, results='asis', fig.dim=c(10,6)}
+idr2d.results.df %>% 
+    filter(resolve.method == 'value') %>% 
+    filter(metric == 'log10.qval') %>% 
+    count(
+        weight, resolution, kernel,
+        # resolve.method, metric,
+        comparison, 
+        SampleID.P1, SampleID.P2,
+        chr,
+        is.loop.shared
+    ) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=4,
+        group.cols=c('weight', 'resolution'),
+        plot.fnc=plot_heatmap,
+        y.var='comparison',
+        x.var='is.loop.shared',
+        fill.var='n',
+        label.var='n',
+        label.size=3,
+        facet.group='chr',
+        facet.ncol=6,
+        # facet.row='SampleID.P1',
+        # facet.col='SampleID.P2',
+        scales='fixed',
+        legend.position='right',
+        fill.scale.mode='m',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+## Reproducible loops Barplot {.tabset}
+
+### Genome-Wide
+
+```{r idr2d_hyperparams_barplot_gw, results='asis', fig.dim=c(10,8)}
+idr2d.results.df %>% 
+    filter(resolve.method == 'value') %>% 
+    filter(metric == 'log10.qval') %>% 
+    count(
+        weight, resolution, kernel,
+        # resolve.method, metric,
+        comparison, 
+        SampleID.P1, SampleID.P2,
+        # chr,
+        is.loop.shared
+    ) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=4,
+        group.cols=c('weight', 'resolution'),
+        plot.fnc=plot_barplot,
+        x.var='is.loop.shared',
+        y.var='n',
+        fill.var='comparison',
+        facet.row='Celltype',
+        # facet.group='chr',
+        # facet.ncol=6,
+        # facet.row='SampleID.P1',
+        # facet.col='SampleID.P2',
+        scales='fixed',
+        legend.position='right',
+        y.scale.mode='m',
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+### Per Chr
+
+```{r idr2d_hyperparams_barplot_chr, results='asis', fig.dim=c(10,6)}
+idr2d.results.df %>% 
+    filter(resolve.method == 'value') %>% 
+    filter(metric == 'log10.qval') %>% 
+    count(
+        weight, resolution, kernel,
+        # resolve.method, metric,
+        comparison, 
+        SampleID.P1, SampleID.P2,
+        chr,
+        is.loop.shared
+    ) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=4,
+        group.cols=c('weight', 'resolution'),
+        plot.fnc=plot_heatmap,
+        x.var='chr',
+        y.var='n',
+        fill.var='comparison',
+        facet.row='Celltype',
+        scales='fixed',
+        legend.position='right',
+        y.scale.mode='m',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+# Compare Expression of Genes to Loops
+
+Load expression data
+```{r load_expr_and_map_to_loops, eval=FALSE}
+expression.df <- 
+    load_gene_expression_data() %>%
+    filter(feature == "protein_coding") %>% 
+    # pivot_longer(
+    #     starts_with('TPM.'),
+    #     names_to='metric',
+    #     values_to='value',
+    # ) %>% 
+    # pivot_wider(
+    #     names_from=SampleID,
+    #     values_from=value
+    # ) %>% 
+    select(-c(feature))
+loop.expr.df <- 
+    idr2d.results.df %>% 
+    filter(resolve.method == 'value') %>% 
+    filter(metric == 'log10.qval') %>% 
+    select(-c(metric, resolve.method)) %>% 
+    join_expr_and_IDR2D_results(expression.df) %>% 
+    select(
+        -c(
+            # comparison,
+            diff.value, diff.rank, 
+            loop.type,
+            # metric, resolve.method
+            # IDR, is.loop.shared
+        )
+    )
+# rm(expression.df)
+```
+
+## Plot expression of genes between loops  {.tabset}
+
+```{r plot_expr_of_loops, results='asis', fig.dim=c(10,6), eval=FALSE}
+# tmp <- 
+#     idr2d.results.df %>% 
+#     filter(resolve.method == 'overlap') %>% 
+#     filter(metric == 'log10.qval') %>% 
+#     filter(weight == 'balanced', resolution == '10Kb', kernel == 'donut') %>% 
+#     count(chr, is.loop.shared, SampleID.P1, SampleID.P2) %>% 
+#     pivot_wider(names_from=is.loop.shared, values_from=n)
+# tmp %>% filter(chr == 'chr16')
+# tmp %>% filter(chr %in% c('chr10', 'chr16'))
+loop.expr.df %>% 
+    filter(weight == 'balanced', resolution == '10Kb', kernel == 'donut') %>% 
+    filter(TPM.mean < 200) %>% 
+    filter(TPM.mean > 50) %>% 
+    make_nested_plot_tabs(
+        max.header.lvl=3,
+        group.cols=c('weight', 'resolution', 'comparison'),
+        plot.fnc=plot_boxplot,
+        # x.var='chr',
+        x.var='is.loop.shared',
+        x.scale.mode='discrete',
+        y.var='TPM.mean',
+        fill.var='SampleID',
+        # fill.var='SampleID',
+        fill.scale.mode='discrete',
+        # label.var='',
+        # facet.group='chr',
+        # facet.ncol=6,
+        # facet.row='is.loop.shared',
+        # facet.col='is.loop.shared',
+        scales='free_y',
+        legend.position='right',
+        # fill.scale.mode='m',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+## Find differential genes
 
 # Compare Loops across Genotypes {.tabset}
-
-Pivot anchor data
-```{r compare_anchors, eval=FALSE}
-similarity.df <- 
-    loops.df %>%
-    select(-c(count, enrichment, log10.qval)) %>% 
-    rename(
-        start=anchor.left,
-        end=anchor.right
-    ) %>% 
-    nest(
-        boundaries=
-            c(
-                start,
-                end,
-                length
-            )
-    ) %>% 
-    mutate(SampleID) %>% 
-    check_cached_results(
-        results_file=LOOP_SIMILARITY_RESULTS_FILE,
-        # force_redo=TRUE,
-        results_fnc=calculate_all_boundary_similarities,
-        boundaries.df=.,
-        sample.group.comparisons=
-            SAMPLE_GROUP_COMPARISONS %>%
-            rename(
-                'SampleID.P1'=Sample.Group.Numerator,
-                'SampleID.P2'=Sample.Group.Denominator
-            ),
-        pair_grouping_cols=
-            c(
-                'weight',
-                'resolution',
-                'kernel',
-                'chr'
-            )
-    ) %>% 
-    mutate(chr=factor(chr, levels=CHROMOSOMES))
-# similarity.df %>% dplyr::count(weight, resolution, SampleID)
-# similarity.df
-```
-```{r compute_anchor_diffs, eval=FALSE}
-diff.df <- 
-    similarity.df %>% 
-    # separate_wider_delim(
-    #     SampleID,
-    #     delim=' vs ',
-    #     names=c('SampleID.P1', 'SampleID.P2'),
-    #     cols_remove=FALSE
-    # ) %>% 
-    inner_join(
-        loops.df %>%
-        select(-c(Edit, Celltype, Genotype, length)),
-        by=
-            join_by(
-                weight,
-                kernel,
-                resolution,
-                chr,
-                SampleID.P1 == SampleID,
-                start.P1 == anchor.left,
-                end.P1 == anchor.right
-            )
-    ) %>% 
-    inner_join(
-        loops.df %>%
-        select(-c(Edit, Celltype, Genotype, length)),
-        suffix=c('.P1', '.P2'),
-        by=
-            join_by(
-                weight,
-                kernel,
-                resolution,
-                chr,
-                SampleID.P2 == SampleID,
-                start.P2 == anchor.left,
-                end.P2 == anchor.right
-            )
-    ) %>% 
-    select(
-        weight,
-        resolution,
-        chr,
-        kernel,
-        # SampleID.P1,
-        # SampleID.P2
-        # Edit,
-        # Genotype,
-        # Celltype,
-        SampleID,
-        start.P1,
-        start.P2,
-        end.P1,
-        end.P2,
-        length.P1,
-        length.P2,
-        count.P1,
-        count.P2,
-        enrichment.P1,
-        enrichment.P2,
-        log10.qval.P1,
-        log10.qval.P2,
-        # start.diff,
-        # end.diff,
-        # length.diff,
-        # count.diff,
-        # enrichment.diff,
-        # log10.qval.diff,
-        # jaccard
-        # moc.inner,
-        # MoC.norm,
-    ) %>%
-    group_by(weight, resolution, chr, kernel, SampleID) %>% 
-    mutate(pair.idx=row_number()) %>% 
-    ungroup() %>% 
-    rename_with(~str_replace(.x, 'log10.qval', 'log10_qval')) %>% 
-    pivot_longer(
-        c(ends_with('.P1'), ends_with('.P2')),
-        names_to='metric',
-        values_to='value',
-    ) %>%
-    separate_wider_delim(
-        metric,
-        delim='.',
-        names=c('metric', 'pair.side')
-    ) %>% 
-    pivot_wider(
-        names_from=pair.side,
-        values_from=value
-    ) %>% 
-    mutate(diff=P2 - P1)
-```
 
 ## Plot anchor differences boxplot {.tabset}
 
@@ -586,7 +634,6 @@ diff.df %>%
     filter(metric %in% c('length', 'enrichment', 'log10_qval')) %>% 
     mutate(diff=abs(diff)) %>% 
     make_nested_plot_tabs(
-        # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
         max.header.lvl=3,
         plot.fnc=plot_boxplot,
@@ -611,7 +658,6 @@ diff.df %>%
     # filter(!metric %in% c('start', 'end', 'length')) %>% 
     filter(metric %in% c('enrichment', 'log10_qval')) %>% 
     make_nested_plot_tabs(
-        # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
         max.header.lvl=3,
         plot.fnc=plot_jitter,
