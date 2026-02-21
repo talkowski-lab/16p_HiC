@@ -1,16 +1,18 @@
 ###################################################
 # Depdendencies
 ###################################################
-library(tidyverse)
-library(magrittr)
+# library(tidyverse)
+# library(magrittr)
 library(glue)
 library(multiHiCcompare)
 library(BiocParallel)
-library(ggplot2)
+# library(ggplot2)
 library(viridis)
 library(cowplot)
 library(gtable)
+library(purrr)
 library(furrr)
+library(ComplexUpset)
 # library(hictkR)
 
 ###################################################
@@ -227,7 +229,7 @@ run_all_multiHiCCompare <- function(
     ...){
     # sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC; force_redo=FALSE; covariates.df=NULL; chromosomes=c('chr15', 'chr16'); group1_colname='Sample.Group.P1'; group2_colname='Sample.Group.P2'
     comparisons.df %>% 
-    # for each comparison list all paramter combinations
+    # for each Sample.Group list all paramter combinations
     cross_join(hyper.params.df) %>% 
     cross_join(tibble(chr=chromosomes)) %>% 
     # Determine sample group priority i.e. 
@@ -339,7 +341,12 @@ list_all_multiHiCCompare_results <- function(
     sample.group.comparisons=NULL,
     file_suffix='-multiHiCCompare.tsv',
     ...){
-
+    # resolutions=NULL; sample.group.comparisons=NULL; file_suffix='-multiHiCCompare.tsv'
+    if (is.null(sample.group.comparisons)){
+        sample.group.comparison.colnames <- c('Sample.Group.Numerator','Sample.Group.Denominator')
+    } else {
+        sample.group.comparison.colnames <- colnames(sample.group.comparisons)
+    }
     # Load all results
     parse_results_filelist(
         input_dir=file.path(MULTIHICCOMPARE_DIR, 'results'),
@@ -352,17 +359,13 @@ list_all_multiHiCCompare_results <- function(
     separate_wider_delim(
         pair.name,
         delim='_vs_',
-        names=c('Sample.Group.A', 'Sample.Group.B')
+        names=sample.group.comparison.colnames
     ) %>% 
-    rename(
-        'Sample.Group.Numerator'=Sample.Group.A,
-        'Sample.Group.Denominator'=Sample.Group.B
-    ) %>% 
-    # Filter relevant results sets
     mutate(
-        comparison=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
+        Sample.Group=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
         resolution=scale_numbers(resolution, force_numeric=TRUE)
     ) %>% 
+    # Filter relevant results sets
     {
         if (!is.null(resolutions)) {
             filter(., resolution %in% resolutions)
@@ -375,7 +378,7 @@ list_all_multiHiCCompare_results <- function(
             inner_join(
                 .,
                 sample.group.comparisons,
-                by=c('Sample.Group.Numerator', 'Sample.Group.Denominator')
+                by=sample.group.comparison.colnames
             )
         } else {
             .
@@ -390,15 +393,14 @@ load_all_multiHiCCompare_results <- function(
     fdr.threshold=1,
     nom.threshold=1,
     ...){
-    # comparisons=NULL; resolutions=NULL; gw.fdr.threshold=1; fdr.threshold=1; nom.threshold=0.05; file_suffix='-multiHiCCompare.tsv'
+    # sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS; gw.fdr.threshold=0.1; fdr.threshold=0.1; nom.threshold=0.05; resolutions=NULL
     list_all_multiHiCCompare_results(
         resolutions=resolutions,
         sample.group.comparisons=sample.group.comparisons
     ) %>% 
-    # Load all results + correct pvalues genome wide per comparison
+    # Load all results + correct pvalues genome wide per Sample.Group
     group_by(across(-c(filepath, region))) %>% 
     summarize(filepaths=list(c(filepath))) %>% 
-    # filter(resolution == 50000) %>% 
     ungroup() %>% 
     mutate(
         results=
@@ -415,15 +417,160 @@ load_all_multiHiCCompare_results <- function(
             )
     ) %>% 
     unnest(results) %>% 
-    select(-c(filepaths)) %>%
+    select(-c(D, filepaths)) %>%
     mutate(
-        # calculate log of all pvalues + add columns
+    # calculate log of all pvalues + add columns
         across(
             starts_with('p.'),
             .f=~ -log10(.x),
             .names='log.{.col}'
         )
+    ) %>% 
+    mutate(
+        chr=
+            chr %>% 
+            rename_chrs(to_label=TRUE) %>% 
+            factor(levels=CHROMOSOMES)
+    ) %>% 
+    mutate(
+        tidy.metadata=
+            tidy_pair_metadata(
+                sampleID.pairs.df=
+                    select(
+                        .data=., 
+                        all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
+                    ),
+                suffixes=c('.Numerator', '.Denominator'),
+                SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
+                # ...
+            )
+    ) %>%
+    unnest(tidy.metadata)
+}
+
+post_process_multiHiCCompare_results <- function(
+    results.df,
+    chromosomes=CHROMOSOMES){
+    # CHROMOSOMES
+    # CHROMOSOMES[c(1,5,10,16,22)]
+    # CHROMOSOMES[c(10,16,22)]
+    results.df %>% 
+    # filter results 
+    filter(chr %in% chromosomes) %>% 
+    filter(A.min == 5) %>% 
+    filter(zero.p == 0.8) %>% 
+    select(-c(A.min, zero.p)) %>% 
+    mutate(distance.bp=region2 - region1) %>% 
+    unite(
+        'bin.pair.idx',
+        chr, region1, region2,
+        sep='#',
+        remove=FALSE
     )
+}
+
+load_correct_count_multiHiCCompare_results <- function(
+    filepaths,
+    ...){
+    filepaths %>% 
+    load_and_correct_multiHiCCompare_results(
+        nom.threshold=1,
+        fdr.threshold=1,
+        gw.fdr.threshold=1
+    ) %>% 
+    # calculate log of all pvalues + add columns
+    mutate(
+        across(
+            starts_with('p.'),
+            .f=~ -log10(.x),
+            .names='log.{.col}'
+        )
+    ) %>% 
+   mutate(
+        'sig.lvl.p.adj.gw < 1e-15'=p.adj.gw <  1e-15,
+        'sig.lvl.p.adj.gw < 1e-10'=p.adj.gw <  1e-10,
+        'sig.lvl.p.adj.gw < 1e-5' =p.adj.gw <  1e-5,
+        'sig.lvl.p.adj.gw < 0.001'=p.adj.gw <  1e-3,
+        'sig.lvl.p.adj.gw < 0.1'  =p.adj.gw <  0.1,
+        'sig.lvl.N.S.'            =p.adj.gw >= 0.1
+    ) %>% 
+    pivot_longer(
+        starts_with('sig.lvl.'),
+        names_to='sig.lvl',
+        names_prefix='sig.lvl.',
+        values_to='meet.sig.lvl'
+    ) %>% 
+    filter(meet.sig.lvl) %>% 
+    count(
+        # A.min, zero.p, merged,
+        # resolution, 
+        # Sample.Group, 
+        # Celltype,
+        chr,
+        sig.lvl,
+        name='nDACs'
+    ) %>%
+   mutate(
+        sig.lvl=
+            factor(
+                sig.lvl,
+                levels=
+                    c(
+                        'N.S.',
+                        'p.adj.gw < 0.1',
+                        'p.adj.gw < 0.001',
+                        'p.adj.gw < 1e-5',
+                        'p.adj.gw < 1e-10',
+                        'p.adj.gw < 1e-15'
+                    )
+            )
+    )
+}
+
+count_contacts_by_significance <- function(
+    resolutions=NULL,
+    sample.group.comparisons=NULL,
+    ...){
+    list_all_multiHiCCompare_results(
+        resolutions=resolutions,
+        sample.group.comparisons=sample.group.comparisons
+    ) %>% 
+    # Load all results + correct pvalues genome wide per Sample.Group
+    group_by(across(-c(filepath, region))) %>% 
+    summarize(filepaths=list(c(filepath))) %>% 
+    ungroup() %>% 
+    mutate(
+        results=
+            # future_pmap(
+            pmap(
+                .l=.,
+                # correct adjusted pvalues genome-wide
+                .f=load_correct_count_multiHiCCompare_results,
+                .progress=TRUE
+            )
+    ) %>% 
+    unnest(results) %>% 
+    select(-c(filepaths)) %>%
+    mutate(
+        chr=
+            chr %>% 
+            rename_chrs(to_label=TRUE) %>% 
+            factor(levels=CHROMOSOMES)
+    ) %>% 
+    mutate(
+        tidy.metadata=
+            tidy_pair_metadata(
+                sampleID.pairs.df=
+                    select(
+                        .data=., 
+                        all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
+                    ),
+                suffixes=c('.Numerator', '.Denominator'),
+                SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
+                # ...
+            )
+    ) %>%
+    unnest(tidy.metadata)
 }
 
 ###################################################
@@ -432,7 +579,7 @@ load_all_multiHiCCompare_results <- function(
 plot_upset <- function(
     plot.df,
     make.binary=FALSE,
-    category_col='Comparison',
+    category_col='Sample.Group',
     title.str='Common DACs across Comparisons',
     ...){
     category_prefix <- fixed(glue('{category_col}.'))
@@ -486,15 +633,15 @@ plot_upset <- function(
 n_plot_fnc <- 
     partial(
         make_nested_plot_tabs,
-        plot.fnc=plot_heatmap,
         max.header.lvl=3,
+        plot.fnc=plot_heatmap,
         # x.var='sig.lvl',
-        y.var='comparison',
         fill.var='nDACs', 
         label.var='nDACs',
         # legend.position='top',
         # axis.text.x=element_text(angle=45, hjust=1),
         # legend.text=element_text(angle=35, hjust=1),
+        fill.scale.mode='m',
         axis.title.x=element_blank(),
         axis.title.y=element_blank()
     )
@@ -503,34 +650,26 @@ dist_plot_fnc <-
     partial(
         make_nested_plot_tabs,
         plot.fnc=plot_boxplot,
-        group.cols=c('comparison.type', 'resolution'),
+        # group.cols=c('Celltype', 'resolution'),
         max.header.lvl=3,
-        # x.var='comparison',
-        x.scale.mode='discrete',
+        # x.var='Sample.Group',
+        # x.scale.mode='discrete',
         y.var='value',
-        # fill.var='comparison',
+        facet.row='statistic',
+        # fill.var='Sample.Group',
         # facet.row='statistic',
-        scales='free_y',
         outlier.size=0.2,
         # legend.position='right',
         axis.title.x=element_blank(),
         axis.title.y=element_blank(),
         # axis.text.x=element_text(angle=45, hjust=1),
-        plot.elements=
-            list(
-                coord_cartesian(clip="off"),
-                geom_hline(
-                    yintercept=0,
-                    linetype='dashed'
-                )
-            )
     )
 
 volcano_plot_fnc <- 
     partial(
         make_nested_plot_tabs,
         plot.fnc=plot_jitter,
-        group.cols=c('comparison.type', 'resolution'),
+        # group.cols=c('Celltype', 'resolution'),
         max.header.lvl=3,
         x.var='logFC',
         y.var='log.p.adj.gw',
@@ -553,12 +692,13 @@ distance_plot_fnc <-
 
 manhattan_plot_fnc <- 
     partial(
-        plot.fnc=plot_jitter,
         make_nested_plot_tabs,
+        plot.fnc=plot_jitter,
         max.header.lvl=3,
         x.var='region.bp',
         x.scale.mode='mb',
         y.var='value',
+        scale.fill.mode='mb',
         axis.title.y=element_blank(),
         axis.title.x=element_blank(),
         plot.elements=
@@ -583,3 +723,4 @@ manhattan_plot_fnc <-
                 )
             )
     )
+

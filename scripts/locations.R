@@ -61,6 +61,7 @@ ROBINSON_REPLICATION_DATA_FILE <- file.path(ROBINSON_REPLICATION_DIR, 'replicati
 ###################################################
 MULTIHICCOMPARE_DIR            <- file.path(RESULTS_DIR, 'multiHiCCompare')
 MULTIHICCOMPARE_RESULTS_FILE   <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompare.results.tsv')
+MULTIHICCOMPARE_SIG_RESULTS_FILE <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompare.n.results.tsv')
 
 ###################################################
 # TAD Annotations
