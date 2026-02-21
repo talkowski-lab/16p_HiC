@@ -1,10 +1,10 @@
 ###################################################
 # Dependencies
 ###################################################
-library(tidyverse)
-library(magrittr)
+# library(tidyverse)
+# library(magrittr)
+library(furrr)
 library(glue)
-library(tictoc)
 
 ###################################################
 # Load resutls
@@ -36,21 +36,9 @@ list_all_hicrep_results_files <- function(samples_to_keep=NULL){
         delim='-',
         names=
             c(
-                'SampleInfo.P1.SampleID',
-                'SampleInfo.P2.SampleID'
+                'SampleID.P1',
+                'SampleID.P2'
             )
-    ) %>% 
-    # Extract sample metadata from IDs
-    get_info_from_SampleIDs(
-        sample_ID_col='SampleInfo.P1.SampleID',
-        col_prefix='SampleInfo.P1.',
-        keep_id=TRUE
-    ) %>% 
-    # Repeat for the other sample in each pair
-    get_info_from_SampleIDs(
-        sample_ID_col='SampleInfo.P2.SampleID',
-        col_prefix='SampleInfo.P2.',
-        keep_id=TRUE
     ) %>% 
     # keep only specified samples
     {
@@ -61,28 +49,19 @@ list_all_hicrep_results_files <- function(samples_to_keep=NULL){
             .
         }
     } %>% 
-    # Now format sample metadata per pair for easy grouping+plotting
-    pivot_longer(
-        starts_with('SampleInfo'),
-        names_prefix='SampleInfo.',
-        names_to='metadata.field',
-        values_to='value'
+    # Now extract sample metadata from IDs and 
+    # format metadata per pair of samples for easy grouping+plotting
+    mutate(
+        tidy.metadata=
+            tidy_pair_metadata(
+                sampleID.pairs.df=
+                    select(
+                        .data=., 
+                        all_of(c('SampleID.P1', 'SampleID.P2'))
+                    )
+            )
     ) %>%
-    separate_wider_delim(
-        metadata.field,
-        delim='.',
-        names=c('pair.index', 'metadata.field')
-    ) %>% 
-    pivot_wider(
-        names_from='pair.index',
-        values_from='value'
-    ) %>% 
-    mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
-    select(-c(P1, P2)) %>%
-    pivot_wider(
-        names_from=metadata.field,
-        values_from=metadata.value
-    )
+    unnest(tidy.metadata)
 }
 
 load_hicrep_results <- function(
@@ -105,7 +84,8 @@ load_all_hicrep_results <- function(samples_to_keep=NULL){
     # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
-            future_pmap(
+            # future_pmap(
+            pmap(
                 .l=.,
                 .f=load_hicrep_results,
                 .progress=TRUE
@@ -116,9 +96,25 @@ load_all_hicrep_results <- function(samples_to_keep=NULL){
 
 post_proces_hicrep_results <- function(results.df){
     results.df %>% 
-    rename_with(~ str_replace(.x, '^SampleInfo.', '')) %>% 
+    mutate(
+        isMerged=
+            case_when(
+                 str_detect(SampleID.P1, 'Merged') &  str_detect(SampleID.P2, 'Merged') ~ 'Merged vs Merged',
+                !str_detect(SampleID.P1, 'Merged') &  str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Merged',
+                 str_detect(SampleID.P1, 'Merged') & !str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Merged',
+                !str_detect(SampleID.P1, 'Merged') & !str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Individual',
+                TRUE ~ NA
+            ) %>%
+            factor(
+                levels=
+                    c(
+                         'Merged vs Merged',
+                         'Individual vs Merged',
+                         'Individual vs Individual'
+                    )
+            )
+    ) %>% 
     filter(isMerged != 'Individual vs Merged') %>%
-    filter(ReadFilter == 'mapq_30 vs mapq_30') %>%
     mutate(
         is.downsampled.fct=
             ifelse(is.downsampled, 'Downsampled', 'Original') %>%
@@ -131,7 +127,7 @@ post_proces_hicrep_results <- function(results.df){
     #             TRUE ~ 'Different Genotype'
     #         )
     # ) %>% 
-    select(-c(ReadFilter, filepath))
+    select(-c(filepath))
 }
 
 ###################################################
