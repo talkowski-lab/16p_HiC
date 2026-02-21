@@ -15,10 +15,10 @@ load_TADs_for_gghic <- function(){
     dplyr::select(-c(length)) %>% 
     mutate(chr2=chr) %>% 
     nest(TADs=c(chr, start, end)) %>% 
+    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
     dplyr::rename(
         'chr'=chr2,
-        'TAD.method'=method,
-        'SampleID'=Sample.Group
+        'TAD.method'=method
     )
 }
 
@@ -104,22 +104,19 @@ make_gghic_plot_obj <- function(
     cc
 }
 
-set_up_gghic_plot_param_sets <- function(
+enumerate_all_param_combinations <- function(
+    samples.df,
     regions.df,
     hyper.params.df,
     tads.df=NULL,
     loops.df=NULL,
     tracks.df=NULL,
     ...){
-    # tads.df=load_TADs_for_gghic(); loops.df=load_loops_for_gghic(); tracks.df=load_tracks_for_gghic(); 
-    # list all contact matrices
-    list_mcool_files() %>%
-    filter(isMerged) %>% 
-    dplyr::select(-c(CloneID, TechRepID,  ReadFilter, isMerged)) %>% 
-    dplyr::rename(cooler_path=filepath) %>% 
-    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
-    cross_join(tibble(chr=unique(regions.df$chr))) %>% 
+    # Specify regions to plot + all hyper params
+    regions.df %>% 
     cross_join(hyper.params.df) %>% 
+    # Specify which samples data to plot
+    cross_join(samples.df)  %>% 
     # Join TADs
     {
         if (!is.null(tads.df)) {
@@ -166,46 +163,72 @@ set_up_gghic_plot_param_sets <- function(
                     join_by(
                         resolution,
                         SampleID,
-                        chr,
+                        chr
                     )
             )
         } else {
             add_column(., tracks=list(NULL))
         }
-    } %>% 
-    # Specify regions to plot
-    left_join(
-        regions.df,
-        by=join_by(chr)
-    ) %>% 
+    } 
+}
+
+set_up_gghic_plot_param_sets <- function(...){
     # Set up plot params
-    rename('resolution.int'=resolution) %>% 
-    mutate(resolution=scale_numbers(resolution.int)) %>% 
-    mutate(panel.title=glue('{SampleID} @ {resolution}')) %>% 
-    arrange(weight, resolution, focus) %>% 
+    params.df <- 
+        enumerate_all_param_combinations(...) %>% 
+        rename('resolution.int'=resolution) %>% 
+        mutate(
+            resolution=scale_numbers(resolution.int),
+            panel.title=glue('{SampleID} @ {resolution}'),
+            # region.title=glue('{SampleID} @ {resolution} in {region.title} ({focus})'),
+            plot.title=glue('{region.title} ({focus})')
+        )
+        # arrange(weight, resolution, focus) %>% 
+    # Group specific plots together by  condition
     # Plot all genotypes for each condition together in a single plot
-    nest(
-        plot.df=
-            c(
-                Edit, Celltype, Genotype, SampleID,
-                cooler_path,
-                resolution.int,
-                TADs,
-                loops,
-                tracks,
-                panel.title
-            )
+    group.by.celltype.params.df <- 
+        params.df %>% 
+        add_column(group='Celltype') %>% 
+        nest(
+            plot.df=
+                c(
+                    # Edit, Celltype, Genotype, SampleID,
+                    Genotype, 
+                    SampleID,
+                    cooler_path,
+                    resolution.int,
+                    TADs, loops, tracks,
+                    panel.title
+                )
+        )
+    # Plot all genotypes for each condition together in a single plot
+    group.by.genotype.params.df <- 
+        params.df %>% 
+        add_column(group='Genotype') %>% 
+        nest(
+            plot.df=
+                c(
+                    Celltype, 
+                    SampleID,
+                    cooler_path,
+                    resolution.int,
+                    TADs, loops, tracks,
+                    panel.title
+                )
+        )
+    # Set output file path t obe descriptive
+    bind_rows(
+        group.by.celltype.params.df,
+        group.by.genotype.params.df
     ) %>% 
-    # need to save as pdf for performance reasons
     mutate(
-        # region.title=glue('{SampleID} @ {resolution} in {region.title} ({focus})'),
-        plot.title=glue('{region.title} ({focus})'),
         results_file=
             file.path(
-                PLOT_DIR,
+                GGHIC_DIR,
                 glue('weight_{weight}'),
                 glue('resolution_{scale_numbers(resolution)}'),
-                glue('region_{region.title}-gghic.plot.pdf')
+                glue('grouping_{group}'),
+                glue('{region.title}-gghic.plot.pdf')
             )
     )
 }
@@ -262,7 +285,7 @@ plot_all_regions_gghic <- function(
     focus,
     weight,
     plot.title,
-    output_file=NA,
+    results_file=NA,
     width=8,
     height=14,
     ...){
@@ -289,12 +312,12 @@ plot_all_regions_gghic <- function(
             .,
             ncol=1
         ) +
-        plot_annotation(title=unique(plot.df$plot.title))
+        plot_annotation(title=plot.title)
     } %>%
     {
-        if (!is.na(output_file)){
+        if (!is.na(results_file) & !file.exists(results_file)){
             ggsave(
-                output_file, 
+                results_file, 
                 plot=.,
                 width=width,
                 height=height,
