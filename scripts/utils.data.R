@@ -133,6 +133,71 @@ parse_results_filelist <- function(
     readr::type_convert()
 }
 
+handle_CLI_args <- function(
+    args=c('threads', 'force', 'resolutions'),
+    has.positional=FALSE){
+    # parse listed arguments
+    parsed.args <- 
+        OptionParser() %>%
+        {
+            if ('threads' %in% args){
+                add_option(
+                    .,
+                    c('-t', '--threads'),
+                    type='integer',
+                    default=length(availableWorkers()),
+                    dest='threads'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        {
+            if ('force' %in% args){
+                add_option(
+                    .,
+                    c('-f', '--force'),
+                    action='store_true',
+                    default=FALSE,
+                    dest='force.redo'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        {
+            if ('resolutions' %in% args){
+                add_option(
+                    .,
+                    c('-r', '--resolutions'),
+                    type='character',
+                    default=paste(c(5, 10, 25, 50, 100) * 1e3, collapse=','),
+                    dest='resolutions'
+                )
+            } else {
+                .
+            }
+        } %>% 
+        parse_args(positional_arguments=TRUE)
+    # parse list of resolutions if passed
+    if ('resolutions' %in% args){
+        parsed.args$options$resolutions <- 
+            parsed.args$options$resolutions %>%
+            str_split(',') %>%
+            lapply(as.integer) %>%
+            unlist()
+    }
+    # return positional args if supplied
+    if (has.positional){
+        parsed.args
+    } else {
+        parsed.args$options
+    }
+}
+
+###################################################
+# Format stuff
+###################################################
 glue_sample_ID <- function(
     Edit,
     Celltype,
@@ -166,7 +231,7 @@ get_info_from_SampleIDs <- function(
         if (include_merged_col){
             mutate(
                 .,
-                !!as.character(glue('{col_prefix}{SampleID.delim}isMerged')) :=
+                !!as.character(glue('{col_prefix}isMerged')) :=
                     ifelse(
                         grepl('Merged', !!sym(sample_ID_col)),
                         'Merged',
@@ -233,7 +298,6 @@ get_info_from_MatrixIDs <- function(
             NA
         ),
     ...){
-    # matrix_ID_col='MatrixID.P1'; sample_ID_col='SampleID.P1'; col_prefix='SampleInfo.P1.'; keep_id=FALSE; nest_col=NA
     # Set up some column names/variables
     col_names <- c(separate_names[!is.na(separate_names)], 'isMerged')
     # extract + format metadata
@@ -255,10 +319,10 @@ get_info_from_MatrixIDs <- function(
             .
         }
     } %>% 
-    # rename columns with a common prefix
+    # dplyr::rename columns with a common prefix
     {
         if (col_prefix != '') {
-            rename_with(
+            dplyr::rename_with(
                 ., 
                 .fn=~ paste0(col_prefix, .x), 
                 .cols=all_of(col_names)
@@ -267,7 +331,7 @@ get_info_from_MatrixIDs <- function(
             .
         }
     } %>% 
-    # nest and rename columns as specified
+    # nest and dplyr::rename columns as specified
     {
         if (!is.na(nest_col) && col_prefix != '') {
             nest(
@@ -285,77 +349,12 @@ get_info_from_MatrixIDs <- function(
     }
 }
 
-handle_CLI_args <- function(
-    args=c('threads', 'force', 'resolutions'),
-    has.positional=FALSE){
-    # parse listed arguments
-    parsed.args <- 
-        OptionParser() %>%
-        {
-            if ('threads' %in% args){
-                add_option(
-                    .,
-                    c('-t', '--threads'),
-                    type='integer',
-                    default=length(availableWorkers()),
-                    dest='threads'
-                )
-            } else {
-                .
-            }
-        } %>% 
-        {
-            if ('force' %in% args){
-                add_option(
-                    .,
-                    c('-f', '--force'),
-                    action='store_true',
-                    default=FALSE,
-                    dest='force.redo'
-                )
-            } else {
-                .
-            }
-        } %>% 
-        {
-            if ('resolutions' %in% args){
-                add_option(
-                    .,
-                    c('-r', '--resolutions'),
-                    type='character',
-                    default=paste(c(5, 10, 25, 50, 100) * 1e3, collapse=','),
-                    dest='resolutions'
-                )
-            } else {
-                .
-            }
-        } %>% 
-        parse_args(positional_arguments=TRUE)
-    # parse list of resolutions if passed
-    if ('resolutions' %in% args){
-        parsed.args$options$resolutions <- 
-            parsed.args$options$resolutions %>%
-            str_split(',') %>%
-            lapply(as.integer) %>%
-            unlist()
-    }
-    # return positional args if supplied
-    if (has.positional){
-        parsed.args
-    } else {
-        parsed.args$options
-    }
-}
-
-###################################################
-# Format stuff
-###################################################
 scale_numbers <- function(
     numbers,
     accuracy=2,
     force_numeric=FALSE,
     force_chr=FALSE){
-    if ((is.character(numbers) | is.factor(numbers)) | force_numeric) {
+    if (is.character(numbers) & force_numeric) {
         numbers %>%
         as.character() %>% 
         tibble(resolution.str=.) %>%
@@ -375,7 +374,7 @@ scale_numbers <- function(
                 multiply_by(magnitude)
         ) %>% 
         pull(resolution) #%>% format(scientific=FALSE) %>% as.numeric()
-    } else if (is.numeric(numbers) | force_chr) {
+    } else if (is.numeric(numbers) & force_chr) {
         numbers %>%
         tibble(resolution=.) %>%
         mutate(
@@ -401,7 +400,11 @@ rename_chrs <- function(
     chrs, 
     to_numeric=FALSE,
     to_label=FALSE){
-    if (is.character(chrs) & to_numeric){
+    if (is.factor(chrs)) {
+        chrs
+    } else if (is.numeric(chrs) & to_numeric){
+        chrs
+    } else if (is.character(chrs) & to_numeric){
         case_when(
             chrs == 'X'                  ~ 23,
             chrs == 'Y'                  ~ 24,
@@ -410,8 +413,6 @@ rename_chrs <- function(
             TRUE                         ~ NA
         ) %>%
         as.integer()
-    } else if (is.numeric(chrs) & to_numeric){
-        chrs
     } else if (is.numeric(chrs) & to_label) {
         case_when(
             chrs == 23                   ~ 'X',
@@ -424,14 +425,15 @@ rename_chrs <- function(
     } else if (is.character(chrs) & to_label){
         case_when(
             chrs == 'Genome.Wide'        ~ 'Genome.Wide',
-            chrs == 'X'                  ~ 'X',
-            chrs == 'Y'                  ~ 'Y',
-            grepl('chr', chrs)           ~ str_remove(chrs, 'chr'),
-            chrs %in% as.character(1:22) ~ chrs,
+            chrs == 'X'                  ~ 'chrX',
+            chrs == 'Y'                  ~ 'chrY',
+            chrs %in% as.character(1:22) ~ paste0('chr', chrs),
+            grepl('chr', chrs)           ~ chrs,
             TRUE                         ~ NA
         ) %>%
-        as.character() %>% 
-        paste0('chr', .)
+        as.character()
+    } else {
+        stop('Invalid input to rename_chrs()')
     }
 }
 
@@ -446,6 +448,34 @@ standardize_data_cols <- function(
     to_label=TRUE,
     ...){
     results.df %>% 
+    {
+        if ('chr' %in% colnames(.) & !skip.chr) {
+            if ('Genome.Wide' %in% .$chr & !skip.isGenome) {
+                mutate(
+                    .,
+                    chr=
+                        chr %>%
+                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
+                        factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
+                ) %>% 
+                mutate(
+                    isGenome=
+                        ifelse(chr == 'Genome.Wide', 'Genome.Wide', 'Per.Chr') %>% 
+                        factor(levels=c('Genome.Wide', 'Per.Chr'))
+                )
+            } else {
+                mutate(
+                    .,
+                    chr=
+                        chr %>% 
+                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
+                        factor(levels=CHROMOSOMES)
+                )
+            } 
+        } else {
+            .
+        }
+    } %>% 
     {
         if ('isGenome' %in% colnames(.) & !skip.isGenome) {
             mutate(., isGenome=factor(isGenome, levels=c('Per.Chr', 'Genome.Wide')))
@@ -476,7 +506,7 @@ standardize_data_cols <- function(
                 resolution=
                     resolution %>%
                     scale_numbers(force_numeric=TRUE) %>%
-                    scale_numbers(),
+                    scale_numbers(force_chr=TRUE),
             )
         } else {
             .
@@ -491,34 +521,6 @@ standardize_data_cols <- function(
                     scale_numbers(force_numeric=TRUE) %>%
                     scale_numbers(),
             )
-        } else {
-            .
-        }
-    } %>% 
-    {
-        if ('chr' %in% colnames(.) & !skip.chr) {
-            if ('Genome.Wide' %in% .$chr & !skip.isGenome) {
-                mutate(
-                    .,
-                    chr=
-                        chr %>%
-                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
-                        factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
-                ) %>% 
-                mutate(
-                    isGenome=
-                        ifelse(chr == 'Genome.Wide', 'Genome.Wide', 'Per.Chr') %>% 
-                        factor(levels=c('Genome.Wide', 'Per.Chr'))
-                )
-            } else {
-                mutate(
-                    .,
-                    chr=
-                        chr %>% 
-                        rename_chrs(to_numeric=to_numeric, to_label=to_label) %>% 
-                        factor(levels=CHROMOSOMES)
-                )
-            } 
         } else {
             .
         }
