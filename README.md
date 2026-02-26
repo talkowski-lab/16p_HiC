@@ -238,11 +238,10 @@ results
 └── coolers_library
     ├── 16p.NSC.WT.Merged.Merged/
     │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.cool
-    │   ├── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.mcool
+    │   └── 16p.NSC.WT.Merged.Merged.hg38.mapq_30.1000.mcool
     ├── 16p.NSC.DEL.Merged.Merged/
     │   └── ...
-    └── 16p.NSC.DUP.Merged.Merged/
-        └── ...
+    └── ...
 ```
 
 ### HiCRep Analysis

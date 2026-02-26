@@ -5,7 +5,7 @@ library(here)
 here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-library(hictkR)
+    library(hictkR)
     source(file.path(BASE_DIR, 'scripts', 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(BASE_DIR, 'scripts', 'constants.R'))
@@ -37,7 +37,8 @@ hyper.params.df <-
     )
 # Load TAD annotations to compare 
 TADs.df <- 
-    load_all_TAD_results_for_TADCompare()
+    load_all_TAD_results_for_TADCompare() %>%
+    filter(resolution %in% parsed.args$resolutions)
 # List all pairs of matrices to compare
 comparisons.list <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 

@@ -20,7 +20,7 @@ ALL_SAMPLE_GROUP_COMPARISONS <-
         # '16p.NSC.DUP',      '16p.NSC.DEL',
         # '16p.NSC.DUP',      '16p.iN.DUP',
         # '16p.NSC.DEL',      '16p.iN.DEL',
-        '16p.NSC.WT',       '16p.iN.WT',
+        # '16p.NSC.WT',       '16p.iN.WT',
         '16p.iN.DUP',       '16p.iN.WT',  
         '16p.iN.DEL',       '16p.iN.WT',  
         '16p.NSC.DUP',      '16p.NSC.WT',

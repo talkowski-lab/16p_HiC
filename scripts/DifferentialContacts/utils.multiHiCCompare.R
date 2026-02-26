@@ -398,6 +398,10 @@ load_all_multiHiCCompare_results <- function(
         resolutions=resolutions,
         sample.group.comparisons=sample.group.comparisons
     ) %>% 
+    filter(A.min == 5) %>% 
+    filter(zero.p == 0.8) %>% 
+    select(-c(A.min, zero.p)) %>% 
+    # filter(resolution == 50000) %>% 
     # Load all results + correct pvalues genome wide per Sample.Group
     group_by(across(-c(filepath, region))) %>% 
     summarize(filepaths=list(c(filepath))) %>% 
@@ -457,9 +461,6 @@ post_process_multiHiCCompare_results <- function(
     results.df %>% 
     # filter results 
     filter(chr %in% chromosomes) %>% 
-    filter(A.min == 5) %>% 
-    filter(zero.p == 0.8) %>% 
-    select(-c(A.min, zero.p)) %>% 
     mutate(distance.bp=region2 - region1) %>% 
     unite(
         'bin.pair.idx',

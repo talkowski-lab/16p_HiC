@@ -1,5 +1,19 @@
 # TODO
 
+## cmds to run
+
+- [ ] knit matrix.QC.Rmd
+- [ ] knit matrix.coverage.Rmd
+- [ ] knit hicrep.Rmd
+- [ ] knit weiner.replication.Rmd
+- [ ] knit TADs.Rmd
+- [ ] knit TADCompare.Rmd
+- [x] knit loops.Rmd
+- [ ] knit loop.integration.Rmd
+- [ ] knit loop.reproducibility.Rmd
+- [ ] knit knit multiHiCCompare.Rmd
+- [ ] knit HiC.Annotated.Heatmaps.Rmd
+
 ## HiCRep
 
 - [x] generate HiCRep results

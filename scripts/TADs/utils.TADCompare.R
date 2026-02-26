@@ -298,11 +298,11 @@ run_all_TADCompare <- function(
         print(
             dplyr::count(
                 .,
-                z_thresh,
-                window_size,
-                gap_thresh,
+                # z_thresh,
+                # window_size,
+                # gap_thresh,
+                # TAD.params,
                 TAD.method, 
-                TAD.params,
                 resolution,
                 SampleID.Numerator,
                 SampleID.Denominator

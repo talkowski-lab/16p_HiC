@@ -13,19 +13,21 @@ date: "`r Sys.Date()`"
 
 # Set up + Load all differential contact results
 
-```{r knitr}
+```{r knitr, eval=TRUE}
 library(knitr)
 knitr::opts_chunk$set(
+    # eval=FALSE,
     warning=FALSE,
     message=FALSE,
     results=FALSE,
     # dev=c('png', 'pdf', 'svg'),
     dev=c('png', 'pdf'),
+    # dev=c('pdf'),
     dpi=300
 )
 ```
 Set up file locations + load dependenies
-```{r dependencies}
+```{r dependencies, eval=TRUE}
 library(here)
 here::i_am('notebooks/multiHiCCompare.Rmd')
 BASE_DIR <- here()
@@ -38,7 +40,7 @@ library(tidyverse)
 library(magrittr)
 ```
 re-usable plot elements
-```{r plot_elements}
+```{r plot_elements, eval=TRUE}
 zero.lines <- 
     list(
         geom_hline(
@@ -61,7 +63,7 @@ plan(multisession, workers=availableCores())
 differential.contacts.df <- 
     check_cached_results(
         results_file=MULTIHICCOMPARE_RESULTS_FILE,
-        force_redo=TRUE,
+        # force_redo=TRUE,
         results_fnc=load_all_multiHiCCompare_results,
         sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC,
         sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS,
@@ -158,7 +160,7 @@ rm(n.plot.df)
 
 # Distribution Plots {.tabset}
 
-```{r dist_plot_df, eval=TRUE}
+```{r dist_plot_df}
 dist.plot.df <- 
     differential.contacts.df %>% 
     select(
@@ -178,7 +180,7 @@ dist.plot.df <-
 
 ## Genome-wide {.tabset}
 
-```{r plot_fc_dist_gw, results='asis', fig.dim=c(9, 6), eval=TRUE}
+```{r plot_fc_dist_gw, results='asis', fig.dim=c(9, 6)}
 # dist.plot.df
 dist.plot.df %>% 
     mutate(
@@ -215,7 +217,7 @@ dist.plot.df %>%
 
 ## Per Chr {.tabset}
 
-```{r plot_fc_dist_chr, results='asis', fig.dim=c(16, 9), eval=TRUE}
+```{r plot_fc_dist_chr, results='asis', fig.dim=c(16, 9)}
 dist.plot.df %>% 
     # filter(resolution == '25Kb') %>% 
     dist_plot_fnc(
@@ -243,7 +245,7 @@ dist.plot.df %>%
 
 ## Genome-Wide {.tabset}
 
-```{r plot_volcanos_gw, results='asis', fig.dim=c(8, 4), eval=TRUE}
+```{r plot_volcanos_gw, results='asis', fig.dim=c(8, 4)}
 differential.contacts.df %>% 
     volcano_plot_fnc(
         group.cols=c('resolution', 'Celltype'),
@@ -256,7 +258,7 @@ differential.contacts.df %>%
 
 ## Fixed Scales {.tabset}
 
-```{r plot_volcanos_fixed, results='asis', fig.dim=c(14, 8), eval=TRUE}
+```{r plot_volcanos_fixed, results='asis', fig.dim=c(14, 8)}
 differential.contacts.df %>% 
     volcano_plot_fnc(
         group.cols=c('resolution', 'Celltype'),
@@ -268,7 +270,7 @@ differential.contacts.df %>%
 
 ## Free Scales {.tabset}
 
-```{r plot_volcanos_free, results='asis', fig.dim=c(16, 8), eval=TRUE}
+```{r plot_volcanos_free, results='asis', fig.dim=c(16, 8)}
 differential.contacts.df %>% 
     volcano_plot_fnc(
         group.cols=c('resolution', 'Celltype'),
@@ -320,7 +322,7 @@ distance.plot.df <-
 
 ## Genome-Wide {.tabset}
 
-```{r plot_distances_gw, results='asis', fig.dim=c(9, 6), eval=TRUE}
+```{r plot_distances_gw, results='asis', fig.dim=c(9, 6)}
 distance.plot.df %>%
     distance_plot_fnc(
         group.cols=c('resolution', 'Celltype'),
@@ -332,7 +334,7 @@ distance.plot.df %>%
 
 ## Per Chr {.tabset}
 
-```{r plot_distances_chr, results='asis', fig.dim=c(14, 8), eval=TRUE}
+```{r plot_distances_chr, results='asis', fig.dim=c(14, 8)}
 distance.plot.df %>%
     distance_plot_fnc(
         group.cols=c('resolution', 'Celltype'),
@@ -392,7 +394,7 @@ manhattan.plot.df %>%
 
 ## Color-wise {.tabset}
 
-```{r plot_manhattans_color, results='asis', fig.dim=c(12, 6), eval=TRUE}
+```{r plot_manhattans_color, results='asis', fig.dim=c(12, 6)}
 manhattan.plot.df %>% 
     manhattan_plot_fnc(
         group.cols=c('resolution', 'Celltype', 'chr'),
@@ -406,7 +408,7 @@ manhattan.plot.df %>%
 # Common Hits Across Comparisons {.tabset}
 
 Plot overlapping hits
-```{r upset_plot_hits, results='asis', fig.dim=c(12, 7), eval=TRUE}
+```{r upset_plot_hits, results='asis', fig.dim=c(12, 7)}
 # differential.contacts.df
 # differential.contacts.df %>%
 #     filter(Celltype == 'iN vs iN') %>% 
@@ -435,7 +437,7 @@ differential.contacts.df %>%
 Scatter plot of fold changes 
 ```{r plot_mhc_diagonals_ggpairs, results='asis', fig.dim=c(9, 9), eval=TRUE}
 differential.contacts.df %>%
-    filter(p.adj.gw < 0.1) %>% 
+    # filter(p.adj.gw < 0.1) %>% 
     mutate(
         region=
             case_when(
@@ -459,16 +461,18 @@ differential.contacts.df %>%
         names_to='metric',
         values_to='value'
     ) %>% 
+    mutate(Sample.Group=Sample.Group %>% str_remove_all('16p.') %>% str_replace_all(fixed('.'), ' ')) %>% 
     pivot_wider(
-        names_from='Sample.Group',
-        values_from='value'
+        names_from=Sample.Group,
+        values_from=value
     ) %>% 
+    # filter(Sample.Group != 'NSC WT vs iN WT') %>% 
     # mutate(is.chr16=ifelse(chr == 'chr16', chr, 'other')) %>% 
     make_nested_plot_tabs(
         group.cols=c('resolution', 'metric'),
         max.header.lvl=2,
         plot.fnc=
-            function(freq.df, text.size=7){
+            function(freq.df, text.size=8){
                 # print(grep(' vs ', colnames(freq.df), value=TRUE))
                 # freq.df %>% print()
                 # cols_to_plot=grep(' vs ', colnames(freq.df), value=TRUE)
@@ -481,10 +485,14 @@ differential.contacts.df %>%
                 ) +
                 zero.lines[[1]] +
                 zero.lines[[2]] +
+                labs(
+                    x='log(Fold-Change)',
+                    y='log(Fold-Change)'
+                ) +
                 theme(
-                    axis.text.x=element_text(size=text.size, angle=45, vjust=1, hjust=1),
+                    axis.text.x=element_text(size=text.size),
                     axis.text.y=element_text(size=text.size),
-                    strip.text=element_text(size=text.size+3)
+                    strip.text=element_text(size=text.size+1)
                 ) + 
                 make_ggtheme()
             }
