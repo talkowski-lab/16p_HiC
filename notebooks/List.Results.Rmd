@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
 Set up file locations + load dependenies
 ```{r dependencies}
 library(here)
-here::i_am('notebooks/list.results.Rmd')
+here::i_am('notebooks/List.Results.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))

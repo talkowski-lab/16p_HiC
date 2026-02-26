@@ -11,7 +11,7 @@ date: "`r Sys.Date()`"
 }
 </style>
 
-# Set Up
+# Dependencies + Load Data
 
 ```{r load_data, eval=FALSE, cache=TRUE}
 regions.df <- 
@@ -50,7 +50,7 @@ knitr::opts_chunk$set(
 Set up file locations + load dependences
 ```{r dependencies}
 library(here)
-here::i_am('notebooks/loop.integration.Rmd')
+here::i_am('notebooks/Loop.Integration.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))

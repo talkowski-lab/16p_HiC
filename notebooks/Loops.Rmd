@@ -26,11 +26,7 @@ knitr::opts_chunk$set(
 Set up file locations + load dependences
 ```{r dependencies}
 library(here)
-# library(ggplot2)
-# library(ggh4x)
-# library(GGally)
-# library(ComplexUpset)
-here::i_am('notebooks/loops.Rmd')
+here::i_am('notebooks/Loops.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts/locations.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))

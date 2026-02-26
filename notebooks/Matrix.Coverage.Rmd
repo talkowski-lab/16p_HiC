@@ -29,7 +29,7 @@ knitr::opts_chunk$set(
 Set up file locations + load dependencies
 ```{r dependencies, eval=TRUE}
 library(here)
-here::i_am('notebooks/matrix.coverage.Rmd')
+here::i_am('notebooks/Matrix.Coverage.Rmd')
 BASE_DIR <- here()
 source(file.path(BASE_DIR, 'scripts', 'locations.R'))
 source(file.path(SCRIPT_DIR, 'utils.data.R'))

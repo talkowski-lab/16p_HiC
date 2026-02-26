@@ -11,7 +11,7 @@ date: "`r Sys.Date()`"
 }
 </style>
 
-# Set Up
+# Dependencies + Load data
 
 ```{r knitr}
 options(scipen=999)
@@ -39,9 +39,6 @@ source(file.path(SCRIPT_DIR, 'TADs', 'utils.TADCompare.R'))
 library(tidyverse)
 library(magrittr)
 ```
-
-# Load TAD results {.tabset}
-
 Load all hiTAD annotations
 ```{r load_TADs}
 TADs.df <- 
