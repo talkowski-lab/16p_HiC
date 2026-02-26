@@ -1,0 +1,43 @@
+regions.df <- 
+    GENOMIC_REGIONS %>% 
+    dplyr::rename_with(~ str_remove(.x, 'region.')) %>%
+    select(region, chr, start, end)
+ccres.df <- load_encode_ccres()
+degs.df <- load_DESeq2_results()
+trade.df <- load_all_TRADE_analysis()
+trade.df %>%
+    select(-c(Celltype, Genotype, TRADE.sig.genes)) %>%
+    dplyr::rename('adj.method'=TRADE.adjust.method) %>% 
+    pivot_longer(starts_with('TRADE'), names_to='stat', names_prefix='TRADE.', values_to='value') %>%
+    pivot_wider(names_from=adj.method, values_from=value) %>%
+    # filter((stat %in% c('TWI', 'log.likelyhood'))) %>%
+    filter(!(stat %in% ('num.nonsig', 'TWI', 'log.likelyhood'))) %>%
+    print(n=Inf)
+
+Load DEG results data
+```{r load_deg_loop_data, eval=FALSE, cache=TRUE}
+# Join annotations and loops
+degs.loops.df <- 
+    # Load IDR2D results for all comparisons of sample groups 
+    check_cached_results(
+        results_file=LOOPS_IDR2D_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_IDR2D_results
+    ) %>% 
+    # filter(max.gap.bins == 5) %>% 
+    post_process_IDR2D_results() %>% 
+    standardize_data_cols() %>% 
+    # Join cCRES to loops
+    left_join(
+        load_DESeq2_results(),
+        relationship='many-to-many',
+        by=
+            join_by(
+                chr,
+                within(
+                    y$start, y$end,   
+                    x$anchor.left, x$anchor.right
+                )
+            )
+    )
+```

@@ -25,19 +25,24 @@ PAIRS_DIR               <- file.path(RESULTS_DIR, 'pairs_library')
 COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
 
 ###################################################
-# Non-HiC Data
+# Functional genome annotations
 ###################################################
-GENOME_GTF_FILE         <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
+ENCODE_CCRE_DIR              <- '/data/talkowski/tools/ref/ENCODE/cCRE/v4'
+ENCODE_CCRE_ANNOTATIONS_FILE <- file.path(REF_DIR, 'ENCODE.v4.cCRE.anontations.tsv')
+CTCF_SITE_FILE               <- file.path(REF_DIR, 'CTCF.annotations.tsv')
+GENE_DESERT_REGIONS_FILE     <- file.path(REF_DIR, 'hg38_gene_deserts.tsv')
+GENOME_GTF_FILE              <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
+GENE_CONSTRAINTS_FILE        <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
+# FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
+# ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
+
+###################################################
 # RNASeq
 EXPRESSION_DATA_DIR     <- file.path(RESULTS_DIR, 'RNASeq', 'expression')
 EXPRESSION_RESULTS_FILE <- file.path(RESULTS_DIR, 'RNASeq', 'all.expression.data.tsv')
 DESEQ2_DATA_DIR         <- file.path(RESULTS_DIR, 'RNASeq', 'DESeq2')
 DESEQ2_RESULTS_FILE     <- file.path(RESULTS_DIR, 'RNASeq', 'all.DESeq2.results.tsv')
-# Functional genome annotations
-CTCF_SITE_FILE          <- file.path(REF_DIR, 'CTCF.annotations.tsv')
-GENE_CONSTRAINTS_FILE   <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
-# FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
-# ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
+TRADE_RESULTS_FILE      <- file.path(RESULTS_DIR, 'RNASeq', 'all.TRADE.results.tsv')
 
 ###################################################
 # Sample QC Results
