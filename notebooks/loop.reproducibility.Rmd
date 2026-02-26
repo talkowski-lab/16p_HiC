@@ -1,0 +1,193 @@
+---
+title: "Loop Reproducibility Analysis for 16p"
+author: "Siddharth Reed"
+date: "`r Sys.Date()`"
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+# Dependencies + Load data
+
+```{r knitr}
+library(knitr)
+knitr::opts_chunk$set(
+    results=FALSE,
+    message=FALSE,
+    warning=FALSE,
+    dev=c('png', 'pdf', 'svg'),
+    dpi=300
+)
+```
+Set up file locations + load dependences
+```{r dependencies}
+library(here)
+here::i_am('notebooks/loops.Rmd')
+BASE_DIR <- here()
+source(file.path(BASE_DIR, 'scripts/locations.R'))
+source(file.path(SCRIPT_DIR, 'utils.data.R'))
+source(file.path(BASE_DIR, 'scripts/constants.R'))
+source(file.path(SCRIPT_DIR, 'utils.plot.R'))
+source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
+source(file.path(SCRIPT_DIR, 'loops/utils.loops.R'))
+library(tidyverse)
+library(magrittr)
+```
+Generate IDR2D results on loops for all comparisons of sample groups
+```{r load_idr2d}
+idr2d.results.df <- 
+    check_cached_results(
+        results_file=ALL_LOOPS_IDR2D_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_IDR2D_results
+    ) %>% 
+    post_process_IDR2D_results() %>% 
+    standardize_data_cols()
+```
+Count loops by categoy
+```{r count_reproducible_loops}
+n.idr2d.results.df <- 
+    idr2d.results.df %>% 
+    count(
+        resolution,
+        # weight, kernel, resolve.method, metric,
+        # max.gap, max.gap.bins,
+        max.gap.bins, max.gap.bins.int, 
+        comparison, 
+        SampleID.P1, SampleID.P2,
+        chr,
+        is.loop.shared
+    )
+calc_pct <- function(count.df){
+    count.df %>% 
+    group_by(across(-c(n))) %>% 
+    summarize(n=sum(n)) %>% 
+    mutate(total=sum(n)) %>% 
+    ungroup() %>% 
+    mutate(pct=n / total) %>% 
+    mutate(pct.label=glue('{round(100 * n / total, digits=1)}%'))
+}
+```
+
+# Compare IDR2D hyper-params {.tabset}
+
+## Genome-Wide {.tabset}
+
+```{r idr2d_hyperparams_barplot_gw, results='asis', fig.dim=c(10,6)}
+n.idr2d.results.df %>%
+    select(-c(SampleID.P1, SampleID.P2, chr)) %>% 
+    calc_pct() %>%
+    make_nested_plot_tabs(
+        plot.fnc=plot_barplot,
+        max.header.lvl=3,
+        group.cols=c('resolution'),
+        x.var='max.gap.bins',
+        y.scale.mode='pct',
+        y.var='pct',
+        fill.var='is.loop.shared',
+        label.var='pct.label',
+        facet.col='comparison',
+        position='stack',
+        # scales='fixed',
+        # legend.position='right',
+        strip.text=element_text(size=9),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+## Per Chr {.tabset}
+
+```{r idr2d_hyperparams_barplot_chr, results='asis', fig.dim=c(14,8)}
+n.idr2d.results.df %>%
+    select(-c(SampleID.P1, SampleID.P2)) %>% 
+    calc_pct() %>%
+    make_nested_plot_tabs(
+        plot.fnc=plot_barplot,
+        max.header.lvl=3,
+        group.cols=c('resolution', 'comparison'),
+        # x.var='chr',
+        y.scale.mode='pct',
+        y.var='pct',
+        fill.var='is.loop.shared',
+        label.var='pct.label',
+        # facet.row='max.gap.bins',
+        x.var='max.gap.bins',
+        facet.col='chr',
+        position='stack',
+        # scales='fixed',
+        # legend.position='right',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=65, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+# Reproducible loops (max.gap == 5) Barplots {.tabset}
+
+## Genome-Wide {.tabset}
+
+```{r idr2d_hyperparams_barplot_gw_mg5, results='asis', fig.dim=c(10,6)}
+n.idr2d.results.df %>%
+    filter(max.gap.bins.int == 5) %>% 
+    select(-c(SampleID.P1, SampleID.P2, chr)) %>% 
+    calc_pct() %>%
+    make_nested_plot_tabs(
+        plot.fnc=plot_barplot,
+        max.header.lvl=3,
+        group.cols=c('resolution'),
+        x.var='comparison',
+        y.scale.mode='pct',
+        y.var='pct',
+        fill.var='is.loop.shared',
+        label.var='pct.label',
+        position='stack',
+        # scales='fixed',
+        # legend.position='right',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+## Per Chr {.tabset}
+
+```{r idr2d_hyperparams_barplot_chr_mg5, results='asis', fig.dim=c(12,10)}
+n.idr2d.results.df %>%
+    filter(max.gap.bins.int == 5) %>% 
+    select(-c(SampleID.P1, SampleID.P2)) %>% 
+    calc_pct() %>%
+    make_nested_plot_tabs(
+        plot.fnc=plot_barplot,
+        max.header.lvl=3,
+        group.cols=c('resolution'),
+        x.var='chr',
+        y.scale.mode='pct',
+        y.var='pct',
+        fill.var='is.loop.shared',
+        label.var='pct.label',
+        facet.row='comparison',
+        position='stack',
+        # scales='fixed',
+        # legend.position='right',
+        strip.text=element_text(size=10),
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+    )
+```
+
+# Save Filtered IDR2D Results
+
+```{r save_filtered_results}
+idr2d.results.df %>% 
+    filter_loop_IDR2D_results() %>% 
+    write_tsv(FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE)
+```
