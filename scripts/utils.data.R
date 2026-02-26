@@ -172,7 +172,8 @@ handle_CLI_args <- function(
                     .,
                     c('-r', '--resolutions'),
                     type='character',
-                    default=paste(c(5, 10, 25, 50, 100) * 1e3, collapse=','),
+                    # default=paste(c(5, 10, 25, 50, 100) * 1e3, collapse=','),
+                    default=paste(c(10, 25, 50, 100) * 1e3, collapse=','),
                     dest='resolutions'
                 )
             } else {
@@ -181,7 +182,8 @@ handle_CLI_args <- function(
         } %>% 
         parse_args(positional_arguments=TRUE)
     # parse list of resolutions if passed
-    if ('resolutions' %in% args){
+    # if ('resolutions' %in% args){
+    if (is.character(parsed.args$options$resolutions)) {
         parsed.args$options$resolutions <- 
             parsed.args$options$resolutions %>%
             str_split(',') %>%
@@ -378,10 +380,12 @@ scale_numbers <- function(
     } else if (is.numeric(numbers) & force_chr) {
         numbers %>%
         tibble(resolution=.) %>%
+        # mutate(resolution=ifelse(resolution == 0, 1, resolution)) %>% 
         mutate(
-            magnitude=resolution %>% log10() %>% floor() %>% {. %/% 3} %>% {. * 3},
+            magnitude=resolution %>% {log10(. + 1)} %>% floor() %>% {. %/% 3} %>% {. * 3},
             suffix=
                 case_when(
+                    magnitude == 0 ~ 'bp',
                     magnitude == 3 ~ 'Kb',
                     magnitude == 6 ~ 'Mb',
                     magnitude == 9 ~ 'Gb',
