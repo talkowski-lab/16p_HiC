@@ -3,6 +3,8 @@ slurm.logs/
 misc/
 core.*
 hs_*.log
+NDV.misc
+.Rprofile
 
 # Data
 fastq/
@@ -10,10 +12,10 @@ public.data/
 
 # Results
 results/
-old.results
 *.html
 notebooks/*.md
 notebooks/*_files/
+notebooks/*_cache/
 
 # Hidden files
 .domaincaller/
@@ -45,12 +47,14 @@ work*
 # Output files from R CMD build
 /*.tar.gz
 
+# Annotation files
 reference.files/gencode.v38.annotation.gtf.gz
+reference.files/gene.constraints.CNVR.tsv
+reference.files/CTCF.annotations.tsv
+reference.files/ENCODE.v4.cCRE.anontations.tsv
+reference.files/hg38.segdups.bed.gz
+reference.files/hg38.segdups.bed.gz.tbi
+reference.files/hg38_gene_deserts.tsv
 reference.files/genome.bins
 reference.files/genome.tracks
-reference.files/gene.constraints.CNVR.tsv
 reference.files/packages/
-
-NDV.misc
-reference.files/CTCF.annotations.tsv
-.Rprofile
