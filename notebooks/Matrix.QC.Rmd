@@ -57,7 +57,7 @@ coverage.summary <-
         resolutions=c(100, 50, 25, 10, 5) * 1e3   # Kbs
     ) %>%
     post_process_coverage_summaries(sample.metadata.df=sample.metadata.df) %>% 
-    standardize_data_cols()
+    standardize_data_cols() %>% 
     pivot_wider(
         names_from='metric',
         values_from='value'
@@ -351,7 +351,7 @@ pair.orientation.df %>%
 # Download Sample Stats
 
 `.tsv` of stats per sample 
-```{r download_stats}
+```{r download_stats, eval=FALSE}
 library(downloadthis)
 min.resolutions <- 
     coverage.summary %>% 
@@ -398,7 +398,7 @@ download_this(
 
 # RPRR 2026 Figure {.tabset} 
 
-```{r rprr_2026, fig.dim=c(6,4), eval=TRUE}
+```{r rprr_2026, fig.dim=c(6,4), eval=FALSE}
 txt.size=10
 pairs.plot.df %>% 
     # filter(Included | isMerged == 'Merged') %>% 
