@@ -20,21 +20,38 @@ suppressPackageStartupMessages({
 # Set up all comparisons
 ###################################################
 options(scipen=999)
-# All combinations of multiHiCCompare hyper-params to test
 parsed.args <- 
     handle_CLI_args(
         args=c('threads', 'force'),
         has.positional=FALSE
     )
+# All combinations of multiHiCCompare hyper-params to test
 hyper.params.df <- 
     tribble(
         ~metric_colname, ~value_transformation,
         'enrichment',    'identity',  # high enrichment => most important loops 
         'log10.qval',    'identity'   # high log10.qval => most important loops
     ) %>% 
-    cross_join(tibble(ambiguity_resolution_method=c("overlap", "midpoint", "value"))) %>% 
-    cross_join(tibble(max_gap=c(-1L)))
-q.thresh <- 0.1 
+    cross_join(
+        tibble(
+            ambiguity_resolution_method=
+                c(
+                    "midpoint",
+                    "value"
+                )
+        )
+    ) %>% 
+    cross_join(
+        tibble(
+            max_gap_bins=
+                c(
+                    0,
+                    1,
+                    2,
+                    5
+                )
+        )
+    )
 
 ###################################################
 # Generate DAC results for each comparison
@@ -46,10 +63,6 @@ plan(multisession, workers=parsed.args$threads)
 #  each row is 1 nested set of loop calls per condition + context
 nested.loops.df <- 
     # load loop results
-    # filter relevant results
-    filter(weight == 'balanced') %>% 
-    filter(kernel == 'donut') %>% 
-    filter(log10.qval > -log10(q.thresh)) %>% 
     FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE %>%
     read_tsv(show_col_types=FALSE) %>% 
     # prep columns for input to IDR2D
@@ -69,13 +82,12 @@ nested.loops.df <-
     nest(
         loops=
             c(
-                chr.A, start.A, end.A,
                 chr.B, start.B, end.B, 
+                chr.A, start.A, end.A,
                 count, length, enrichment, log10.qval
             )
     )
 # run IDR2D on all comparisons of sample groups + param sets
-# force.redo=parsed.args$force.redo; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype')
 nested.loops.df %>% 
     run_all_IDR2D_analysis(
         hyper.params.df=hyper.params.df,
@@ -86,6 +98,7 @@ nested.loops.df %>%
                 'SampleID.P1'=Sample.Group.Numerator,
                 'SampleID.P2'=Sample.Group.Denominator
             ),
+        suffixes=c('.P1', '.P2'),
         pair_grouping_cols=
             c(
                 'weight',
@@ -93,6 +106,7 @@ nested.loops.df %>%
                 'kernel',
                 'chr'
             ),
+        sampleID_col='SampleID',
         SampleID.fields=
             c(
                 NA,
@@ -100,3 +114,4 @@ nested.loops.df %>%
                 'Genotype'
             )
     )
+

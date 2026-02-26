@@ -61,7 +61,7 @@ load_all_cooltools_dots <- function(){
     )
 }
 
-post_process_cooltools_dots_results <- function(results.df){
+post_process_cooltools_dots_results <- function(results.df) {
     results.df %>%
     dplyr::rename(
         'anchor.left'=start1,
@@ -92,12 +92,12 @@ post_process_cooltools_dots_results <- function(results.df){
     ) %>% 
     dplyr::select(
         c(
-            # "type",
+            "type",
             "weight",
             "resolution",
-            "Edit",
-            "Celltype",
-            "Genotype",
+            # "Edit",
+            # "Celltype",
+            # "Genotype",
             # "CloneID",
             # "TechRepID",
             # "ReadFilter",
@@ -115,6 +115,15 @@ post_process_cooltools_dots_results <- function(results.df){
             "log10.qval"
         )
     )
+}
+
+filter_loop_results <- function(
+    results.df,
+    q.thresh=0.1){
+    results.df %>% 
+    filter(kernel == 'donut') %>% 
+    filter(weight == 'balanced') %>% 
+    filter(log10.qval <= -log10(q.thresh))
 }
 
 ###################################################
@@ -187,9 +196,6 @@ tidy_IDR2D_results <- function(
     mutate(
         loop.type=
             case_when(
-                is.na(loop.type) & IDR < 0.01  ~ 'IDR < 0.01',
-                is.na(loop.type) & IDR < 0.05  ~ 'IDR < 0.05',
-                is.na(loop.type) & IDR < 0.1   ~ 'IDR < 0.1 ',
                 is.na(loop.type) & !is.na(IDR) ~ 'detected.in.both',
                 loop.type == 'P1.only'         ~ loop.type,
                 loop.type == 'P2.only'         ~ loop.type,
@@ -206,7 +212,7 @@ run_IDR2D_analysis <- function(
     ambiguity_resolution_method,
     max_gap,
     ...){
-    # paste0(colnames(tmp), "=tmp$", colnames(tmp), "[[1]]", collapse=';')
+    # paste0(colnames(tmp), "=tmp$", colnames(tmp), "[[row_index]]", collapse='; ')
     loops.P1 <- 
         loops.P1 %>% 
         mutate(across(c(chr.A, chr.B), as.character)) %>% 
@@ -233,8 +239,7 @@ run_IDR2D_analysis <- function(
         loops.P2, 
         value_transformation=value_transformation,
         ambiguity_resolution_method=ambiguity_resolution_method,
-        max_gap=max_gap
-        # ...,
+        max_gap=ifelse(max_gap < 1, -1L, max_gap)
     ) %>% 
     # tidy up results into nice tabular format
     tidy_IDR2D_results(
@@ -254,7 +259,7 @@ run_all_IDR2D_analysis <- function(
     sampleID_col='SampleID',
     suffixes=c('.P1', '.P2'),
     ...){
-    # sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
+    # force.redo=parsed.args$force.redo; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
     # list + format metadata for all specified sample groups to compare
     nested.loops.df %>% 
     enumerate_pairwise_comparisons(
@@ -268,6 +273,7 @@ run_all_IDR2D_analysis <- function(
     # Evaluate all comparisons for all combinations of specified parameters
     cross_join(hyper.params.df) %>% 
     mutate(
+        max_gap=resolution * max_gap_bins,
         output_dir=
             file.path(
                 LOOPS_IDR2D_DIR,
@@ -286,12 +292,39 @@ run_all_IDR2D_analysis <- function(
             )
     ) %>% 
     arrange(desc(chr)) %>% 
+    {
+        if (!force.redo) {
+            filter(., !file.exists(results_file))
+        } else{
+            .
+        }
+    } %T>% 
+    {
+        message('Generating the following results files')
+        print(
+            mutate(
+                ., 
+                idr.params=glue('{metric_colname}-{value_transformation}-{ambiguity_resolution_method}'),
+                comparison=glue('{SampleID.P1}-{SampleID.P2}')
+            ) %>% 
+            dplyr::count(
+                resolution, max_gap,
+                idr.params,
+                comparison
+                # .,
+                # metric_colname, value_transformation, ambiguity_resolution_method,
+                # resolution, max_gap,
+                # SampleID.P1, SampleID.P2
+            )
+        )
+    } %>%
         # {.} -> tmp; tmp
-        # tmp %>% head(3) %>% 
+        # tmp %>% 
     future_pmap(
         .l=.,
         .f=check_cached_results,
         force_redo=force.redo,
+        return_data=FALSE,
         results_fnc=run_IDR2D_analysis,
         .progress=TRUE
     )
@@ -329,27 +362,60 @@ load_all_IDR2D_results <- function(){
             )
     ) %>%
     unnest(idr2d) %>% 
+    select(-c(filepath))
+}
+
+post_process_IDR2D_results <- function(results.df){
+    results.df %>% 
     mutate(
-        loop.type=
+        comparison=glue('{SampleID.P1} vs {SampleID.P2}'),
+        max.gap.bins.int=max.gap / resolution,
+        max.gap=
+            fct_reorder(
+                glue('max gap = {scale_numbers(max.gap, force_chr=TRUE)}'),
+                max.gap.bins.int
+            ),
+        max.gap.bins=
+            fct_reorder(
+                glue('max gap = {max.gap.bins.int} bins'),
+                max.gap.bins.int
+            ),
+        is.loop.shared=
+            case_when(
+                loop.type == 'P1.only' ~ 'P1.only',
+                loop.type == 'P2.only' ~ 'P2.only',
+                IDR <= 0.1             ~ 'IDR < 0.1',
+                IDR <= 1               ~ 'Irreproducible',
+                TRUE                   ~ NA
+            ) %>%
             factor(
-                loop.type, 
                 levels=
                     c(
-                        'IDR < 0.01',
-                        'IDR < 0.05',
                         'IDR < 0.1',
-                        'detected.in.both',
+                        'Irreproducible',
                         'P1.only',
                         'P2.only'
                     )
             )
-    ) %>% 
+    ) %>%
     select(
         -c(
+            loop.type,
             region,
-            filepath
+            weight,
+            kernel,
+            metric, 
+            resolve.method
         )
     )
+}
+
+filter_loop_IDR2D_results <- function(results.df){
+    results.df %>% 
+    filter(weight == 'balanced') %>% 
+    filter(kernel == 'donut') %>% 
+    filter(metric == 'log10.qval') %>% 
+    filter(resolve.method == 'value')
 }
 
 ###################################################
@@ -584,72 +650,5 @@ count_ccres_per_loop <- function(
         tmp %>% 
             rowwise() %>% mutate(across(c(loops, cCREs, overlaps), ~ nrow(.x))) %>% 
             ungroup() %>% summarize(across(c(loops, cCREs, overlaps), sum))
-}
-
-###################################################
-# Plotting
-###################################################
-plot_upset <- function(
-    plot.df,
-    category_prefix,
-    title.str,
-    ...){
-    upset(
-        plot.df,
-        plot.df %>%
-            dplyr::select(starts_with(category_prefix)) %>%
-            colnames(),
-        width_ratio=0.3,
-        mode='exclusive_intersection',
-        name=category_prefix,
-        # name=category_col,
-        # labeller=function(x) str_remove(x, category_prefix),
-        annotations=
-            list(
-                'Chrs'=
-                    (
-                        ggplot(mapping=aes(fill=chr))
-                        + geom_bar(stat='count', position='fill')
-                        + scale_y_continuous(labels=scales::percent_format())
-                        + ylab('Chrs')
-                    )
-            ),
-        set_sizes=
-            (
-                upset_set_size(
-                    position='right',
-                    geom=
-                        geom_bar(
-                            aes(fill=chr, x=group),
-                            width=0.8
-                        )
-                ) +
-                make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
-            ),
-        guides='over' # moves legends over the set sizes
-    ) +
-    ggtitle(title.str)
-}
-
-plot_pairs <- function(
-    freq.df,
-    cols_pattern,
-    text.size=7,
-    ...){
-    cols_to_plot <-
-        freq.df %>%
-        colnames() %>%
-        str_detect(cols_pattern) %>%
-        which()
-    ggpairs(
-        freq.df,
-        columns=cols_to_plot,
-        ...
-    ) +
-    theme(
-        axis.text.x=element_text(size=text.size, angle=45, vjust=1, hjust=1),
-        axis.text.y=element_text(size=text.size),
-        strip.text=element_text(size=text.size)
-    )
 }
 
