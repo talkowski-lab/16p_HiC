@@ -515,6 +515,9 @@ make_tabs_recursive <- function(
     nl.delim,
     return.figure,
     merge.base.layers,
+    plot_file=NA,
+    width=NA,
+    height=NA,
     ...){
     if (length(group.cols) > 1) {
         group.col <- group.cols[1]
@@ -556,7 +559,15 @@ make_tabs_recursive <- function(
         figure <- 
             plot.df %>%
             plot.fnc(...)
-        if (return.figure) {
+        if (!is.na(plot_file)) {
+            ggsave(
+                plot_file,
+                figure,
+                width=width,
+                height=height,
+                units='in'
+            )
+        } else if (return.figure) {
             return(figure)
         } else {
             cat(
@@ -607,6 +618,9 @@ plot_barplot <- function(
     x.var='',
     y.var='',
     fill.var='', 
+    label.var=NULL,
+    label.color='black',
+    label.size=3,
     position='dodge',
     legend.cols=1,
     ...){
@@ -634,11 +648,27 @@ plot_barplot <- function(
     # make it a boxplot 
     { 
         . + 
-        geom_col(position=position) +
+        geom_col(
+            position=position,
+            color="black"
+        ) +
         guides(fill=guide_legend(ncol=legend.cols))
     } %>% 
     # Handle faceting + scaling + theme options
-    post_process_plot(...)
+    post_process_plot(...) %>% 
+    {
+        if (!(is.null(label.var))) {
+            . +
+            geom_text(
+                aes(label=.data[[label.var]]), 
+                position=position_stack(vjust=0.5),
+                color=label.color,
+                size=label.size,
+            )
+        } else {
+            .
+        }
+    }
 }
 
 plot_boxplot <- function(
