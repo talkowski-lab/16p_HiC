@@ -19,11 +19,6 @@ suppressPackageStartupMessages({
 # Comparison parameters
 ###################################################
 options(dplyr.summarize.inform=FALSE, scipen=999)
-# parsed.args <- 
-#     handle_CLI_args(
-#         args=c('threads', 'force', 'resolutions'),
-#         has.positional=FALSE
-#     )
 # Comparison hyper-params
 resolutions <- c(100, 50, 10) * 1e3
 hyper.params.df <- 
@@ -32,14 +27,8 @@ hyper.params.df <-
         test.method=c('t.test', 'wilcox.test'),
         normalization=c('raw', 'balanced'),
         resolution=resolutions,
-    ) %>% 
-    cross_join(
-        tribble(
-             ~stat.var, ~facet.row, ~comparison.group, ~label.x.npc, ~label.y.npc, ~n_size, ~exclude_background,  ~ylim, ~width, ~height,  
-               'group', 'Genotype',         'regions',      c(0.25),      c(0.48),       4,               FALSE,   TRUE,      8,       8,   
-            'Genotype',    'group',        'Genotype',    c('left'),     c('top'),       3,                TRUE,  FALSE,      8,       5         
-        )
-    )
+        comparison.group=c('regions', 'Genotype')
+    ) # %>% 
 # list of regions to compare
 region.comparisons <- 
     tribble(
@@ -68,69 +57,110 @@ all.comparisons.df <-
         region.comparison=glue('{region.P2} - {region.P1} [{region.background}]'),
         results_file=
             file.path(
-                ROBINSON_REPLICATION_DIR,
-                'plots',
+                WEINER_REPLICATION_PLOTS_DIR,
+                glue('comparison_{comparison.group}'),
                 glue('normalization_{normalization}'),
                 glue('isMerged_{isMerged}'),
                 glue('resolution_{resolution}'),
-                glue('comparison_{comparison.group}'),
                 glue('{region.P1}-{region.P2}-{region.background}-region.vs.distanct.matched.ctrl.pdf')
             ) %>%
             str_replace_all(' ', '.')
     ) %>% 
-    # filter(test.method == 't.test') %>% 
-    # filter(normalization == 'raw') %>% 
+    filter(test.method == 't.test') %>% 
+    filter(normalization == 'raw') %>% 
     filter(isMerged) %>% 
     filter(resolution %in% c(100000)) %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='.',
+        names=c(NA, 'Celltype', 'Genotype', NA, NA), 
+        cols_remove=FALSE
+    )
+    # {.}; all.comparisons.df
+
+###################################################
+# Compare regions differences
+###################################################
+txt.size=10
+all.comparisons.df %>%
+    filter(comparison.group == 'regions') %>% 
+    filter(Genotype == 'WT') %>% 
+    select(-c(Celltype, Genotype)) %>% 
     nest(
         plot.df=
             -c(
-                stat.var, facet.row, comparison.group,
-                results_file,
+                # stat.var, facet.row, 
+                # SampleID,
                 region.comparison,
+                results_file,
                 resolution, resolution.label,
                 normalization,
                 test.method,
                 isMerged
             )
-    )
-
-###################################################
-# Compare regions differences
-###################################################
-all.comparisons.df %>%
-    # filter(comparison.group == 'regions') %>% 
+    ) %>% 
     pmap(
         .l=.,
         .f=plot_contacts_regions_boxplot,
+        stat.var='group',
         y.var='IF',
+        fill.var='group',
+        facet.row='Genotype',
         facet.col='Celltype',
-        # scales='free_y',
-        # width=8,
-        # height=8,
-        # label.x.npc=c(0.25),
-        # label.y.npc=c(0.48),
-        # n_size=4,
-        # exclude_background=FALSE,
-        # ylim=TRUE,
+        scales='free_y',
+        width=6,
+        height=4,
+        label.x.npc=c(0.25),
+        label.y.npc=c(0.48),
+        n_size=3,
+        exclude_background=FALSE,
+        ylim=TRUE,
+        axis.text.x=element_text(size=txt.size, angle=35, hjust=1),
+        axis.text.y=element_text(size=txt.size),
+        strip.text=element_text(size=txt.size),
+        legend.text=element_text(size=txt.size),
+        legend.key.size=unit(10, 'pt'),
+        axis.title.x=element_blank(),
         .progress=TRUE
     )
 
 ###################################################
 # Compare genotype differences
 ###################################################
-# all.comparisons.df %>%
-#     filter(comparison.group == 'Genotype') %>% 
-#     pmap(
-#         .l=.,
-#         .f=plot_contacts_regions_boxplot,
-#         y.var='IF',
-#         facet.col='Celltype',
-#         scales='free_y',
-#         # width=8,
-#         # height=5,
-#         # n_size=3,
-#         # exclude_background=TRUE,
-#         # ylim=FALSE,
-#         .progress=TRUE
-#     )
+all.comparisons.df %>%
+    filter(comparison.group == 'Genotype') %>% 
+    select(-c(Celltype, Genotype)) %>% 
+    nest(
+        plot.df=
+            -c(
+                # SampleID,
+                region.comparison,
+                results_file,
+                resolution, resolution.label,
+                normalization,
+                test.method,
+                isMerged
+            )
+    ) %>% 
+    pmap(
+        .l=.,
+        .f=plot_contacts_regions_boxplot,
+        stat.var='Genotype',
+        y.var='IF',
+        fill.var='Genotype',
+        facet.col='Celltype',
+        facet.row='group',
+        scales='free_y',
+        width=6,
+        height=4,
+        n_size=3,
+        exclude_background=TRUE,
+        ylim=FALSE,
+        axis.text.x=element_text(size=txt.size),
+        axis.text.y=element_text(size=txt.size),
+        strip.text=element_text(size=txt.size),
+        legend.text=element_text(size=txt.size),
+        legend.key.size=unit(10, 'pt'),
+        .progress=TRUE
+    )
+

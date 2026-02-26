@@ -131,8 +131,8 @@ plot_contacts_regions_boxplot <- function(
     ylim=TRUE,
     exclude_background=FALSE,
     ...){
-    paste0(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', collapse='; ')
-    # row_index=1; isMerged=tmp$isMerged[[row_index]]; test.method=tmp$test.method[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; stat.var=tmp$stat.var[[row_index]]; facet.row=tmp$facet.row[[row_index]]; comparison.group=tmp$comparison.group[[row_index]]; resolution.label=tmp$resolution.label[[row_index]]; region.comparison=tmp$region.comparison[[row_index]]; results_file=tmp$results_file[[row_index]]; plot.df=tmp$plot.df[[row_index]]
+    # paste0(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', collapse='; ')
+    # row_index=1; isMerged=tmp$isMerged[[row_index]]; test.method=tmp$test.method[[row_index]]; resolution=tmp$resolution[[row_index]]; normalization=tmp$normalization[[row_index]]; stat.var=tmp$stat.var[[row_index]]; facet.row=tmp$facet.row[[row_index]]; resolution.label=tmp$resolution.label[[row_index]]; region.comparison=tmp$region.comparison[[row_index]]; results_file=tmp$results_file[[row_index]]; plot.df=tmp$plot.df[[row_index]]
     # label.x.npc="left"; label.y.npc="top"; width=8; height=8; scales='free_y'; n_size=4
     # Load contacts to compare
     data.df <- 
@@ -234,9 +234,9 @@ plot_contacts_regions_boxplot <- function(
         labs(y='HiC-Contacts') +
         theme(
             legend.position='none',
-            axis.text.x=element_text(angle=35, hjust=1),
-            axis.title.x=element_blank(),
-            # ...
+            # axis.text.x=element_text(angle=35, hjust=1),
+            # axis.title.x=element_blank(),
+            ...
         ) +
         make_ggtheme()
     if (ylim){
@@ -249,111 +249,5 @@ plot_contacts_regions_boxplot <- function(
         height=height,
         units='in'
     )
-}
-
-DEP_plot_contacts_regions_boxplot <- function(
-    plot.df,
-    bin_col='region',
-    count_col='IF',
-    color_col='region.color',
-    facet_row='ReplicateNum',
-    facet_col='Genotype',
-    test.method='t.test',
-    p.adjust.method='none',
-    independent='none',
-    scales='free_y',
-    p.max=1,
-    tip.length=0.05,
-    n_pos=0,
-    n_size=2,
-    p_size=2,
-    test_offset_y=3,
-    expansion=c(0.01, 0.01, 0.1, 0.01),
-    ...){
-    stat.df <- 
-        plot.df %>% 
-        # group_by(across(all_of(c(facet_row, facet_col)))) %>% 
-        # nest() %>% 
-        # rowwise() %>% 
-        # # Compute stats comparing means between bin_col (x-axis) values
-        # mutate(
-        #     stats=
-        #         compare_means(
-        #             formula(glue('{count_col} ~ {bin_col}')),
-        #             method=test.method,
-        #             p.adjust.method=p.adjust.method,
-        #             data=data
-        #         ) %>%
-        #         list()
-        # ) %>% 
-        # select(-c(data)) %>%
-        # unnest(stats) %>% 
-        # filter(p < p.max) %>% 
-        # Set positions + spacing of p-value text
-        left_join(
-            plot.df %>% 
-            group_by(across(c(facet_row, facet_col))) %>% 
-            summarize(
-                y.position=
-                    min(!!sym(count_col)) + 0.95 * (max(!!sym(count_col)) - min(!!sym(count_col)))
-            ),
-            by=c(facet_row, facet_col)
-        ) %>%
-        group_by(across(c(facet_row, facet_col))) %>% 
-        mutate(y.position=max(y.position) + test_offset_y * (row_number())) %>% 
-        ungroup()
-    plot.df %>% 
-    ggplot(
-        aes(
-            x=.data[[bin_col]],
-            y=.data[[count_col]],
-        )
-    ) +
-    # geom_hline(yintercept=0, linetype='solid', color='black', linewidth=0.1) +
-    geom_boxplot(
-        aes(color=.data[[color_col]]),
-        outlier.size=0.5
-    ) +
-    scale_color_identity() +
-    stat_pvalue_manual(
-        data=stat.df,
-        label='p.label',
-        size=p_size,
-        tip.length=tip.length
-    ) +
-    geom_text(
-        data=
-            plot.df %>% 
-            group_by(across(c(bin_col, facet_row, facet_col))) %>%
-            summarize(
-                y.position=n_pos,
-                n=glue('n={n()}')
-            ),
-        aes(
-            y=y.position,
-            label=n
-        ),
-        size=n_size,
-        hjust=0.5,
-        vjust=0.5
-    ) +
-    scale_y_continuous(
-        expand=expansion,
-        breaks=c(0, 25, 50, 75)
-    ) +
-    labs(y='HiC-Contacts') +
-    facet_grid2(
-        rows=vars(!!sym(facet_row)), 
-        cols=vars(!!sym(facet_col)),
-        scales=scales,
-        independent=independent
-    ) +
-    theme(
-        legend.position='none',
-        axis.text.x=element_text(angle=25, hjust=1),
-        axis.title.x=element_blank(),
-        ...
-    ) +
-    add_ggtheme()
 }
 
