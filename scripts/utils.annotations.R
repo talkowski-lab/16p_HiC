@@ -361,3 +361,67 @@ load_CTCF_sites <- function(force.redo=FALSE){
     )
 }
 
+load_encode_ccres <- function(force.redo=FALSE){
+    check_cached_results(
+        results_file=ENCODE_CCRE_ANNOTATIONS_FILE,
+        force_redo=force.redo,
+        results_fnc=
+            function(){
+                # BASE_DIR=file.path(getwd(), '..')
+                # col.list.df <- 
+                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-List.txt.gz') %>%
+                #     read_tsv(
+                #         col_names=c(
+                #             'ID1', 
+                #             'ID2', 'ID3', 'ID4', 'ID5', 'ID6', 'ID7', 'ID8', 
+                #             'SpeciesID',
+                #             'Group',
+                #             '???'
+                #         )
+                #     )
+                # class.mat.df <- 
+                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-Class-Matrix.txt.gz') %>%
+                #     read_tsv() %>% 
+                #     pivot_longer(-cCRE, names_to='BioID', values_to='value')
+                # tissue.info.df <- 
+                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-Tissues.txt') %>%
+                #     read_tsv()
+                # info.df <- 
+                #     inner_join(
+                #         col.list.df %>% select(ID1, SpeciesID),
+                #         tissue.info.df,
+                #         by=join_by(ID1 == ENCODE_Sample_ID)
+                #     ) %>%
+                #     filter(!is.na(ENCODE_Tissue))
+                # Graphical + explicit definitions of of cCRE types
+                # https://screen-v4.wenglab.org/about
+                # cCRE.descriptions <- 
+                #     tribble(
+                #         ~cCRE.type,   ~cCRE.description,
+                #         'CA',         'Chromatin Accessible Only',
+                #         'CA-CTCF',    'Chromatin Accessible with CTCF',
+                #         'CA-H3K4me3', 'Chromatin Accessible with H4K4me3',
+                #         'CA-TF',      'Chromatin Accessible with TF',
+                #         'PLS',        'Promoter-like',
+                #         'TF',         'TF Only',
+                #         'dELS',       'Distal enhancer-like'
+                #         'pELS',       'Proximal enhancer-like'
+                #     )
+                ccres.df <- 
+                    file.path(ENCODE_CCRE_DIR, 'GRCh38-cCREs.bed') %>%
+                    read_tsv(
+                        col_names=
+                            c(
+                                'chr',
+                                'start', 'end',
+                                # 'cCREID.P1', 'cCREID.P2',
+                                'cCREID', 'cCREID.2',
+                                'cCRE.type'
+                            )
+                    ) %>% 
+                    select(-c(cCREID.2))
+                    # left_join(cCRE.descriptions, by='cCRE.type')
+            }
+    )
+}
+

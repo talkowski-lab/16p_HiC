@@ -433,6 +433,159 @@ calc_expr_loop_ztest <- function(
     )
 }
 
+count_ccres_per_loop <- function(
+    ccres.df=NULL,
+    idr2d.df=NULL, 
+    regions.df=NULL){
+    # Specific sub-regions of each chrosome to quantify stats for separately
+    if (is.null(regions.df)) {
+        regions.df <- 
+            GENOMIC_REGIONS %>% 
+            filter(region != 'chr16') %>% 
+            dplyr::rename_with(~ str_remove(.x, 'region.')) %>%
+            select(region, chr, start, end)
+    }
+    # cis-regulatory element annotations (cCREs)
+    if (is.null(ccres.df)) {
+        # All cCREs are 150bp - 350bp long
+        # ccres.df %>% mutate(dist=end - start) %>% group_by(cCRE.type) %>% summarize(as_tibble_row(summary(dist)))
+        ccres.df <- 
+            load_encode_ccres() %>%
+            left_join(
+                regions.df,
+                suffix=c('', '.y'),
+                by=
+                    join_by(
+                        chr,
+                        within(
+                            x$start, x$end,
+                            y$start, y$end
+                        )
+                    )
+            ) %>% 
+            mutate(region=ifelse(is.na(region), chr, region)) %>% 
+            select(-c(start.y, end.y))
+    }
+    # loop reproducibility results
+    if (is.null(idr2d.df)) {
+        idr2d.df <- 
+            check_cached_results(
+                results_file=LOOPS_IDR2D_RESULTS_FILE,
+                # force_redo=TRUE,
+                results_fnc=load_all_IDR2D_results
+            ) %>% 
+            post_process_IDR2D_results() %>% 
+            standardize_data_cols() %>% 
+            left_join(
+                regions.df,
+                by=
+                    join_by(
+                        chr,
+                        within(
+                            x$anchor.left, x$anchor.right,
+                            y$start, y$end
+                        )
+                    )
+            ) %>% 
+            mutate(region=ifelse(is.na(region), chr, region)) %>% 
+            select(
+                -c(
+                    max.gap,
+                    SampleID.P1,
+                    SampleID.P2,
+                    start,
+                    end
+                )
+            )
+    }
+    # total number of cCREs per category per region
+    ccre.totals.df <- 
+        ccres.df %>% 
+        count(
+            chr, region,
+            cCRE.type,
+            name='total.cCREs'
+        )
+    # total number of loops per category per region
+    loop.totals.df <- 
+        idr2d.df %>% 
+        count(
+            resolution, max.gap.bins,
+            comparison,
+            chr, region,
+            is.loop.shared,
+            name='total.loops'
+        )
+    # loop.totals.df
+    # ccre.totals.df
+    idr2d.df %>%
+        filter(max.gap.bins.int == 5) %>% 
+    # nest so one set of loop annotations per row
+    nest(
+        loops=
+            c(
+                # is.loop.shared,
+                diff.value,
+                diff.rank,
+                IDR,
+                anchor.left,
+                anchor.right
+            )
+    ) %>% 
+    # match loop sets and cCRE sets by region
+    left_join(
+        # nest so one set of cCREs annotations per row
+        ccres.df %>%
+        nest(
+            cCREs=
+                c(
+                    # cCRE.type,
+                    start,
+                    end,
+                    cCREID
+                )
+        ),
+        by=
+            join_by(
+                chr,
+                region
+            )
+    ) %>% 
+    # For each region, compute all overlaps between any loop and any cCRE
+    rowwise() %>% 
+    mutate(
+        overlaps=
+            inner_join(
+                loops,
+                cCREs,
+                by=
+                    join_by(
+                        within(
+                            y$start, y$end,
+                            x$anchor.left, x$anchor.right
+                        )
+                    )
+            ) %>%
+            list()
+    ) %>% 
+    ungroup() %>% 
+        {.} -> tmp; tmp
+        tmp %>% 
+            rowwise() %>% mutate(across(c(loops, cCREs, overlaps), ~ nrow(.x))) %>% ungroup() %>%
+            dplyr::rename('max.gap'=max.gap.bins.int) %>% 
+            select(
+                   resolution, max.gap,
+                   comparison,
+                   region,
+                   is.loop.shared, loops,
+                   cCRE.type, cCREs,
+                   overlaps
+            )
+        tmp %>% 
+            rowwise() %>% mutate(across(c(loops, cCREs, overlaps), ~ nrow(.x))) %>% 
+            ungroup() %>% summarize(across(c(loops, cCREs, overlaps), sum))
+}
+
 ###################################################
 # Plotting
 ###################################################
