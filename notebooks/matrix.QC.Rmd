@@ -21,9 +21,8 @@ knitr::opts_chunk$set(
     results=FALSE,
     message=FALSE,
     warning=FALSE,
-    # dev=c('png', 'pdf', 'svg'),
-    dev=c('pdf'),
-    # dev=c('svg'),
+    dev=c('png', 'pdf', 'svg'),
+    # dev=c('pdf'),
     dpi=300
 )
 ```
@@ -57,32 +56,17 @@ coverage.summary <-
         results_fnc=compute_all_coverage_summaries,
         resolutions=c(100, 50, 25, 10, 5) * 1e3   # Kbs
     ) %>%
-    filter(
-        ReadFilter == 'mapq_30',
-        count.type == 'cis',
-        weight == 'raw',
-        # isGenome == 'Per.Chr',
-        metric %in% c(
-            'bins.n.covered',  
-            'bins.n.detected', 
-            'bins.n.nz',       
-            'bins.n.total',    
-            'bins.pct.covered',
-            'bins.pct.nz',     
-            'coverage.mean',   
-            'coverage.median', 
-            # 'coverage.min',    
-            # 'coverage.q25',    
-            # 'coverage.q75',    
-            'coverage.total'
-        )
-    ) %>% 
-    left_join(
-        sample.metadata.df %>% select(SampleID, FlowcellID),
-        by=join_by(SampleID)
-    ) %>%
-    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID)) %>% 
+    post_process_coverage_summaries(sample.metadata.df=sample.metadata.df) %>% 
     standardize_data_cols()
+    pivot_wider(
+        names_from='metric',
+        values_from='value'
+    ) %>% 
+    # Pick relevant coverage results
+    filter(chr == 'Genome.Wide') %>% 
+    # format results for human readability
+    mutate(`% Bins >= 1K`=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
+    mutate(is.valid.resolution=bins.pct.covered >= 0.80)
 ```
 Load pairtools stats files
 ```{r pair_plot_df, eval=TRUE}
@@ -99,6 +83,17 @@ pairs.plot.df <-
     ) %>%
     mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
 ```
+Barplot theme
+```{r theme obj, eval=TRUE}
+barplot.ggtheme <- 
+    make_ggtheme(
+        legend.position='right',
+        legend.text=element_text(size=5),
+        legend.key.size=unit(10, "pt"),
+        axis.text.x=element_text(size=4.5, angle=35, hjust=1),
+        axis.title.x=element_blank()
+    )
+```
 
 # Minimum Viable Resolution {.tabset}
 
@@ -113,17 +108,7 @@ Heatmap of valid resolutions
 
 ```{r min_res_heatmap_merged, results='asis', fig.dim=c(8,6)}
 coverage.summary %>% 
-    pivot_wider(
-        names_from='metric',
-        values_from='value'
-    ) %>% 
-    # Pick relevant coverage results
-    filter(chr == 'Genome.Wide') %>% 
     filter(isMerged == 'Merged') %>% 
-    # format results for human readability
-    mutate(`% Bins >= 1K`=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
-    mutate(is.valid.resolution=bins.pct.covered >= 0.80) %>% 
-    # count(SampleID, resolution)
     make_nested_plot_tabs(
         group.cols=c('weight'),
         max.header.lvl=3,
@@ -145,16 +130,7 @@ coverage.summary %>%
 
 ```{r min_res_heatmap_indv, results='asis', fig.dim=c(12,9)}
 coverage.summary %>% 
-    pivot_wider(
-        names_from='metric',
-        values_from='value'
-    ) %>% 
-    # Pick relevant coverage results
-    filter(chr == 'Genome.Wide') %>% 
     filter(isMerged == 'Individual') %>% 
-    # format results for human readability
-    mutate(`% Bins >= 1K`=sprintf("%0.1f%%", bins.pct.covered * 100)) %>% 
-    mutate(is.valid.resolution=bins.pct.covered >= 0.80) %>% 
     # count(SampleID, resolution)
     make_nested_plot_tabs(
         group.cols=c('weight'),
@@ -173,122 +149,7 @@ coverage.summary %>%
     )
 ```
 
-# Summary Stats {.tabset}
-
-## Genome Wide {.tabset}
-
-```{r total_heatmaps_gw, results='asis', fig.dim=c(12,7)}
-coverage.summary %>% 
-    filter(isGenome == 'Genome.Wide') %>% 
-    filter(
-        metric %in% c(
-            # 'bins.n.total',
-            # 'bins.n.detected',
-            # 'bins.n.nz',
-            'bins.n.covered',
-            # 'bins.pct.nz',
-            # 'bins.pct.covered',
-            # 'coverage.min',
-            # 'coverage.q25',
-            'coverage.median',
-            'coverage.mean',
-            # 'coverage.q75',
-            # 'coverage.max',
-            'coverage.total'
-        )
-    ) %>% 
-    mutate(
-        labels=
-            case_when(
-                grepl('.pct.', metric) ~ scales::number(value, accuracy=0.01, stype_positive='none'),
-                TRUE                   ~ scales::number(value, accuracy=0.1,  stype_positive='none', scale_cut=cut_short_scale())
-            )
-    ) %>% 
-    make_nested_plot_tabs(
-        group.cols=c('isMerged', 'weight', 'resolution'),
-        max.header.lvl=3,
-        plot.fnc=plot_barplot,
-        x.var='SampleID',
-        x.scale.mode='discrete',
-        y.var='value',
-        y.scale.mode='m',
-        fill.var='Genotype', 
-        facet.col='Celltype',
-        facet.row='metric',
-        scales='free',
-        legend.position='right',
-        axis.title.y=element_blank(),
-        axis.title.x=element_blank(),
-        axis.text.x=element_text(angle=45, hjust=1)
-    )
-```
-
-## Per Chr {.tabset}
-
-```{r total_heatmaps_chr, results='asis', fig.dim=c(15,8)}
-coverage.summary %>% 
-    filter(isGenome != 'Genome.Wide') %>% 
-    filter(
-        metric %in% c(
-            # 'bins.n.total',
-            # 'bins.n.detected',
-            # 'bins.n.nz',
-            # 'bins.n.covered',
-            'bins.pct.nz',
-            'bins.pct.covered',
-            # 'coverage.min',
-            # 'coverage.q25',
-            'coverage.median',
-            'coverage.mean',
-            # 'coverage.q75',
-            # 'coverage.max',
-            'coverage.total'
-        )
-    ) %>% 
-    mutate(
-        labels=
-            case_when(
-                grepl('.pct.', metric) ~ scales::number(value, accuracy=0.01, stype_positive='none'),
-                TRUE                   ~ scales::number(value, accuracy=0.1,  stype_positive='none', scale_cut=cut_short_scale())
-            )
-    ) %>% 
-    make_nested_plot_tabs(
-        group.cols=c('isMerged', 'weight', 'metric', 'resolution'),
-        max.header.lvl=3,
-        plot.fnc=plot_heatmap,
-        x.var='chr',
-        y.var='SampleID',
-        fill.var='value', 
-        facet.row='Celltype',
-        scales='free',
-        label.var='labels',
-        label.size=2.75,
-        label.color='white',
-        legend.position='top',
-        legend.text=element_text(angle=45, hjust=1),
-        axis.text.x=element_text(angle=45, hjust=1),
-        element.title=element_blank(),
-        plot.elements=
-            list(
-                scale_fill_continuous(
-                    labels=scales::label_number(scale_cut=scales::cut_short_scale())
-                )
-            )
-    )
-```
-
 # Plot pairs by distance {.tabset}
-
-```{r theme obj, eval=TRUE}
-barplot.ggtheme <- 
-    make_ggtheme(
-        legend.position='right',
-        legend.text=element_text(size=5),
-        legend.key.size=unit(10, "pt"),
-        axis.text.x=element_text(size=4.5, angle=35, hjust=1),
-        axis.title.x=element_blank()
-    )
-```
 
 ## Number of pairs 
 
@@ -564,6 +425,7 @@ pairs.plot.df %>%
             )
     ) +
     theme(
+        strip.text=element_text(size=txt.size),
         axis.text.x=element_text(size=txt.size, angle=45),
         axis.text.y=element_text(size=txt.size),
         legend.text=element_text(size=txt.size),

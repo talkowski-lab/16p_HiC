@@ -139,3 +139,34 @@ compute_all_coverage_summaries <- function(resolutions=NULL){
     select(-c(filepath))
 }
 
+post_process_coverage_summaries <- function(
+    results.df,
+    sample.metadata.df){
+    results.df %>% 
+    filter(
+        ReadFilter == 'mapq_30',
+        count.type == 'cis',
+        weight == 'raw',
+        # isGenome == 'Per.Chr',
+        metric %in% c(
+            'bins.n.covered',  
+            'bins.n.detected', 
+            'bins.n.nz',       
+            'bins.n.total',    
+            'bins.pct.covered',
+            'bins.pct.nz',     
+            'coverage.mean',   
+            'coverage.median', 
+            # 'coverage.min',    
+            # 'coverage.q25',    
+            # 'coverage.q75',    
+            'coverage.total'
+        )
+    ) %>% 
+    left_join(
+        sample.metadata.df %>% select(SampleID, FlowcellID),
+        by=join_by(SampleID)
+    ) %>%
+    mutate(FlowcellID=ifelse(is.na(FlowcellID), 'Merged', FlowcellID))
+}
+
