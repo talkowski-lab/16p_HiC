@@ -46,16 +46,12 @@ plan(multisession, workers=parsed.args$threads)
 #  each row is 1 nested set of loop calls per condition + context
 nested.loops.df <- 
     # load loop results
-    check_cached_results(
-        results_file=COOLTOOLS_LOOPS_RESULTS_FILE,
-        # force_redo=TRUE,
-        results_fnc=load_all_cooltools_dots
-    ) %>%
-    post_process_cooltools_dots_results() %>% 
     # filter relevant results
     filter(weight == 'balanced') %>% 
     filter(kernel == 'donut') %>% 
     filter(log10.qval > -log10(q.thresh)) %>% 
+    FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE %>%
+    read_tsv(show_col_types=FALSE) %>% 
     # prep columns for input to IDR2D
     mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
     select(-c(Edit, Celltype, Genotype)) %>% 

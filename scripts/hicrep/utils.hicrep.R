@@ -24,7 +24,7 @@ get_smoothing_param <- function(resolution){
 
 list_all_hicrep_results_files <- function(samples_to_keep=NULL){
     # List all results files that have been generated
-    HICREP_DIR %>% 
+    HICREP_RESULTS_DIR %>% 
     parse_results_filelist(
         suffix='-hicrep.txt',
         filename.column.name='file.pair',

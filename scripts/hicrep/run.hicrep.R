@@ -53,7 +53,7 @@ list_mcool_files() %>%
     mutate(
         output_dir=
             file.path(
-                HICREP_DIR,
+                HICREP_RESULTS_DIR,
                 glue("resolution_{resolution}"),
                 glue("h_{h}"),
                 glue("is.downsampled_{is.downsampled}"),

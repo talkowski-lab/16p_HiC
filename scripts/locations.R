@@ -1,25 +1,26 @@
 library(here)
 library(glue)
 ###################################################
-# Script dir location
+# Set Root Dirs
 ###################################################
 if (grepl('/home/', BASE_DIR)) {
     SCRIPT_DIR <- file.path(BASE_DIR, '../remote.16p/scripts')
 } else {
     SCRIPT_DIR <- here('scripts')
 }
+SAMPLE_METADATA_FILE <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
+REF_DIR              <- file.path(BASE_DIR, 'reference.files')
+RESULTS_DIR          <- file.path(BASE_DIR, 'results')
 
 ###################################################
 # distiller-nf  
 ###################################################
-SAMPLE_METADATA_FILE    <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
-REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
+# distiller-nf input
 GENOME_REF_DIR          <- file.path(REF_DIR, 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
 BWA_INDEX_WILDCARD_PATH <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.fasta.*'))
-# distiller-nf ouput 
-RESULTS_DIR             <- file.path(BASE_DIR, 'results')
+# distiller-nf output 
 BAM_DIR                 <- file.path(RESULTS_DIR, 'mapped_parsed_sorted_chunks')
 PAIRS_DIR               <- file.path(RESULTS_DIR, 'pairs_library')
 COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
@@ -38,6 +39,7 @@ GENE_CONSTRAINTS_FILE        <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
 
 ###################################################
 # RNASeq
+###################################################
 EXPRESSION_DATA_DIR     <- file.path(RESULTS_DIR, 'RNASeq', 'expression')
 EXPRESSION_RESULTS_FILE <- file.path(RESULTS_DIR, 'RNASeq', 'all.expression.data.tsv')
 DESEQ2_DATA_DIR         <- file.path(RESULTS_DIR, 'RNASeq', 'DESeq2')
@@ -53,60 +55,64 @@ RESOLTION_COVERAGE_SUMAMRY_FILE <- file.path(SAMPLE_QC_DIR, 'resolution.coverage
 MIN_SAMPLE_RESOLUTION_FILE      <- file.path(SAMPLE_QC_DIR, 'minimum.viable.resolutions.tsv')
 
 ###################################################
-# hicrep results
+# HiCRep results
 ###################################################
-HICREP_DIR                     <- file.path(RESULTS_DIR, 'hicrep')
-HICREP_RESULTS_FILE            <- file.path(HICREP_DIR, 'all.hicrep.scores.tsv')
+HICREP_DIR          <- file.path(RESULTS_DIR, 'hicrep')
+HICREP_RESULTS_DIR  <- file.path(HICREP_DIR, 'results')
+HICREP_RESULTS_FILE <- file.path(HICREP_DIR, 'all.hicrep.scores.tsv')
 
 ###################################################
-# Reproducing figure from Elise Robinson
+# Reproducing analysis from Weiner et al. 2022
 ###################################################
-ROBINSON_REPLICATION_DIR       <- file.path(RESULTS_DIR, 'robinson.replication')
-ROBINSON_REPLICATION_DATA_FILE <- file.path(ROBINSON_REPLICATION_DIR, 'replication.data.chr16.tsv')
-
-###################################################
-# Differential Contact results from multiHiCCompare
-###################################################
-MULTIHICCOMPARE_DIR            <- file.path(RESULTS_DIR, 'multiHiCCompare')
-MULTIHICCOMPARE_RESULTS_FILE   <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompare.results.tsv')
-MULTIHICCOMPARE_SIG_RESULTS_FILE <- file.path(MULTIHICCOMPARE_DIR, 'multiHiCCompare.n.results.tsv')
+WEINER_REPLICATION_DIR       <- file.path(RESULTS_DIR, 'weiner.replication')
+WEINER_REPLICATION_PLOTS_DIR <- file.path(WEINER_REPLICATION_DIR, 'plots')
 
 ###################################################
 # TAD Annotations
 ###################################################
-TAD_DIR                         <- file.path(RESULTS_DIR, 'TADs')
-HITAD_TAD_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
-# HITAD_DI_RESULTS_FILE          <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
-# HITAD_MOC_FILE                 <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
-COOLTOOLS_TAD_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
-# COOLTOOLS_DI_RESULTS_FILE      <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
-CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
-# CONSENSUSTAD_MOC_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
-# TADCOMPARE_TAD_INPUT_FILE      <- file.path(TAD_DIR, 'all.TADCompare.TAD.inputs.tsv')
-ALL_TAD_RESULTS_FILE            <- file.path(TAD_DIR, 'all.TADs.tsv')
-TADCOMPARE_RESULTS_FILE         <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
-ALL_TAD_SIMILARITY_RESULTS_FILE <- file.path(TAD_DIR, 'all.TAD.MoCs.tsv')
-
-###################################################
-# Compartment Annotations
-###################################################
-# DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
-# COMPARTMENTS_DIR               <- file.path(RESULTS_DIR, 'compartments')
-# COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
-# COMPARTMENTS_RESULTS_DIR       <- file.path(COMPARTMENTS_DIR, 'results')
+TAD_DIR                       <- file.path(RESULTS_DIR, 'TADs')
+HITAD_TAD_RESULTS_FILE        <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
+# HITAD_DI_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
+HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
+# COOLTOOLS_TAD_RESULTS_FILE    <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
+# COOLTOOLS_DI_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
+# COOLTOOLS_DI_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.MoCs.tsv')
+CONSENSUSTAD_TAD_RESULTS_FILE <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
+# CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.DI.annotations.tsv')
+CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
+# TADCompare results
+TADCOMPARE_DIR                <- file.path(TAD_DIR, 'results_TADCompare')
+TADCOMPARE_RESULTS_FILE       <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
 
 ###################################################
 # Loop Annotations
 ###################################################
-LOOPS_DIR                     <- file.path(RESULTS_DIR, 'loops')
-COOLTOOLS_LOOPS_RESULTS_FILE  <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
-LOOPS_IDR2D_DIR               <- file.path(LOOPS_DIR, 'IDR2D')
-LOOPS_IDR2D_RESULTS_FILE      <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
-LOOPS_IDR2D_GENE_MAPPING_FILE <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.and.genes.tsv')
-# LOOP_SIMILARITY_RESULTS_FILE <- file.path(LOOPS_DIR, 'all.cooltools.loop.similarities.tsv')
+LOOPS_DIR                                  <- file.path(RESULTS_DIR, 'loops')
+ALL_COOLTOOLS_LOOPS_RESULTS_FILE           <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
+FILTERED_COOLTOOLS_LOOPS_RESULTS_FILE      <- file.path(LOOPS_DIR, 'filtered.cooltools.loops.tsv')
+LOOPS_IDR2D_DIR                            <- file.path(LOOPS_DIR, 'results_IDR2D')
+ALL_LOOPS_IDR2D_RESULTS_FILE               <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
+FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE <- file.path(LOOPS_DIR, 'filtered.cooltools.IDR2D.results.tsv')
 
 ###################################################
-# gghic objects
+# Differential Contact results from multiHiCCompare
 ###################################################
-GGHIC_DIR <- file.path(RESULTS_DIR, 'gghic.plots')
+MULTIHICCOMPARE_DIR                   <- file.path(RESULTS_DIR, 'multiHiCCompare')
+ALL_MULTIHICCOMPARE_RESULTS_FILE      <- file.path(MULTIHICCOMPARE_DIR, 'all.multiHiCCompare.results.tsv')
+FILTERED_MULTIHICCOMPARE_RESULTS_FILE <- file.path(MULTIHICCOMPARE_DIR, 'filtered.multiHiCCompare.results.tsv')
+MULTIHICCOMPARE_SIG_RESULTS_FILE      <- file.path(MULTIHICCOMPARE_DIR, 'all.multiHiCCompare.n.results.tsv')
+
+###################################################
+# Compartment Annotations
+###################################################
+COMPARTMENTS_DIR         <- file.path(RESULTS_DIR, 'compartments')
+COMPARTMENTS_RESULTS_DIR <- file.path(COMPARTMENTS_DIR, 'results')
+# DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
+# COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
+
+###################################################
+# gghic results
+###################################################
+GGHIC_DIR       <- file.path(RESULTS_DIR, 'gghic.plots')
+GGHIC_PLOTS_DIR <- file.path(GGHIC_DIR, 'plots')
 
