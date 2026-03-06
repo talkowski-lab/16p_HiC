@@ -8,6 +8,7 @@ suppressPackageStartupMessages({
     source(file.path(BASE_DIR,   'scripts', 'locations.R')) # sets SCRIPT_DIR
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(BASE_DIR,   'scripts', 'constants.R'))
+    source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
     source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
     library(magrittr)
     library(tidyverse)
@@ -43,10 +44,14 @@ hyper.params.df <-
 # List all pairs of matrices
 list_mcool_files() %>%
     select(SampleID, filepath, isMerged) %>% 
-    get_all_row_combinations(
-        cols_to_match=c('isMerged'),
+    enumerate_pairwise_comparisons(
+        sampleID_col='SampleID',
+        SampleID.fields=c(NA, 'Celltype', 'Genotype', NA, NA),
         suffixes=c('.P1', '.P2'),
-        keep_self=FALSE,
+        include_merged_col=FALSE,
+        sample.group.comparisons=NULL,
+        pair_grouping_cols=c('isMerged')
+        # suffixes=c('.P1', '.P2'),
     ) %>% 
     # all pairs of matrices X all sets of hyper params
     cross_join(hyper.params.df) %>% 

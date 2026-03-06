@@ -1,5 +1,5 @@
 ---
-title: "HiCRep analysis of 16p samples"
+title: "16p HiC - HiCRep analysis"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -11,7 +11,7 @@ date: "`r Sys.Date()`"
 }
 </style>
 
-# Load Dependencies + HiCRep Data
+# Load Dependencies + Data
 
 ```{r knitr}
 library(knitr)
@@ -36,20 +36,6 @@ source(file.path(SCRIPT_DIR, 'utils.plot.R'))
 source(file.path(SCRIPT_DIR, 'hicrep', 'utils.hicrep.R'))
 library(tidyverse)
 library(magrittr)
-```
-Load hicrep data
-```{r load_results}
-hicrep.results <- 
-    check_cached_results( 
-        HICREP_RESULTS_FILE,
-        # force_redo=TRUE,
-        results_fnc=load_all_hicrep_results,
-        samples_to_keep=NULL
-    ) %>% 
-    post_proces_hicrep_results() %>% 
-    standardize_data_cols(skip.isMerged=TRUE)
-# hicrep.results %>% head(2) %>% t()
-# hicrep.results %>% dplyr::count(resolution, window.size, is.downsampled, chr)
 ```
 plot objects
 ```{r plot_objects}
@@ -80,76 +66,143 @@ thin.top.colorbar <-
             )
     )
 ```
-How many different pairs of sample matrices were compared per batch
-```{r n_samples, rows.print=5}
-hicrep.results %>%
-    filter(
-        resolution == '10Kb',
-        window.size == '5Mb',
-        is.downsampled,
-        chr == 'chr1'
+Load hicrep data
+```{r load_results}
+hicrep.df <- 
+    check_cached_results( 
+        HICREP_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_hicrep_results,
+        samples_to_keep=NULL
     ) %>% 
-    dplyr::count(
-        isMerged,
-        Edit,
-        Genotype,
-        name='n.sample.pairs'
-    )
+    post_proces_hicrep_results() %>% 
+    standardize_data_cols(skip.isMerged=TRUE)
+# hicrep.df %>% count(isMerged, SampleID.P1, SampleID.P2) %>% print(n=Inf)
 ```
 
 # Compare hyper-parameters differences {.tabset }
 
 Compare values by hyper-param to showcase the variability
 ```{r hyperparam_boxplox, results='asis', fig.dim=c(10,6)}
-hicrep.results %>% 
+hicrep.df %>% 
     make_nested_plot_tabs(
         group.cols=c('isMerged'),
         max.header.lvl=2,
         plot.fnc=plot_boxplot,
         x.var='window.size',
-        x.scale.mode='discrete',
         y.var='hicrep.score',
         fill.var='is.downsampled.fct', 
         facet.row='resolution',
         facet.col='Celltype',
-        scales='fixed',
+        # scales='fixed',
         legend.position='top',
+        y.axis.label.accuracy=0.01,
+        legend.title=element_blank(),
+        # axis.text.x=element_text(angle=35, hjust=1),
+        plot.elements=list(scc95_line)
+    )
+```
+
+# Pick specific parameter set for downstream analyses
+
+Pick a specific set of parameters to plto results for later
+```{r pick_param_set}
+plot.df <- 
+    hicrep.df %>% 
+    filter(
+        SampleID.P1 != SampleID.P2,
+        is.downsampled,
+        window.size == '5Mb'
+    ) %>% 
+    # standardize sample order
+    mutate(
+        Sample.Group.Numerator=
+            case_when(
+                SampleID.P1 >  SampleID.P2 ~ SampleID.P1,
+                SampleID.P1 <  SampleID.P2 ~ SampleID.P2,
+                SampleID.P1 == SampleID.P2 ~ SampleID.P1,
+            ),
+        Sample.Group.Denominator=
+            case_when(
+                Sample.Group.Numerator == SampleID.P1 ~ SampleID.P2,
+                Sample.Group.Numerator == SampleID.P2 ~ SampleID.P1
+            )
+    ) %>% 
+    select(-c(SampleID.P1, SampleID.P2)) %>% 
+    rename(
+        'SampleID.P1'=Sample.Group.Numerator,
+        'SampleID.P2'=Sample.Group.Denominator
+    )
+```
+
+# Plotting HiCRep scores
+
+## Compare Scores between technical/genotype {.tabset}
+
+Plot score distributions between Genotypes
+```{r compare_scores_reps, results='asis', fig.dim=c(6,4)}
+plot.df %>% 
+    separate_wider_delim(
+        SampleID.P1,
+        delim='.',
+        names=c(NA, 'Celltype.tmp', 'Genotype.tmp', NA, NA), 
+        cols_remove=FALSE
+    ) %>% 
+    unite('trim.Sample.Group.P1', Celltype.tmp, Genotype.tmp, sep='.') %>% 
+    separate_wider_delim(
+        SampleID.P2,
+        delim='.',
+        names=c(NA, 'Celltype.tmp', 'Genotype.tmp', NA, NA), 
+        cols_remove=FALSE
+    ) %>% 
+    unite('trim.Sample.Group.P2', Celltype.tmp, Genotype.tmp, sep='.') %>% 
+    mutate(Sample.Group=glue('{trim.Sample.Group.P1} vs {trim.Sample.Group.P2}')) %>% 
+    select(-c(starts_with('trim.'))) %>% 
+    rowwise() %>% 
+    mutate(
+        across(
+            c(Sample.Group, Edit, Celltype, Genotype, CloneID, TechRepID),
+            ~ length(unique(str_split(.x, ' vs ')[[1]])) == 1,
+            .names="within.{.col}"
+        )
+    ) %>%
+    ungroup() %>% 
+    mutate(
+        within.Sample.Group=ifelse(within.Sample.Group, 'Same Condition', 'Diff Condition'),
+        within.Celltype=ifelse(within.Sample.Group, 'Same Celltype', 'Diff Celltype'),
+        Replicate.Pair.Status=
+            case_when( 
+                 within.CloneID ~ 'Same Clone',
+                !within.CloneID ~ 'Diff Clone',
+                TRUE            ~ NA
+                
+            )
+    ) %>% 
+    filter(within.Sample.Group == 'Same Condition') %>% 
+    filter(!grepl('Merged', isMerged)) %>% 
+    # make_nested_plot_tabs(
+    #     group.cols=c('isMerged'),
+    #     max.header.lvl=3,
+    plot_boxplot(
+        plot.df=.,
+        # x.var='Sample.Group',
+        x.var='resolution',
+        y.var='hicrep.score',
+        fill.var='Replicate.Pair.Status',
+        facet.col='within.Sample.Group',
+        # facet.row='resolution',
+        legend.position='right',
+        # scales='free_x',
         y.axis.label.accuracy=0.01,
         axis.text.x=element_text(angle=35, hjust=1),
         plot.elements=list(scc95_line)
     )
 ```
 
-# Plotting HiCRep scores {.tabset}
-
-## Pick specific parameter set for downstream analyses
-
-Pick a specific set of parameters to plto results for later
-```{r pick_param_set, results='show'}
-plot.df <- 
-    hicrep.results %>% 
-    # standardize sample order
-    set_foldchange_direction_as_factor(
-        sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC,
-        group1_colname='SampleID.P1',
-        group2_colname='SampleID.P2'
-    ) %>% 
-    rename(
-        'SampleID.P1'=Sample.Group.Numerator,
-        'SampleID.P2'=Sample.Group.Denominator
-    ) %>% 
-    filter(
-        is.downsampled,
-        window.size == '5Mb'
-        # resolution == '25Kb'
-    )
-plot.df %>% distinct(h, window.size, resolution, is.downsampled)
-```
-
 ## Compare Scores across genotype comparisons {.tabset}
 
 Plot score distributions between Genotypes
-```{r compare_scores, results='asis', fig.dim=c(8,6)}
+```{r compare_scores_genotype, results='asis', fig.dim=c(8,6)}
 plot.df %>% 
     make_nested_plot_tabs(
         group.cols=c('isMerged'),
@@ -170,7 +223,7 @@ plot.df %>%
 
 ## HiCRep scores per chromosome  {.tabset }
 
-```{r per_chr, results='asis', fig.dim=c(10,10)}
+```{r per_chr, results='asis', fig.dim=c(10,6)}
 plot.df %>% 
     make_nested_plot_tabs(
         # group.cols=c('isMerged', 'resolution'),
@@ -203,7 +256,7 @@ plot.df %>%
     ) %>%
     summarize(
         # score.total=sum(hicrep.score),
-        score.var=var(hicrep.score),
+        # score.var=var(hicrep.score),
         score.min=min(hicrep.score),
         score.mean=mean(hicrep.score),
         score.median=median(hicrep.score)
@@ -216,12 +269,13 @@ plot.df %>%
         values_to='score.stat'
     ) %>% 
     mutate(score.stat=round(score.stat, digits=2)) %>% 
+    # filter(isMerged == 'Individual vs Individual', resolution == '10Kb', metric == 'mean') %>% 
     make_nested_plot_tabs(
         plot.fnc=plot_heatmap,
         group.cols=c('resolution', 'isMerged', 'metric'),
         max.header.lvl=4,
-        x.var='SampleID.P1',
-        y.var='SampleID.P2',
+        x.var='SampleID.P2',
+        y.var='SampleID.P1',
         fill.var='score.stat',
         label.var='score.stat',
         label.size=2.5,
@@ -242,12 +296,13 @@ plot.df %>%
 ```{r heatmap_scores_chr, results='asis', fig.dim=c(15,15)}
 plot.df %>% 
     mutate(hicrep.score=round(hicrep.score, digits=2)) %>% 
+    filter(isMerged == 'Individual vs Individual', resolution == '10Kb') %>% 
     make_nested_plot_tabs(
         plot.fnc=plot_heatmap,
         group.cols=c('isMerged', 'resolution'),
         max.header.lvl=4,
-        x.var='SampleID.P1',
-        y.var='SampleID.P2',
+        x.var='SampleID.P2',
+        y.var='SampleID.P1',
         fill.var='hicrep.score',
         facet.group='chr',
         facet.ncol=5,

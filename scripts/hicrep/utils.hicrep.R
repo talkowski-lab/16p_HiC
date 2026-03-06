@@ -115,18 +115,12 @@ post_proces_hicrep_results <- function(results.df){
             )
     ) %>% 
     filter(isMerged != 'Individual vs Merged') %>%
+    mutate(window.size=scale_numbers(window.size, force_chr=TRUE)) %>% 
     mutate(
         is.downsampled.fct=
             ifelse(is.downsampled, 'Downsampled', 'Original') %>%
             factor(levels=c('Downsampled', 'Original'))
     ) %>%
-    # mutate(
-    #     withinGenotype=
-    #         case_when(
-    #             Genotype %in% c('DEL vs DEL', 'DUP vs DUP', 'WT vs WT') ~ 'Same Genotype',
-    #             TRUE ~ 'Different Genotype'
-    #         )
-    # ) %>% 
     select(-c(filepath))
 }
 
