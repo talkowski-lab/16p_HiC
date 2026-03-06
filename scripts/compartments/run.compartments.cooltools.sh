@@ -4,12 +4,13 @@ set -uo pipefail
 ###################################################
 # cooltools Compartment Calling params
 ###################################################
-# declare -rA COMPARTMENT_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
-declare -rA COMPARTMENT_WEIGHTS=(["ICE"]="weight")
+# declare -rA COMPARTMENT_WEIGHTS=(["balanced"]="weight" ["raw"]="RAW")
+declare -rA COMPARTMENT_WEIGHTS=(["balanced"]="weight")
+GENOME_NAME="hg38"
 REF_DIR="/data/talkowski/tools/ref/Hi_c_noalt"
-GENOME_REFERENCE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta"
 CHROMSIZES_FILE="${REF_DIR}/GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes"
-REFERNCE_FILES_DIR="/data/talkowski/Samples/16p_HiC/reference.files"
+# REFERNCE_FILES_DIR="/data/talkowski/Samples/16p_HiC/reference.files"
+REFERNCE_FILES_DIR="./reference.files"
 GENOME_BINS_DIR="${REFERNCE_FILES_DIR}/genome.bins"
 TRACK_FILES_DIR="${REFERNCE_FILES_DIR}/genome.tracks"
 
@@ -18,7 +19,7 @@ TRACK_FILES_DIR="${REFERNCE_FILES_DIR}/genome.tracks"
 ###################################################
 help() {
     echo "USAGE: $(basename "${0}") [OPTIONS] {MODE} sample1.mcool sample{2..N}.mcool
-        -m | mode: phasing, compartment
+        -m | mode: mk_phase, compartments
         -a | where conda is installed
         -r | resolutions at which to annotate compartments
         -o | root results dir
@@ -45,39 +46,30 @@ compute_phasing_track() {
         cooltools genome binnify "${CHROMSIZES_FILE}" "${resolution}" >| "${bins_file}"
     fi
     # calculate frac of nucleotides that are GC per bin
-    track_file="${TRACK_FILES_DIR}/resolution_${resolution}/${TRACK_TYPE}-genome.track.tsv"
+    track_file="${TRACK_FILES_DIR}/track.type_${TRACK_TYPE}/resolution_${resolution}/${GENOME_NAME}-genome.track.tsv"
+    # track_file="${TRACK_FILES_DIR}/resolution_${resolution}/${TRACK_TYPE}-genome.track.tsv"
     if ! [[ -e "${track_file}" ]]; then 
         mkdir -p "$(dirname "${track_file}")"
         echo "${track_file}"
-        cooltools genome ${TRACK_TYPE} ${bins_file} ${GENOME_REFERENCE} >| "${track_file}"
+        cooltools genome ${TRACK_TYPE} ${bins_file} ${GENOME_NAME} >| "${track_file}"
     fi
 }
 
 run_cooltools_compartments() {
     local sample_file="${1}"
     local resolution="${2}"
+    local weight_name="${3}"
+    param_dir="${OUTPUT_DIR}/method_${METHOD}/track_${TRACK_TYPE}/weight_${weight_name}/resolution_${resolution}"
     sample_ID="$(get_sample_ID "${sample_file}")"
-    for weight_name in "${!COMPARTMENT_WEIGHTS[@]}"; do
-        for resolution in ${RESOLUTIONS[@]}; do
-        # Now produce eigenvector + orient with tack file (i.e. compartment per bin)
-        param_dir="${OUTPUT_DIR}/method_${METHOD}/track_${TRACK_TYPE}/weight_${weight_name}/resolution_${resolution}"
-        # mkdir -p "${param_dir}"
-        output_prefix="${param_dir}/${sample_ID}-"
-        # List other input files i.e. list of bins + phasing track data
-        bins_file="${GENOME_BINS_DIR}/resolution_${resolution}/genome.bins.tsv"
-        track_file="${TRACK_FILES_DIR}/resolution_${resolution}/${TRACK_TYPE}-genome.track.tsv"
-        # echo "
-        # cooltools eigs-cis
-        #     --phasing-trace ${track_file}
-        #     --n-eigs 3
-        #     --clr-weight-name ${COMPARTMENT_WEIGHTS[${weight_name}]}
-        #     -o ${output_prefix}
-        #     ${sample_file}
-        # ====================================="
-        cooltools eigs-cis --phasing-track "${track_file}" --n-eigs 3 --clr-weight-name ${COMPARTMENT_WEIGHTS[${weight_name}]} -o "${output_prefix}"                                    "${sample_file}" 
-        echo "====================================="
-        done
-    done
+    # Now produce eigenvector + orient with tack file (i.e. compartment per bin)
+    output_prefix="${param_dir}/${sample_ID}-"
+    # List other input files i.e. list of bins + phasing track data
+    bins_file="${GENOME_BINS_DIR}/resolution_${resolution}/genome.bins.tsv"
+    track_file="${TRACK_FILES_DIR}/track.type_${TRACK_TYPE}/resolution_${resolution}/${GENOME_NAME}-genome.track.tsv"
+    uri="${sample_file}::/resolutions/${resolution}"
+    mkdir -p "${param_dir}"
+    cooltools eigs-cis --phasing-track "${track_file}" --n-eigs 3 --clr-weight-name ${COMPARTMENT_WEIGHTS[${weight_name}]} -o "${output_prefix}" "${uri}" 
+    # echo "====================================="
 }
 
 main() {
@@ -85,15 +77,19 @@ main() {
     local hic_samples=${*}
     source "${CONDA_DIR}/etc/profile.d/conda.sh"
     conda activate 'cooltools'
-    if [[ ${MODE} == 'phasing' ]]; then
+    if [[ ${MODE} == 'mk_phase' ]]; then
         for resolution in ${RESOLUTIONS[@]}; do
             compute_phasing_track ${resolution}
         done
-    elif [[ ${MODE} == 'compartment' ]]; then
+    elif [[ ${MODE} == 'compartments' ]]; then
+        for weight_name in "${!COMPARTMENT_WEIGHTS[@]}"; do
+        for resolution in ${RESOLUTIONS[@]}; do
         for sample_file in ${hic_samples[@]}; do
             sample_ID="$(get_sample_ID "${sample_file}")"
             echo "${sample_ID}"
-            run_cooltools_compartments "${sample_file}" ${resolution}
+            run_cooltools_compartments "${sample_file}" ${resolution} ${weight_name}
+        done
+        done
         done
     fi
 }
@@ -103,11 +99,11 @@ main() {
 ###################################################
 # Default script arguments
 # BASE_DIR="/data/talkowski/Samples/16p_HiC"
-BASE_DIR="./"
-OUTPUT_DIR="${BASE_DIR}/results/compartments"
+BASE_DIR="."
+OUTPUT_DIR="${BASE_DIR}/results/compartments/results_compartments"
 METHOD="cooltools"
 TRACK_TYPE="genecov"
-RESOLUTIONS=(100000 50000 25000 10000 5000)
+RESOLUTIONS=(100000 50000 25000 10000)
 CONDA_DIR="${HOME}/miniforge3"
 THREADS="$(nproc)"
 # Default SLURM params
@@ -130,12 +126,13 @@ shift $(( OPTIND-1 ))
 ###################################################
 # Main 
 ###################################################
+# echo "----${OUTPUT_DIR}-----"
+# OUTPUT_DIR="$(readlink -e "${OUTPUT_DIR}")"
+# echo "--${OUTPUT_DIR}--"
 echo "
 Using Phasing Track:      ${TRACK_TYPE}
 Using resolution(s):      ${RESOLUTIONS[*]}
 Using output directory:   ${OUTPUT_DIR}
 Threads:                  ${THREADS}"
-OUTPUT_DIR="$(readlink -e "${OUTPUT_DIR}")"
-mkdir -p "${OUTPUT_DIR}"
 main "${@}"
 
