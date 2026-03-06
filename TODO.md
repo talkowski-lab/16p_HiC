@@ -2,16 +2,17 @@
 
 ## cmds to run
 
-- [ ] knit matrix.QC.Rmd
-- [ ] knit matrix.coverage.Rmd
-- [ ] knit hicrep.Rmd
-- [ ] knit weiner.replication.Rmd
+- [x] knit Matrix.QC.Rmd
+- [x] knit Matrix.Coverage.Rmd
+- [x] knit HiCRep.Rmd
+- [ ] knit Weiner.Replication.Rmd
 - [ ] knit TADs.Rmd
 - [ ] knit TADCompare.Rmd
-- [x] knit loops.Rmd
-- [ ] knit loop.integration.Rmd
-- [ ] knit loop.reproducibility.Rmd
-- [ ] knit knit multiHiCCompare.Rmd
+- [x] knit Loops.Rmd
+- [x] knit Loop.Reproducibility.Rmd
+- [ ] knit Loop.Integration.Rmd
+- [ ] knit multiHiCCompare.Rmd
+- [ ] knit Compartments.Rmd
 - [ ] knit HiC.Annotated.Heatmaps.Rmd
 
 ## HiCRep
@@ -21,6 +22,8 @@
   - [x] compare hyper-params
   - [x] compare genotypes + celltypes
   - [x] plot individual chromosomes
+  - [x] similarity heatmaps
+  - [x] compare tech reps to bio reps
 
 ## Replicate Weiner et al. 2022 16p11.2 analysis
 
@@ -43,6 +46,16 @@
 - [ ] plot TAD MoCs 
   - [x] between conditions
   - [ ] between our data and public data
+- [ ] plot Intra/Inter TAD contact ratios
+- [ ] DEG Integration
+  - [ ] are DEGs in strong TADs?
+  - [ ] are DEGs in more disimmilar TADs (MoC)
+  - [ ] are DEGs in more disimmilar TADs (TADCompare)
+  - [ ] are DEGs closer to boundaries than midpoints?
+  - [ ] do DEGs often overlap TAD boundaries
+- [ ] cCRE integration
+  - [ ] is it more common for both anchors to be inside a TAD vs in different TADs?
+  - [ ] compare size distributions as control
 
 ## TADCompare analysis
 
@@ -51,6 +64,8 @@
   - [x] ConsensusTADs inputs
   - [x] SpectralTADs inputs
 - [ ] plot detected differences
+  - [ ] relative abundance of difference types
+  - [ ] relative abundance of difference vs non-difference 
 
 ## Loop analysis
 
@@ -59,20 +74,31 @@
   - [x] plot # of loops
   - [x] plot size of loops
   - [x] histograms/density of loop q-values
+    - [ ] compare across conditions
+      - [ ] between Celltype per Genotype
+      - [ ] between Genotypes per Celltype
+      - [ ] genome-wide
+      - [ ] per chr
   - [ ] plot merged matrix depth vs total number of loops per condition
   - [x] plot volcano plot of loops
+- [ ] APA analysis + comparison
+  - [ ] 10% most significant loops
+  - [ ] NR vs R loops between conditions
+- [ ] check loop anchor association with CTCF sites
+  - [ ] Permutation control?
+  - [ ] other type of site comparison?
 - [ ] quantify loop nesting
   - [ ] for every bin count # of loops it is inside
   - [ ] build tree of loop nesting structure
   - [ ] for every loop annotated is nesting level (i.e. tree depth)
 - [x] IDR2D analysis
   - [x] compare how hyper-params affect loop reproducibility
-  - [ ] plot loop reproducibility for chosen hyper-param set
+  - [x] plot loop reproducibility for chosen hyper-param set
+  - [ ] compare enrichment/qvalue of reproduced vs non-reproduced loops
 - [ ] cCRE Integration
 - [ ] DEG analysis
-  - [ ] ???
+  - [ ] boxplot of logFC by condition (color by log pvalue)
 - [ ] expression analysis
-  - [x] map genes to loops and loops to reproducible/irreproducible
   - [ ] boxplot of expression by condition
 
 ## multiHiCCompare analysis
@@ -88,6 +114,10 @@
 ## Compartment analysis
 
 - [ ] generate compartment calls
+- [ ] try different bining strartegies
+  - [ ] binary
+  - [ ] quantile
+- [ ] saddle plot of compartment interactions
 
 ## 16p gghic Plots
 
@@ -106,6 +136,8 @@
 - [ ] color loops by significance
 - [ ] add gene annotations
 - [ ] add track annotations 
+  - [ ] loop nesting lvl (i.e. how many loops overlap each bin)
+  - [ ] compartment phased eigenscore
   - [ ] marginal contact density
   - [ ] insulation score
   - [ ] gene desnity
@@ -128,7 +160,7 @@
 - [ ] plot shrunken vs original logFCs 
 - [ ] compare p.adj of TRADE DEGs vs rest
 
-## phasing analysis
+## Phasing analysis
 
 - [ ] get input files
   - [ ] .vcf for genomic background
@@ -138,5 +170,4 @@
 - [ ] adjust pairtools params
 - [ ] generate phased HiC `.mcool` files
 - [ ] merged phased replicates 
-
 
