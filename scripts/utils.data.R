@@ -7,7 +7,8 @@ library(tictoc)
 library(glue)
 library(optparse)
 library(future)
-library(HiCExperiment)
+# library(HiCExperiment)
+# library(plyranges)
 # library(hictkR)
 
 ###################################################
@@ -357,7 +358,7 @@ scale_numbers <- function(
     accuracy=2,
     force_numeric=FALSE,
     force_chr=FALSE){
-    if (is.character(numbers) & force_numeric) {
+    if ((is.character(numbers) & force_numeric) | (is.factor(numbers) & force_numeric)) {
         numbers %>%
         as.character() %>% 
         tibble(resolution.str=.) %>%
@@ -447,7 +448,6 @@ standardize_data_cols <- function(
     skip.isGenome=FALSE,
     skip.isMerged=FALSE,
     skip.resolution=FALSE,
-    skip.window.size=FALSE,
     skip.chr=FALSE,
     to_numeric=FALSE,
     to_label=TRUE,
@@ -512,19 +512,6 @@ standardize_data_cols <- function(
                     resolution %>%
                     scale_numbers(force_numeric=TRUE) %>%
                     scale_numbers(force_chr=TRUE),
-            )
-        } else {
-            .
-        }
-    } %>% 
-    {
-        if ('window.size' %in% colnames(.) & !skip.window.size) {
-            mutate(
-                .,
-                window.size=
-                    window.size %>%
-                    scale_numbers(force_numeric=TRUE) %>%
-                    scale_numbers(),
             )
         } else {
             .
@@ -877,10 +864,12 @@ set_foldchange_direction_as_factor <- function(
     group1_colname='Sample.Group.Left', 
     group2_colname='Sample.Group.Right',
     ...){
+    # results.df=hicrep.df; sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC; group1_colname='SampleID.P1'; group2_colname='SampleID.P2'
     # Use this to make sure that when testing is done by edger::exactTest(), which relies only 
     # on factor levels to determine fold-change direction, that the explicitly stated numerator
     group1_priority <- glue('{group1_colname}.Priority') 
     group2_priority <- glue('{group2_colname}.Priority') 
+    # set factor levels for all possible sampleID/group values
     # will have the approriate factor level detected by edger
     results.df %>% 
     # Determine sample group priority i.e. 
@@ -901,15 +890,18 @@ set_foldchange_direction_as_factor <- function(
     mutate(
         Sample.Group.Numerator=
             case_when(
-                .data[[group1_priority]] < .data[[group2_priority]] ~ .data[[group1_colname]],
-                .data[[group1_priority]] > .data[[group2_priority]] ~ .data[[group2_colname]],
-                TRUE ~ NA
+                .data[[group1_priority]] <  .data[[group2_priority]] ~ .data[[group1_colname]],
+                .data[[group1_priority]] >  .data[[group2_priority]] ~ .data[[group2_colname]],
+                .data[[group1_priority]] == .data[[group2_priority]] ~ sort(c(.data[[group1_colname]], .data[[group2_colname]]))[[1]],
+                # TRUE ~ paste(list(.data[[group1_priority]], .data[[group2_priority]]), collapse='-')
+                TRUE                                                 ~ NA
             ),
         Sample.Group.Denominator=
             case_when(
                 Sample.Group.Numerator == .data[[group1_colname]] ~ .data[[group2_colname]],
                 Sample.Group.Numerator == .data[[group2_colname]] ~ .data[[group1_colname]],
-                TRUE ~ NA
+                # TRUE ~ paste(sort(c(.data[[group1_colname]], .data[[group2_colname]]))[[1]], collapse='-')
+                TRUE                                              ~ NA
             )
     ) %>% 
     # clean up unneded columns since we now have explicity numerator/denominator labels
@@ -1043,7 +1035,7 @@ tidy_pair_metadata <- function(
 
 enumerate_pairwise_comparisons <- function(
     data.df,
-    sample.group.comparisons,
+    sample.group.comparisons=NULL,
     pair_grouping_cols=c(),
     SampleID.fields=NULL,
     sampleID_col='SampleID',
@@ -1096,6 +1088,64 @@ enumerate_pairwise_comparisons <- function(
 ###################################################
 # Boundary-based analyes
 ###################################################
+DEP_define_boundary_pairs <- function(
+    boundaries.P1,
+    boundaries.P2,
+    ...){
+    # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', sep='', collapse='; ')
+    # row_index=1; resolution=tmp$resolution[[row_index]]; Sample.Group.P1=tmp$Sample.Group.P1[[row_index]]; chr=tmp$chr[[row_index]]; TAD.method=tmp$TAD.method[[row_index]]; TAD.params=tmp$TAD.params[[row_index]]; boundaries.P1=tmp$boundaries.P1[[row_index]]; Sample.Group.P2=tmp$Sample.Group.P2[[row_index]]; boundaries.P2=tmp$boundaries.P2[[row_index]]; Celltype=tmp$Celltype[[row_index]]; Genotype=tmp$Genotype[[row_index]]
+    # TRansform to iranges for efficient overlaing
+    iranges <- 
+        list(
+            'P1'=boundaries.P1,
+            'P2'=boundaries.P2
+        ) %>% 
+        sapply(
+            simplify=FALSE,
+            USE.NAMES=TRUE,
+            FUN=
+                function(df) {
+                    df %>% 
+                    select(start, length) %>% 
+                    dplyr::rename('width'=length) %>% 
+                    mutate(idx=row_number()) %>% 
+                    as_iranges()
+                }
+        )
+    # Find overlaping TADs 
+    boundary.comparisons <- 
+        iranges[['P1']] %>% 
+        join_overlap_inner(iranges[['P2']]) %>% 
+        as.data.frame() %>% 
+        as_tibble() %>% 
+        add_column(TAD.Detection='Common') %>%
+        {
+            if (only_keep_overlaps){
+                .
+            } else {
+                P1.exclusive.boundaries <- 
+                    iranges[['P1']] %>% 
+                    filter_by_non_overlaps(iranges[['P2']]) %>%
+                    as.data.frame() %>% 
+                    as_tibble() %>%
+                    add_column(TAD.Detection='P1.Only')
+                P2.exclusive.boundaries <- 
+                    iranges[['P2']] %>% 
+                    filter_by_non_overlaps(iranges[['P1']]) %>% 
+                    as.data.frame() %>% 
+                    as_tibble() %>%
+                    add_column(TAD.Detection='P2.Only')
+                bind_rows(
+                    .,
+                    P1.exclusive.boundaries,
+                    P2.exclusive.boundaries
+                )
+            }
+        }
+    # compute similarity metrics for each pair of boundaries 
+    # i.e. (start.P1, end.P2) vs (start.P2, end.P2)
+}
+
 define_boundary_pairs <- function(
     boundaries.P1,
     boundaries.P2,
@@ -1104,12 +1154,12 @@ define_boundary_pairs <- function(
     # boundaries.P1, boundaries.P2 are both tibbles with 
     # the following 3 columns: start, end, length
     # add indices to track all pairs of boundaries
+    # only keep overlapping pairs
     cross_join(
         boundaries.P1 %>% mutate(idx=row_number()),
         boundaries.P2 %>% mutate(idx=row_number()),
         suffix=c('.P1', '.P2')
     ) %>%
-    # only keep overlapping pairs
     {
         if (only_keep_overlaps){
             filter(
@@ -1206,7 +1256,7 @@ calculate_boundary_similarities <- function(
         define_boundary_pairs(
             boundaries.P1,
             boundaries.P2,
-            only_keep_overlaps=only_keep_overlaps,
+            only_keep_overlaps=only_keep_overlaps
         )
     # MoC normalization constant
     nboundaries.P1 <- nrow(boundaries.P1)
@@ -1263,7 +1313,7 @@ calculate_all_boundary_similarities <- function(
     SampleID.fields=c(NA, 'Celltype', 'Genotype'),
     only_keep_overlaps=TRUE,
     ...){
-    # boundaries.df=TADs.df %>% select(-c(Celltype, Genotype, SampleID)) %>% nest(boundaries=c(start, end, length)); sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols=c('resolution', 'TAD.method', 'TAD.params', 'chr'); sample.group.comparisons=NULL; SampleID.fields=c(NA, 'Celltype', 'Genotype'); only_keep_overlaps=TRUE
+    # boundaries.df=TADs.df %>% select(-c(SampleID)) %>% nest(boundaries=c(start, end, length)); only_keep_overlaps=TRUE; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols=c('resolution', 'TAD.method', 'TAD.params', 'chr'); sampleID_col='Sample.Group'; SampleID.fields=c(NA, 'Celltype', 'Genotype')
     # boundaries.df Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # 3 columns; start, end, length indicating each set of boundaries
@@ -1277,8 +1327,7 @@ calculate_all_boundary_similarities <- function(
         suffixes=c('.P1', '.P2'),
     ) %>% 
     # Finally compute all MoCs for all listed pairs of annotations
-        # {.} -> tmp; tmp
-        # tmp2 <- tmp %>% head(2) %>% 
+
     mutate(
         similarities=
             # pmap(
@@ -1292,6 +1341,5 @@ calculate_all_boundary_similarities <- function(
     ) %>%
     unnest(similarities) %>%
     select(-c(boundaries.P1, boundaries.P2))
-    # select(-c(ends_with('.P1'), ends_with('.P2')))
 }
 
