@@ -1,11 +1,11 @@
 # 16p HiC Analysis
 
 Analysis and code of HiC data for 16p samples
+All filepaths below are relative to the project root: `/data/talkowski/Samples/16p_HiC/ `
 
 ## File Structure
 
-File structure of all data and results
-All filepaths below are relative to the project root: `/data/talkowski/Samples/16p_HiC/ `
+File structure of all input data, reference files and results
 
 ### Code Reproducibility
 
@@ -150,25 +150,28 @@ results/
 ├── weiner.replication
 │   └── plots
 ├── TADs
-│   ├── method_ConsensusTAD
-│   ├── all.ConsensusTAD.TADs.tsv
-│   ├── all.ConsensusTAD.TAD.MoCs.tsv
-│   ├── method_hiTAD
-│   ├── all.hiTAD.TADs.tsv
-│   ├── all.hiTAD.TAD.MoCs.tsv
+│   ├── results_TADs
+│   ├── all.ConsensusTAD.TADs.tsv
+│   ├── all.hiTAD.TADs.tsv
+│   ├── all.all.TADs.tsv
+│   ├── all.all.TAD.MoCs.tsv
+│   ├── all.TADCompare.results.tsv
+│   ├── all.TADCompare.n.results.tsv
 │   └── results_TADCompare
 ├── loops
-│   ├── all.cooltools.IDR2D.results.tsv
 │   ├── all.cooltools.loops.tsv
-│   ├── counts.cooltools.IDR2D.and.cCREs.tsv
+│   ├── filtered.cooltools.loops.tsv
+│   ├── all.cooltools.IDR2D.results.tsv
+│   ├── filtered.cooltools.IDR2D.results.tsv
 │   ├── results_IDR2D
-│   └── method_cooltools
+│   └── results_loops
 ├── multiHiCCompare
 │   ├── all.multiHiCCompare.n.results.tsv
 │   ├── all.multiHiCCompare.results.tsv
 │   └── results
 ├── compartments
-│   └── ???
+│   ├── all.cooltools.compartments.tsv
+│   └── results_compartments
 └── gghic.plots 
     └── plots
 ```
@@ -307,7 +310,82 @@ Filler text
 
 ## Reproducing Results
 
-All command are run from inside the project root dir i.e. ``
+### Dependencies
+
+There are several dependencies, including shell tools, python and R libraries
+Shell Tools from conda environments
+```bash
+# cooler + cooltools
+conda env create -f cooltools.env.yml
+# distiller-nf + dependencies
+conda env create -f distiller.env.yml
+# python HiCRep
+conda env create -f HiCRep.env.yml
+# multiQC
+conda env create -f multiqc.env.yml
+# hiTAD
+conda env create -f TADLib.env.yml
+```
+R dependencies
+```r
+# Basic data handling dependencies + plotting stuff
+install.packages(
+    c(
+        'ComplexUpset',
+        'cowplot',
+        'GGally',
+        'ggh4x',
+        'ggnewscale',
+        'ggplot2',
+        'ggpubr',
+        'patchwork',
+        'scales',
+        'viridis',
+
+        'dplyr',
+        'glue',
+        'magrittr',
+        'purrr',
+        'stringi',
+        'tibble',
+        'tidyverse',
+
+        'furrr',
+        'future',
+
+        'here',
+        'optparse',
+        'tictoc',
+        'knitr',
+        'kableExtra',
+        'gtable',
+    )
+)
+
+# Bioconductor based dependencies + biologically specific tools
+install.packages(
+    c(
+        'plyranges',
+        'idr2d',
+        'hictkR'
+    )
+)
+devtools::install_github("jasonwong-lab/gghic")
+devtools::install_github("ajaynadig/TRADEtools")
+BiocManager::install(
+    c(
+        'AnnotationHub',
+        'BiocParallel',
+        'GenomicRanges',
+        'InteractionSet',
+        'HiContacts',
+        'TADCompare',
+        'multiHiCcompare'
+    )
+)
+```
+
+### Generate Results
 
 Generate `.mcool` files from `.fastq` files using the `distiller-nf` pipeline
 ```bash
@@ -321,15 +399,11 @@ module load wget; module unload java; module load singularity/3.7.0; conda activ
 Generate various QC results from `distiller-nf` output files
 ```bash
 # Generate qc3C report for each bam file
-./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam  # for 16p project
-./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DdeI DpnII results/mapped_parsed_sorted_chunks/**/*.bam # for Cohesin project
+./scripts/matrix.utils.sh qc3C ./results/sample.QC/qc3C/ DpnII HinfI results/mapped_parsed_sorted_chunks/**/*.bam  
 # Generate multiQC reprots from fastqc and pairtools resutls
 ./scripts/matrix.utils.sh multiqcs ./results/sample.QC/multiqc.reports/ ./results/
 # Generated merged matrices for each condition
 ./scripts/matrix.utils.sh merge_16p ./results/coolers_library
-./scripts/matrix.utils.sh merge_Cohesin ./results/coolers_library
-# Balance matrices 
-./scripts/matrix.utils.sh balance ./results/coolers_library/**/*.mapq_30.1000.mcool
 # Calculate total bin-wise coverage 
 ./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
 ```
@@ -346,9 +420,9 @@ Rscript ./scripts/weiner.replication/make.replication.figures.R
 Generate TAD and insulation annotations
 ```bash
 # Generate TAD annotations with hiTAD 
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t $(nproc) -o ./results/TADs/ hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
-# Generate TAD boundary annotations with cooltools insulation
-./scripts/TADs/run.TAD.Callers.sh -e inplace -t $(nproc) -o ./results/TADs/ cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+./scripts/TADs/run.TAD.Callers.sh -e inplace hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+# Generate TAD boundary annotations with cool
+./scripts/TADs/run.TAD.Callers.sh -e inplace cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Generate Consensus TAD results from set of individual matrices with spectralTAD
 Rscript ./scripts/TADs/run.ConsensusTADs.R
 ```
@@ -361,7 +435,7 @@ Rscript ./scripts/TADs/run.TADCompare.R
 Generate Loop results
 ```bash
 # generate loop annotations with cooltools + all default params
-./scripts/loops/run.loops.cooltools.sh ./results/loops ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+./scripts/loops/run.loops.cooltools.sh ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Use IDR2D to define which loops are reproducible between conditions
 Rscript scripts/loops/run.IDR2D.loops.R
 # Map loops + reproducibility to gene coordinates
@@ -373,11 +447,69 @@ Rscript ./scripts/DifferentialContacts/run.multiHiCCompare.R
 ```
 Generate Compartment annotations
 ```bash
-# Rscript ./scripts/compartments/run.compartments.cooltools.sh
+./scripts/compartments/run.compartments.cooltools.sh -m mk_phase
+./scripts/compartments/run.compartments.cooltools.sh -m compartments ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 ```
 Make annotated HiC heatmaps w/gghic
 ```bash
 Rscript ./scripts/gghic.plots/plot.annotated.contact.heatmaps.R
+```
+
+### Compile Notebooks
+
+Here is a convenient function to compile rmarkdown notebooks in bash
+Put this in your `.bashrc` to use it
+```bash
+knit() {
+    input_rmd="$(readlink -e "${1}")"
+    if [[ -z "${2}" ]]; then
+        self_contained="FALSE"
+    else 
+        self_contained="TRUE"
+    fi
+    echo "self_contained: ${self_contained}"
+    output_html="${input_rmd%.Rmd}.html"
+    R -q -e "
+    library(rmarkdown)
+    rmarkdown::render(
+        input='${input_rmd}',
+        output_file='${output_html}',
+        output_dir=NULL,
+        output_format=
+            rmdformats::html_clean(
+                code_folding='hide',
+                df_print='paged',
+                self_contained=${self_contained},
+                lightbox=TRUE,
+                gallery=TRUE,
+                toc_depth=5,
+                thumbnails=FALSE
+            )
+    )"
+}
+```
+Before that, we want to coallate individually generated results files into a single large `.tsv` for each analysis, so you can run
+```bash
+Rscript scripts/coallate.results.R
+```
+We also want to separately generate figures for notebooks that will be inserted into notebooks later
+```bash
+Rscript ./scripts/plot.gghic/plot.annotated.HiC.heatmaps.R
+Rscript ./scripts/weiner.replication/make.replication.figures.R
+```
+Now we can compute each notebooks
+```bash
+knit Matrix.QC.Rmd
+knit Matrix.Coverage.Rmd
+knit HiCRep.Rmd
+knit Weiner.Replication.Rmd
+knit TADs.Rmd
+knit TADCompare.Rmd
+knit Loops.Rmd
+knit Loop.Reproducibility.Rmd
+knit Loop.Integration.Rmd
+knit multiHiCCompare.Rmd
+knit HiC.Heatmaps.Rmd
 ```
 
 ### File Summary One-liners
@@ -390,19 +522,18 @@ find results/sample.QC/coverage/ -type f  | sed -e 's/-coverage.tsv//' | cut -d'
 # List all HiCRep results
 find results/hicrep/ -type f -name '*.txt' | sed -e 's/-hicrep.txt//' | cut -d'/' -f3-6 | sort | uniq -c | column -s'/' -t
 # List all cooltools insulations results
-find results/TADs/method_cooltools/ -type f -name '*-TAD.tsv' | cut -d'/' -f4-7 | sed -e 's/-TAD.tsv//' | sort | uniq -c | column -s'/' -t
+# find results/TADs/results_TADs/method_cooltools/ -type f -name '*-TAD.tsv' | cut -d'/' -f4-7 | sed -e 's/-TAD.tsv//' | sort | uniq -c | column -s'/' -t
 # List all hiTAD results
-find results/TADs/method_hiTAD/ -type f -name '*-TAD.tsv' | cut -d'/' -f4- | sed -e 's/-TAD.tsv//' | sort | uniq -c | column -s'/' -t
+find results/TADs/results_TADs/method_hiTAD/ -type f -name '*-TAD.tsv' | cut -d'/' -f4-6 | sed -e 's/-TAD.tsv//' | sort | uniq -c | column -s'/' -t
 # List all ConsensusTAD results
-find results/TADs/method_ConsensusTAD/ -type f  | cut -d'/' -f4-8,11- | sed -e 's/-ConsensusTADs.tsv//' | sort | uniq -c | column -s'/' -t
+find results/TADs/results_TADs/method_ConsensusTAD/ -type f  | cut -d'/' -f4-8,10- | sed -e 's/-ConsensusTADs.tsv//' | sort | uniq -c | column -s'/' -t
 # List all TADComapre results
-find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 's/-TADCompare.tsv//' | sed -e 's/_vs_/\//' | cut -d'/' -f4-9,11- | sort | uniq -c | column -s'/' -t
-# List all multiHiCCompare results
-find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-7,10 | sort | uniq -c | column -s'/' -t
-# List all dcHiC results
-find results/compartments/pre.processed.input/ -type f | cut -d'/' -f4,5 | sort | uniq -c | column -s'/' -t
-find results/compartments/results/method_dcHiC/ -type f -name '*-dcHiC.input.tsv' | cut -d'/' -f4,5 | sort | uniq -c | sort -nr -k1,1 | column -s'/' -t
+find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 's/-TADCompare.tsv//' | sed -e 's/_vs_/\//' | cut -d'/' -f4-7,9- | sort | uniq -c | column -s'/' -t
 # List all loop results
-find results/loops/method_cooltools -type f -name '*-dots.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
+find results/loops/results_loops/method_cooltools -type f -name '*-dots.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
+# List all multiHiCCompare results
+find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-6,8 | sort | uniq -c | column -s'/' -t
+# List compartment results
+find results/compartments/results_compartments/ -type f -name '*-cis.vecs.tsv' | sed -s 's/-cis.vecs.tsv//' | cut -d'/' -f4- | sort | uniq -c | column -s'/' -t
 ```
 
