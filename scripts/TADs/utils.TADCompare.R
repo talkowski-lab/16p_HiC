@@ -142,8 +142,7 @@ run_all_TADCompare <- function(
         range1=chr, range2=chr,
         output_dir=
             file.path(
-                TAD_DIR,
-                'results_TADCompare',
+                TADCOMPARE_DIR,
                 glue('z.thresh_{z_thresh}'),
                 glue('window.size_{window_size}'),
                 glue('gap.thresh_{gap_thresh}'),
@@ -203,40 +202,70 @@ run_all_TADCompare <- function(
     )
 }
 
-load_TADCompare_results <- function(filepath, ...){
+load_TADCompare_results <- function(
+    filepath,
+    boundaries_only=TRUE,
+    ...){
+    # row_index=1; filepath=tmp$filepath[[row_index]];
     filepath %>% 
     read_tsv(
         show_col_types=FALSE,
         progress=FALSE
-    ) # %>%
-        # dplyr::count(isTADBoundary, TAD.isDifferential)
-    # mutate(
-    #     isTADBoundary= 
-    #         case_when(
-    #             isTADBoundary == 'Differential' ~ TRUE,
-    #             isTADBoundary == 'Non-Differential' ~ FALSE,
-    #             TRUE ~ isTADBoundary,
-    #             # TRUE ~ NA
-    #             # isTADBoundary == 'Differential' ~ 'TRUE',
-    #             # isTADBoundary == 'Non-Differential' ~ 'FALSE',
-    #             # TRUE ~ isTADBoundary
-    #         ),
-    #     TAD.isDifferential=
-    #         case_when(
-    #             TAD.isDifferential == 'Differential' ~ TRUE,
-    #             TAD.isDifferential == 'Non-Differential' ~ FALSE,
-    #             # TRUE ~ TAD.isDifferential
-    #         )
-    # ) %>%
-    #     # dplyr::count(isTADBoundary, TAD.isDifferential)
-    # # Only keep TAD boundaries (differential or not) or differential non-boundary bins
-    # filter(!is.na(isTADBoundary) & !is.na(TAD.isDifferential)) %>% 
-    # filter(!(!isTADBoundary & !TAD.isDifferential))
+    ) %>% 
+    {
+        if (boundaries_only) {
+            filter(., isTADBoundary)
+        } else {
+            .
+        }
+    } %>% 
+    filter(TAD.Difference.Type != 'Non-Differential')
+}
+
+load_and_correct_TADCompare_results <- function(
+    filepaths,
+    nom.threshold,
+    fdr.threshold,
+    gw.fdr.threshold,
+    ...){
+    # filepaths=tmp$filepaths[[1]]
+    filepaths %>% 
+    mutate(
+        results=
+            pmap(
+                .l=list(filepath),
+                .f=read_tsv,
+                id='tmpID',
+                show_col_types=FALSE,
+                progress=FALSE
+            )
+    ) %>% 
+    unnest(results) %>% 
+        # {.} -> lactr.tmp; lactr.tmp
+        # lactr.tmp %>% count(tmpID)
+        # lactr.tmp %>% 
+    # calculate pvalue from Gap Score (a z-score) calcualted by TADCompare
+    # See Section 2.7 here
+    # https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2020.00158/full 
+    mutate(p.value=2 * (1 - pnorm(abs(Gap.Score)))) %>% 
+    # genome-wide fdr adj
+    mutate(p.adj.gw=p.adjust(p.value, method='BH')) %>% 
+    # chr-wise fdr adjustment
+    group_by(tmpID) %>% 
+    mutate(p.adj=p.adjust(p.value, method='BH')) %>% 
+    ungroup() %>% 
+    # filter insiginicant differences
+    filter(
+        p.adj.gw < gw.fdr.threshold,
+        p.adj    < fdr.threshold,
+        p.value  < nom.threshold
+    ) %>%
+    select(-c(tmpID))
 }
 
 list_all_TADCompare_results <- function(){
     # Get a list of all results files
-    file.path(TAD_DIR, 'results_TADCompare') %>%
+    TADCOMPARE_DIR %>% 
     parse_results_filelist(
         suffix='-TADCompare.tsv',
         filename.column.name='pair.name'
@@ -249,28 +278,120 @@ list_all_TADCompare_results <- function(){
     )
 }
 
-load_all_TADCompare_results <- function(...){
+load_all_TADCompare_results <- function(
+    nom.threshold,
+    fdr.threshold,
+    gw.fdr.threshold,
+    ...){
+    # gw.fdr.threshold=1; fdr.threshold=0.1; nom.threshold=0.05
     list_all_TADCompare_results() %>% 
     # filter(TAD.method != 'cooltools') %>% 
-    # Filter relevant results 
+    # Load all results + correct pvalues genome wide per Sample.Group
+    nest(filepaths=c(filepath, region)) %>% 
         # {.} -> tmp
-        # row_index=2884; tmp$filepath[[row_index]]; filepath <- tmp$filepath[[row_index]]
     mutate(
         results=
-            pmap(
-            # future_pmap(
-                .,
-                load_TADCompare_results,
+            # pmap(
+            future_pmap(
+                .l=.,
+                # load_TADCompare_results,
+                .f=load_and_correct_TADCompare_results,
+                nom.threshold=nom.threshold,
+                fdr.threshold=fdr.threshold,
+                gw.fdr.threshold=gw.fdr.threshold,
+                boundaries_only=TRUE,
                 .progress=TRUE
             )
     ) %>%
     unnest(results) %>% 
-    select(-c(filepath))
+    dplyr::rename(
+        'chr'=region,
+        'isBoundary'=isTADBoundary, 
+        'isDifferential'=is.Differential,
+        'DifferenceType'=TAD.Difference.Type
+    ) %>% 
+    select(-c(filepaths))
+}
+
+load_correct_count_TADCompare_results <- function(
+    filepaths,
+    sig.colname='p.adj.gw',
+    ...){
+    filepaths %>% 
+    load_and_correct_TADCompare_results(
+        nom.threshold=1,
+        fdr.threshold=1,
+        gw.fdr.threshold=1
+    ) %>% 
+    # for each thresh, make binary col if TAD difference meets threshold
+    mutate(
+        "sig.lvl.{sig.colname} < 1e-15" := .data[[sig.colname]] <  1e-15,
+        "sig.lvl.{sig.colname} < 1e-10" := .data[[sig.colname]] <  1e-10,
+        "sig.lvl.{sig.colname} < 1e-5"  := .data[[sig.colname]] <  1e-5,
+        "sig.lvl.{sig.colname} < 0.001" := .data[[sig.colname]] <  1e-3,
+        "sig.lvl.{sig.colname} < 0.1"   := .data[[sig.colname]] <  0.1,
+        "sig.lvl.N.S."                  := .data[[sig.colname]] >= 0.1
+    ) %>% 
+    pivot_longer(
+        starts_with('sig.lvl.'),
+        names_to='sig.lvl',
+        names_prefix='sig.lvl.',
+        values_to='meet.sig.lvl'
+    ) %>% 
+    # Inclusively count how many TAD differences meet each thrshold across categories
+    # This produces inclusive counts  for each significance threshold i.e. 
+    # the number of TAD differences < 0.1 also includes all differences <= 0.01
+    filter(meet.sig.lvl) %>% 
+    count(
+        isTADBoundary,
+        TAD.Difference.Type,
+        Enriched.Condition,
+        region,
+        sig.lvl
+    ) %>%
+    # order significance categories by increasing significance
+    mutate(
+         sig.lvl=
+             factor(
+                 sig.lvl,
+                 levels=
+                     c(
+                         'N.S.',
+                         as.character(glue('{sig.colname} < 0.1')),
+                         as.character(glue('{sig.colname} < 0.001')),
+                         as.character(glue('{sig.colname} < 1e-5')),
+                         as.character(glue('{sig.colname} < 1e-10')),
+                         as.character(glue('{sig.colname} < 1e-15'))
+                     )
+             )
+     )
+}
+
+load_correct_count_all_TADCompare_results <- function(){
+    list_all_TADCompare_results() %>% 
+    # Load all results + correct pvalues genome wide per Sample.Group
+    nest(filepaths=c(filepath, region)) %>% 
+    mutate(
+        results=
+            future_pmap(
+                .l=.,
+                .f=load_correct_count_TADCompare_results,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(results) %>% 
+    dplyr::rename(
+        'chr'=region,
+        'isBoundary'=isTADBoundary, 
+        # 'isDifferential'=is.Differential,
+        'DifferenceType'=TAD.Difference.Type
+    ) %>% 
+    select(-c(filepaths))
 }
 
 post_process_TADCompare_results <- function(results.df){
     results.df %>%
-    filter(TAD.method != 'cooltools') %>% 
+    # filter(TAD.method != 'cooltools') %>% 
     mutate(
         across(
             c(
@@ -281,12 +402,25 @@ post_process_TADCompare_results <- function(results.df){
             ~ str_remove(.x, '.Merged.Merged')
         ),
         comparison=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
+        isBoundary=ifelse(isBoundary, 'TAD', 'Not TAD')
     ) %>% 
-    rename(
-        'chr'=region,
-        'isBoundary'=isTADBoundary, 
-        'isDifferential'=TAD.isDifferential, 
-        'Difference'=TAD.Difference.Type
+    relocate(
+        c(
+            resolution,
+            TAD.params,
+            TAD.method,
+            Sample.Group.Numerator, Sample.Group.Denominator, 
+            comparison, Enriched.Condition,
+            chr,
+            isBoundary, DifferenceType
+        )
+    ) %>% 
+    select(
+        -c(
+            z.thresh,
+            window.size,
+            gap.thresh
+        )
     )
 }
 

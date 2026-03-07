@@ -39,13 +39,19 @@ library(magrittr)
 ```
 Load TADCompare results
 ```{r load_TADCompare_data}
-all.TADCompare.results.df <- 
+TADCompare.df <- 
     check_cached_results(
         results_file=TADCOMPARE_RESULTS_FILE,
         # force_redo=TRUE,
-        results_fnc=load_all_TADCompare_results
+        results_fnc=load_all_TADCompare_results,
+        gw.fdr.threshold=1,
+        fdr.threshold=1,
+        nom.threshold=0.05
     ) %>%
     post_process_TADCompare_results() %>% 
+    mutate(log.p.adj.gw=-log10(p.adj.gw)) %>% 
+    select(-c(TAD.isDifferential, isDifferential)) %>% 
+    filter(isBoundary == 'TAD') %>% 
     standardize_data_cols()
 ```
 Print summary of results
@@ -69,11 +75,18 @@ all.TADCompare.results.df %>%
         comparison, 
         Enriched.Condition, 
         isBoundary, isDifferential, Difference
+Load summarized results
+```{r load_TADCompare_freq_data}
+n.TADCompare.df <- 
+    check_cached_results(
+        results_file=TADCOMPARE_COUNTS_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_correct_count_all_TADCompare_results
     ) %>%
-    select(-c(TAD.params, isBoundary)) %>%
-    pivot_wider(
-        names_from=TAD.method,
-        values_from=n
+    post_process_TADCompare_results() %>% 
+    filter(!is.na(DifferenceType)) %>% 
+    filter(isBoundary == 'TAD') %>% 
+    standardize_data_cols()
     ) %>% 
     # select(-c(comparison, TAD.params, isBoundary)) %>%
     print(n=Inf)
