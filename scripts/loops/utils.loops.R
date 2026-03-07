@@ -419,8 +419,78 @@ filter_loop_IDR2D_results <- function(results.df){
 }
 
 ###################################################
-# Expression Analysis
+# Analysis
 ###################################################
+calculate_loop_pair_overlap <- function(loop1, loop2){
+    # bin   111111111122222222233333333333444444444455555555556666666666
+    # bin   123456789012345678901234567890123456789012345678901234567890
+    # l1    --------------|==================|--------------------------
+    # l2    --------------|============|--------------------------------
+    # l3    --------------|=========|-----------------------------------
+    # track 000000000000003333333333322211111100000000000000000000000000
+    loop1$start loop1$end
+    loop2$start loop2$end
+}
+
+calculate_loop_nesting <- function(
+    loops,
+    resolution,
+    ...){
+    # loops=tmp$loops[[1]]; resolution=tmp$resolution[[1]];
+    loops %>% 
+        arrange(anchor.left, anchor.right) %>% 
+        head(20) %>% 
+    reduce(
+        region1, 
+        region2
+    )
+    # mutate(
+    #     bins.covered=
+    #         pmap(
+    #             .l=.,
+    #             .f=
+    #                 function(anchor.left, anchor.right, resolution, ...){
+    #                     seq(anchor.left, anchor.right, resolution)
+    #                 }
+    #         )
+    # ) %>%
+    # unnest(bins.covered) %>%
+    # dplyr::rename('bin'=bins.covered) %>% 
+        {.} -> cln.tmp; cln.tmp
+    mutate(
+        bin.type=
+            case_when(
+                bin == anchor.left  ~ 'anchor',
+                bin == anchor.right ~ 'anchor',
+                TRUE                ~ 'inside'
+            )
+    ) %>% 
+    select(-c(anchor.left, anchor.right)) %>%
+    # count(bin, name='n.loops.crossing')
+    group_by(bin) %>%
+    summarize(
+        n.loop.crossings=n(),
+        across(-c(bin), ~ unique(.x))
+    )
+}
+
+calculate_all_loop_nesting <- function(
+    loops.df,
+    ...){
+    loops.df %>%
+        {.} -> tmp; tmp
+        tmp %>% head(5) %>% 
+    mutate(
+        nesting=
+            pmap(
+                .l=.,
+                .f=calculate_loop_nesting,
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(nesting)
+}
+
 join_expr_and_IDR2D_results <- function(
     idr2d.results.df,
     expression.df,
