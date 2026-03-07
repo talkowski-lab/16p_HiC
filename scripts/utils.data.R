@@ -856,59 +856,6 @@ set_up_sample_comparisons <- function(
     select(-c(ends_with('.Pattern')))
 }
 
-sample_group_priority_fnc_16p <- function(Sample.Group){
-    # FC is determined by the edger::exactTest() function called in multiHiCCompare
-    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
-    # According to the docs for exactTest()
-    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
-    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
-    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
-    # so for 16p.NSC.DEL vs 16p.NSC.WT we want to force 16p.NSC.DEL be numerator 
-    # therefore we make it the SECOND factor level i.e. have  a larger priority number 
-    # i.e. this works when the priority of 16p.NSC.DEL > 16p.NSC.WT
-    # so if we create a factor based on this priority the factor hass the following levels
-    # Levels: 16p.NSC.WT 16p.NSC.DEL
-    # which results in the call exactTest(groups=c(16p.NSC.WT, 16p.NSC.DEL))
-    # which is DEL as the FC numerator
-    case_when(
-        Sample.Group == '16p.NSC.DUP' ~ 1,  # always numerator in FCs
-        Sample.Group == '16p.iN.DUP'  ~ 2,
-        Sample.Group == '16p.NSC.DEL' ~ 3,
-        Sample.Group == '16p.iN.DEL'  ~ 4,
-        Sample.Group == '16p.NSC.WT'  ~ 5,
-        Sample.Group == '16p.iN.WT'   ~ 6,
-        TRUE                          ~ Inf
-    )
-}
-
-sample_group_priority_fnc_Cohesin <- function(Sample.Group){
-    # FC is determined by the edger::exactTest() function called in multiHiCCompare
-    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
-    # According to the docs for exactTest()
-    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
-    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
-    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
-    # so for NIPBL.DEL vs NIPBLWT we want to force NIPBL.DEL to be numerator therefore we make it 
-    # the SECOND factor level i.e. have  a larger priority number 
-    # i.e. this works when the priority of NIPBL.DEL > NIPBL.WT 
-    case_when(
-        # last factor level -> numerator always
-        grepl( 'CTCF.iN.BIALLELIC', Sample.Group) ~  1, 
-        grepl( 'CTCF.iN.DEL',       Sample.Group) ~  2, 
-        grepl('RAD21.iN.DEL',       Sample.Group) ~  3,
-        grepl( 'WAPL.iN.DEL',       Sample.Group) ~  4,
-        grepl('NIPBL.iN.DEL',       Sample.Group) ~  5,
-        grepl(  'All.iN.DEL',       Sample.Group) ~  6, 
-        grepl( 'CTCF.iN.WT',        Sample.Group) ~ 11,
-        grepl('RAD21.iN.WT',        Sample.Group) ~ 12,
-        grepl( 'WAPL.iN.WT',        Sample.Group) ~ 13,
-        grepl('NIPBL.iN.WT',        Sample.Group) ~ 14,
-        grepl(  'All.iN.WT',        Sample.Group) ~ 15,
-        # first factor level -> always denominator
-        TRUE                                      ~ Inf
-    )
-}
-
 set_foldchange_direction_as_factor <- function(
     results.df,
     sample_group_priority_fnc,

@@ -8,10 +8,11 @@ library(gghic)
 # Load track data
 ###################################################
 load_TADs_for_gghic <- function(){
-    HITAD_TAD_RESULTS_FILE %>%
+    ALL_TAD_RESULTS_FILE %>%
     read_tsv(show_col_types=FALSE) %>%
+    filter(method == 'hiTAD') %>% 
     post_process_hiTAD_TAD_results() %>% 
-    add_column(weight='balanced') %>% 
+    # add_column(weight='balanced') %>% 
     dplyr::select(-c(length)) %>% 
     mutate(chr2=chr) %>% 
     nest(TADs=c(chr, start, end)) %>% 
@@ -26,8 +27,7 @@ load_loops_for_gghic <- function(){
     COOLTOOLS_LOOPS_RESULTS_FILE %>% 
     read_tsv(show_col_types=FALSE) %>%
     post_process_cooltools_dots_results() %>% 
-    filter(kernel == 'donut') %>% 
-    filter(log10.qval > -log10(0.1)) %>% 
+    filter_loop_results() %>% 
     dplyr::rename(
         'start.P1'=anchor.left,
         'start.P2'=anchor.right

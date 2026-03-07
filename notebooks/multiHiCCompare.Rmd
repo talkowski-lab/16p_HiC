@@ -1,5 +1,5 @@
 ---
-title: "multiHiCCompare analysis of 16p samples"
+title: "16p HiC - multiHiCCompare Analysis"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -62,8 +62,8 @@ Load results for all comparisons for all bin-pairs
 plan(multisession, workers=availableCores())
 differential.contacts.df <- 
     check_cached_results(
-        results_file=MULTIHICCOMPARE_RESULTS_FILE,
-        # force_redo=TRUE,
+        results_file=ALL_MULTIHICCOMPARE_RESULTS_FILE,
+        force_redo=TRUE,
         results_fnc=load_all_multiHiCCompare_results,
         sample_group_priority_fnc=SAMPLE_GROUP_PRIORITY_FNC,
         sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS,
@@ -74,10 +74,10 @@ differential.contacts.df <-
     ) %>% 
     # filter(p.adj.gw < 0.1) %>% 
     # filter(resolution == 50000) %>% 
-    filter(resolution != 5000) %>% 
+    # filter(resolution != 5000) %>% 
     post_process_multiHiCCompare_results() %>% 
     standardize_data_cols()
-plan(sequential)
+# plan(sequential)
 ```
 
 # N Contacts {.tabset}
@@ -86,7 +86,7 @@ plan(sequential)
 n.plot.df <- 
     check_cached_results(
         results_file=MULTIHICCOMPARE_SIG_RESULTS_FILE,
-        # force_redo=TRUE,
+        force_redo=TRUE,
         results_fnc=count_contacts_by_significance
     ) %>% 
     inner_join(
@@ -108,7 +108,7 @@ n.plot.df <-
                     )
             )
     ) %>% 
-    filter(resolution == 50000) %>% 
+    # filter(resolution == 50000) %>% 
     filter(sig.lvl != 'N.S.') %>% 
     standardize_data_cols()
 ```

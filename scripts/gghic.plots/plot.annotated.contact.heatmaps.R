@@ -3,8 +3,8 @@
 ###################################################
 library(here)
 # here::i_am('scritps/gghic.plots/plot.annotated.contact.heatmaps.R')
-here::i_am('plot.annotated.contact.heatmaps.R')
-BASE_DIR <- here('../../')
+here::i_am('scripts/gghic.plots/plot.annotated.contact.heatmaps.R')
+BASE_DIR <- here()
 suppressPackageStartupMessages({
     library(GenomicRanges)
     library(InteractionSet)
@@ -67,54 +67,49 @@ samples.df <-
 # Make all plots
 ###################################################
 # Match annotation data <-> SampleID <-> regions <-> plot params 
-all.plot.params.df <-
-    set_up_gghic_plot_param_sets(
-        samples.df=samples.df,
-        regions.df=regions.df,
-        hyper.params.df=hyper.params.df,
-        tads.df=tads.df,
-        loops.df=loops.df,
-        tracks.df=tracks.df
-    )
-all.plot.params.df %>% 
-    # filter(resolution %in% c('10Kb', '25Kb')) %>% 
-    # filter(resolution %in% c(10000)) %>% 
-    # filter(weight == 'balanced') %>% 
-    # filter(Celltype == 'iN') %>% 
-    # filter(region.title != '16p') %>% 
-    # gghic specific params
-    add_column(
-        length_ratio=1,
-        # ideogram_width_ratio=1/30,
-        # ideogram_fontsize=10,
-        # ideogram_colour="red",
-        # ideogram_fill="#FFE3E680",
-        gtf_path=GENOME_GTF_FILE,
-        annotation_style="arrow",
-        maxgap=-1,
-        # annotation_width_ratio=1/50,
-        # annotation_spacing_ratio=1/3,
-        annotation_fontsize=10,
-        annotation_colour="#48CFCB",
-        annotation_fill="#48CFCB",
-        include_ncrna=FALSE,
-        # track_width_ratio=1/20,
-        # track_spacing_ratio=1/2,
-        # track_fill="black",
-        # track_fontsize=5,
-        tad_colour="#00ff83",
-        loop_style="arc",
-        stroke=1,
-        # loop_colour="black",
-        # loop_fill=NA,
-        # expand_xaxis=FALSE,
-        # expand_left=NULL,
-        # expand_right=NULL,
-    ) %>% 
-    # generated pdfs for each plot
-    pmap(
-        .l=., 
-        .f=plot_all_regions_gghic,
-        .progress=TRUE
-    )
+set_up_gghic_plot_param_sets(
+    samples.df=samples.df,
+    regions.df=regions.df,
+    hyper.params.df=hyper.params.df,
+    tads.df=tads.df,
+    loops.df=loops.df,
+    tracks.df=tracks.df
+) %>% 
+# gghic specific params
+add_column(
+    length_ratio=1,
+    # ideogram_width_ratio=1/30,
+    # ideogram_fontsize=10,
+    # ideogram_colour="red",
+    # ideogram_fill="#FFE3E680",
+    gtf_path=GENOME_GTF_FILE,
+    annotation_style="arrow",
+    maxgap=-1,
+    # annotation_width_ratio=1/50,
+    # annotation_spacing_ratio=1/3,
+    annotation_fontsize=10,
+    annotation_colour="#48CFCB",
+    annotation_fill="#48CFCB",
+    include_ncrna=FALSE,
+    # track_width_ratio=1/20,
+    # track_spacing_ratio=1/2,
+    # track_fill="black",
+    # track_fontsize=5,
+    tad_colour="#00ff83",
+    loop_style="arc",
+    stroke=1,
+    # loop_colour="black",
+    # loop_fill=NA,
+    # expand_xaxis=FALSE,
+    # expand_left=NULL,
+    # expand_right=NULL,
+) %>% 
+    # {.} -> all.plot.params.df; all.plot.params.df
+    # all.plot.params.df %>% 
+# generated pdfs for each plot
+pmap(
+    .l=., 
+    .f=plot_all_regions_gghic,
+    .progress=TRUE
+)
 

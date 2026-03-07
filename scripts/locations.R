@@ -70,26 +70,32 @@ WEINER_REPLICATION_PLOTS_DIR <- file.path(WEINER_REPLICATION_DIR, 'plots')
 ###################################################
 # TAD Annotations
 ###################################################
-TAD_DIR                       <- file.path(RESULTS_DIR, 'TADs')
+TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 HITAD_TAD_RESULTS_FILE        <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
 # HITAD_DI_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
-HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
+# HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
 # COOLTOOLS_TAD_RESULTS_FILE    <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
 # COOLTOOLS_DI_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
-# COOLTOOLS_DI_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.MoCs.tsv')
+# COOLTOOLS_MOC_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.MoCs.tsv')
 CONSENSUSTAD_TAD_RESULTS_FILE <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
-# CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.DI.annotations.tsv')
-CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
+# CONSENSUSTAD_DI_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.DI.annotations.tsv')
+# CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
+TAD_RESULTS_DIR                <- file.path(TAD_DIR, 'results_TADs')
+ALL_TAD_RESULTS_FILE           <- file.path(TAD_DIR, 'all.all.TADs.tsv')
+ALL_MOC_FILE                   <- file.path(TAD_DIR, 'all.all.TAD.MoCs.tsv')
 # TADCompare results
-TADCOMPARE_DIR                <- file.path(TAD_DIR, 'results_TADCompare')
-TADCOMPARE_RESULTS_FILE       <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
+TADCOMPARE_DIR                 <- file.path(TAD_DIR, 'results_TADCompare')
+TADCOMPARE_RESULTS_FILE        <- file.path(TAD_DIR, 'all.TADCompare.results.tsv')
+TADCOMPARE_COUNTS_RESULTS_FILE <- file.path(TAD_DIR, 'all.TADCompare.n.results.tsv')
 
 ###################################################
 # Loop Annotations
 ###################################################
 LOOPS_DIR                                  <- file.path(RESULTS_DIR, 'loops')
+LOOP_RESULTS_DIR                           <- file.path(LOOPS_DIR, 'results_loops')
 ALL_COOLTOOLS_LOOPS_RESULTS_FILE           <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
 FILTERED_COOLTOOLS_LOOPS_RESULTS_FILE      <- file.path(LOOPS_DIR, 'filtered.cooltools.loops.tsv')
+ALL_LOOP_NESTING_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltools.nesting.results.tsv')
 LOOPS_IDR2D_DIR                            <- file.path(LOOPS_DIR, 'results_IDR2D')
 ALL_LOOPS_IDR2D_RESULTS_FILE               <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
 FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE <- file.path(LOOPS_DIR, 'filtered.cooltools.IDR2D.results.tsv')
@@ -105,8 +111,9 @@ MULTIHICCOMPARE_SIG_RESULTS_FILE      <- file.path(MULTIHICCOMPARE_DIR, 'all.mul
 ###################################################
 # Compartment Annotations
 ###################################################
-COMPARTMENTS_DIR         <- file.path(RESULTS_DIR, 'compartments')
-COMPARTMENTS_RESULTS_DIR <- file.path(COMPARTMENTS_DIR, 'results')
+COMPARTMENTS_DIR              <- file.path(RESULTS_DIR, 'compartments')
+COMPARTMENTS_RESULTS_DIR      <- file.path(COMPARTMENTS_DIR, 'results_compartments')
+ALL_COMPARTMENTS_RESULTS_FILE <- file.path(COMPARTMENTS_DIR, 'all.cooltools.compartments.tsv')
 # DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
 # COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
 

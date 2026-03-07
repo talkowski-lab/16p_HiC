@@ -202,7 +202,7 @@ main() {
 # Default script arguments
 # BASE_DIR="/data/talkowski/Samples/16p_HiC"
 BASE_DIR="./"
-OUTPUT_DIR="${BASE_DIR}/results/TADs"
+OUTPUT_DIR="${BASE_DIR}/results/TADs/results_TADs"
 EVAL_METHOD='txt'
 RESOLUTIONS=(100000 50000 25000 10000 5000)
 THREADS=$(nproc)

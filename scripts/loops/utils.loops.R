@@ -17,7 +17,7 @@ load_cooltools_dots <- function(
 }
 
 list_all_cooltools_dots_results <- function(){
-    LOOPS_DIR %>% 
+    LOOP_RESULTS_DIR %>% 
     parse_results_filelist(suffix='-dots.tsv') %>%
     filter(method == 'cooltools') %>% 
     get_info_from_MatrixIDs(keep_id=FALSE)

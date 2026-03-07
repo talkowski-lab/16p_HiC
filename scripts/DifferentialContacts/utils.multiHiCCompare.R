@@ -408,8 +408,8 @@ load_all_multiHiCCompare_results <- function(
     ungroup() %>% 
     mutate(
         results=
-            # future_pmap(
-            pmap(
+            # pmap(
+            future_pmap(
                 .l=.,
                 # correct adjusted pvalues genome-wide
                 .f=load_and_correct_multiHiCCompare_results,

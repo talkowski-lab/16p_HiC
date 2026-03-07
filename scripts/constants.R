@@ -20,14 +20,37 @@ ALL_SAMPLE_GROUP_COMPARISONS <-
         # '16p.NSC.DUP',      '16p.NSC.DEL',
         # '16p.NSC.DUP',      '16p.iN.DUP',
         # '16p.NSC.DEL',      '16p.iN.DEL',
-        # '16p.NSC.WT',       '16p.iN.WT',
+        '16p.NSC.WT',       '16p.iN.WT',
         '16p.iN.DUP',       '16p.iN.WT',  
         '16p.iN.DEL',       '16p.iN.WT',  
         '16p.NSC.DUP',      '16p.NSC.WT',
         '16p.NSC.DEL',      '16p.NSC.WT'
     )
 # functions which determine which sample group will be numerator/denominator in comparisons
-SAMPLE_GROUP_PRIORITY_FNC <- sample_group_priority_fnc_16p
+SAMPLE_GROUP_PRIORITY_FNC <- function(Sample.Group){
+    # FC is determined by the edger::exactTest() function called in multiHiCCompare
+    # https://github.com/dozmorovlab/multiHiCcompare/blob/dcfe4aaa8eaef45e203f3d7f806232bb613d2c9b/R/glm.R#L69
+    # According to the docs for exactTest()
+    # """Note that the first group listed in the pair is the baseline for the comparison—so if the pair is c("A","B") then the comparison is B - A, so genes with positive log-fold change are up-regulated in group B compared with group A (and vice versa for genes with negative log-fold change)."""
+    # So with the factor level that comes FIRST is used as the baseline i.e. DENOMINATOR
+    # https://www.quantargo.com/help/r/latest/packages/edgeR/NEWS/exactTest
+    # so for 16p.NSC.DEL vs 16p.NSC.WT we want to force 16p.NSC.DEL be numerator 
+    # therefore we make it the SECOND factor level i.e. have  a larger priority number 
+    # i.e. this works when the priority of 16p.NSC.DEL > 16p.NSC.WT
+    # so if we create a factor based on this priority the factor hass the following levels
+    # Levels: 16p.NSC.WT 16p.NSC.DEL
+    # which results in the call exactTest(groups=c(16p.NSC.WT, 16p.NSC.DEL))
+    # which is DEL as the FC numerator
+    case_when(
+        str_detect(Sample.Group, 'NSC.DUP') ~ 1,  # always numerator in FCs
+        str_detect(Sample.Group,  'iN.DUP') ~ 2,
+        str_detect(Sample.Group, 'NSC.DEL') ~ 3,
+        str_detect(Sample.Group,  'iN.DEL') ~ 4,
+        str_detect(Sample.Group, 'NSC.WT')  ~ 5,
+        str_detect(Sample.Group,  'iN.WT')  ~ 6,
+        TRUE                                ~ Inf
+    )
+}
 # have consistent colors for genotypes across figures
 GENOTYPE_COLORS <- 
     c(
@@ -73,4 +96,4 @@ GENOMIC_REGIONS <-
         region.UCSC=glue("{region.chr}:{region.start}-{region.end}"),
         region.dist=region.end - region.start
     )
-
+LOOP_QVALUE_THRESHOLD <- 0.1

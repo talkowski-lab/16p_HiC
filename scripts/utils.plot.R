@@ -116,6 +116,7 @@ scale_x_axis <- function(
         if (is.null(limits)) {
             figure + 
             scale_x_continuous(
+                expand=expand,
                 labels=
                     function(x) {
                         format(x, digits=max(1, -log10(axis.label.accuracy)))
@@ -203,6 +204,7 @@ scale_y_axis <- function(
         if (is.null(limits)) {
             figure + 
             scale_y_continuous(
+                expand=expand,
                 labels=
                     function(x) {
                         format(x, digits=max(1, -log10(axis.label.accuracy)))
@@ -648,10 +650,7 @@ plot_barplot <- function(
     # make it a boxplot 
     { 
         . + 
-        geom_col(
-            position=position,
-            color="black"
-        ) +
+        geom_col(position=position) +
         guides(fill=guide_legend(ncol=legend.cols))
     } %>% 
     # Handle faceting + scaling + theme options

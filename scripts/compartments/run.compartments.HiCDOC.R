@@ -39,19 +39,7 @@ hyper.params.df <-
 ###################################################
 # List all pairs of matrices to compare
 comparisons.df <- 
-    tribble(
-        # ~Sample.Group.Numerator, ~Sample.Group.Denominator,
-        ~Sample.Group.Right, ~Sample.Group.Left,
-        # '16p.iN.DUP',       '16p.iN.DEL', 
-        # '16p.NSC.DUP',      '16p.NSC.DEL',
-        # '16p.NSC.DUP',      '16p.iN.DUP',
-        # '16p.NSC.DEL',      '16p.iN.DEL',
-        # '16p.NSC.WT',       '16p.iN.WT',
-        # '16p.iN.DUP',       '16p.iN.WT',  
-        # '16p.iN.DEL',       '16p.iN.WT',  
-        '16p.NSC.DUP',      '16p.NSC.WT',
-        '16p.NSC.DEL',      '16p.NSC.WT'
-    ) %>% 
+    ALL_SAMPLE_GROUP_COMPARISONS %>% 
     set_up_sample_comparisons(
         resolutions=parsed.args$resolutions,
         merging='individual'
@@ -78,6 +66,6 @@ comparisons.df %>%
     run_all_HiCDOC(    
         hyper.params.df=hyper.params.df,
         force_redo=parsed.args$force.redo,
-        sample_group_priority_fnc=sample_group_priority_fnc_16p
+        sample_group_priority_fnc=
     )
 

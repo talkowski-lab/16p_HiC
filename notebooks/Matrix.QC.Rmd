@@ -1,5 +1,5 @@
 ---
-title: "QC stats for 16p HiC samples"
+title: "16p HiC - Matrix QC"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -348,6 +348,43 @@ pair.orientation.df %>%
     )
 ```
 
+# RPRR 2026 Figure {.tabset} 
+
+```{r rprr_2026, fig.dim=c(6,4), eval=TRUE}
+txt.size=10
+pairs.plot.df %>% 
+    # filter(Included | isMerged == 'Merged') %>% 
+    filter(isMerged == 'Merged') %>% 
+    dplyr::rename('Unique Pairs'=frac) %>% 
+    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
+    plot_barplot_with_threshold_lines(
+        # normal barplot arguments
+        x.var='Category',
+        y.var='Unique Pairs',
+        fill.var='SampleID',
+        facet.col='Celltype',
+        facet.row='isMerged',
+        x.scale.mode='discrete',
+        y.scale.mode='pct',
+        theme.obj=barplot.ggtheme,
+        legend.cols=1,
+        # where to draw lines
+        scales='free_y',
+        lines.df=
+            tribble(
+                ~Category, ~y_lower, ~y_upper,
+                'Long Range  >  20Kb', 0.15, 0.40
+            )
+    ) +
+    theme(
+        strip.text=element_text(size=txt.size),
+        axis.text.x=element_text(size=txt.size, angle=45),
+        axis.text.y=element_text(size=txt.size),
+        legend.text=element_text(size=txt.size),
+        legend.title=element_blank()
+    )
+```
+
 # Download Sample Stats
 
 `.tsv` of stats per sample 
@@ -396,39 +433,3 @@ download_this(
 )
 ```
 
-# RPRR 2026 Figure {.tabset} 
-
-```{r rprr_2026, fig.dim=c(6,4), eval=FALSE}
-txt.size=10
-pairs.plot.df %>% 
-    # filter(Included | isMerged == 'Merged') %>% 
-    filter(isMerged == 'Merged') %>% 
-    dplyr::rename('Unique Pairs'=frac) %>% 
-    mutate(SampleID=str_remove(SampleID, '.Merged.Merged')) %>% 
-    plot_barplot_with_threshold_lines(
-        # normal barplot arguments
-        x.var='Category',
-        y.var='Unique Pairs',
-        fill.var='SampleID',
-        facet.col='Celltype',
-        facet.row='isMerged',
-        x.scale.mode='discrete',
-        y.scale.mode='pct',
-        theme.obj=barplot.ggtheme,
-        legend.cols=1,
-        # where to draw lines
-        scales='free_y',
-        lines.df=
-            tribble(
-                ~Category, ~y_lower, ~y_upper,
-                'Long Range  >  20Kb', 0.15, 0.40
-            )
-    ) +
-    theme(
-        strip.text=element_text(size=txt.size),
-        axis.text.x=element_text(size=txt.size, angle=45),
-        axis.text.y=element_text(size=txt.size),
-        legend.text=element_text(size=txt.size),
-        legend.title=element_blank()
-    )
-```

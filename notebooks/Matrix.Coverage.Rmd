@@ -77,13 +77,7 @@ coverage.summary %>%
             'coverage.total'
         )
     ) %>% 
-    mutate(
-        labels=
-            case_when(
-                grepl('.pct.', metric) ~ scales::number(value, accuracy=0.01, stype_positive='none'),
-                TRUE                   ~ scales::number(value, accuracy=0.1,  stype_positive='none', scale_cut=cut_short_scale())
-            )
-    ) %>% 
+    mutate(labels=scales::number(value, accuracy=0.1,  stype_positive='none', scale_cut=cut_short_scale()))) %>%
     make_nested_plot_tabs(
         group.cols=c('isMerged', 'weight', 'resolution'),
         max.header.lvl=3,
