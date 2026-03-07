@@ -8,7 +8,7 @@ if (grepl('/home/', BASE_DIR)) {
 } else {
     SCRIPT_DIR <- here('scripts')
 }
-SAMPLE_METADATA_FILE <- file.path(BASE_DIR, 'HiC.16p.sample_metadata.tsv')
+SAMPLE_METADATA_FILE <- file.path(BASE_DIR, SAMPLE_METADATA_FILENAME)
 REF_DIR              <- file.path(BASE_DIR, 'reference.files')
 RESULTS_DIR          <- file.path(BASE_DIR, 'results')
 

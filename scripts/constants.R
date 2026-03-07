@@ -3,6 +3,8 @@ library(tibble)
 library(dplyr)
 library(magrittr)
 library(glue)
+# Sample metadata filename
+SAMPLE_METADATA_FILENAME <- 'HiC.16p.sample_metadata.tsv'
 # Factor levels for variaous metadata categories
 ALL_SAMPLE_GROUPS <- 
     c(

@@ -5,9 +5,9 @@ library(here)
 here::i_am('scripts/hicrep/run.hicrep.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
+    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
     source(file.path(BASE_DIR,   'scripts', 'locations.R')) # sets SCRIPT_DIR
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
     source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
     source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
     library(magrittr)
