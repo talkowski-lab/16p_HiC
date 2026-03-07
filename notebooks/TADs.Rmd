@@ -45,22 +45,14 @@ TADs.df <-
     check_cached_results(
         results_file=ALL_TAD_RESULTS_FILE,
         # force_redo=TRUE,
-        results_fnc=
-            function(){
-                load_all_TAD_results_for_TADCompare() %>% 
-                filter(TAD.method != 'spectralTAD') %>% 
-                dplyr::rename('boundaries'=pre_tads) %>%
-                select(-c(chr)) %>% 
-                unnest(boundaries)
-        }
+        results_fnc=load_all_TAD_results,
+        # force.redo=TRUE
     ) %>% 
     separate_wider_delim(
         SampleID,
         delim='.',
-        names=c(NA, 'Celltype', 'Genotype', NA, NA),
-        cols_remove=FALSE
-    ) %>%
-    filter(resolution == 50000) %>% 
+        names=c(NA, 'Celltype', 'Genotype', NA, NA)
+    ) %>% 
     standardize_data_cols()
 ```
 define the most similar pairs of TADs between all between-sample comparisons

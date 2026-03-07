@@ -91,10 +91,11 @@ load_cooltools_file <- function(
 }
 
 load_all_cooltools_results <- function(boundaries_only=FALSE){
-    file.path(TAD_DIR) %>% 
+    file.path(TAD_RESULTS_DIR, 'method_cooltools')  %>% 
     parse_results_filelist(suffix='-TAD.tsv') %>%
-    filter(method == 'cooltools') %>% 
-    get_info_from_MatrixIDs(keep_id=FALSE) %>% 
+    add_column(method == 'cooltools') %>% 
+    # filter(method == 'cooltools') %>% 
+    # get_info_from_MatrixIDs(keep_id=FALSE) %>% 
     # {.} -> tmp
     mutate(
         DIs=
@@ -189,10 +190,8 @@ load_hiTAD_DIs <- function(
 }
 
 load_all_hiTAD_DIs <- function(){
-    parse_results_filelist(
-        input_dir=TAD_DIR,
-        suffix='-DI.tsv'
-    ) %>%
+    TAD_RESULTS_DIR %>% 
+    parse_results_filelist(suffix='-DI.tsv') %>%
     get_info_from_MatrixIDs(keep_id=FALSE) %>% 
     filter(method == 'hiTAD') %>% 
     filter(weight == 'balanced') %>%
@@ -226,7 +225,7 @@ load_hiTAD_TADs <- function(
 }
 
 list_all_hiTAD_TADs <- function(){
-    TAD_DIR %>% 
+    TAD_RESULTS_DIR %>% 
     parse_results_filelist(suffix='-TAD.tsv') %>%
     filter(method == 'hiTAD') %>% 
     get_info_from_MatrixIDs(keep_id=FALSE)
@@ -421,7 +420,7 @@ run_all_ConsensusTADs <- function(
         range1=chr, range2=chr,
         output_dir=
             file.path(
-                TAD_DIR,
+                TAD_RESULTS_DIR,
                 'method_ConsensusTAD',
                 # glue('merged_{isMerged}'),
                 glue('z.thresh_{z_thresh}'),
@@ -487,7 +486,7 @@ load_ConsensusTADs <- function(filepath, ...){
 }
 
 load_all_ConsensusTAD_TADs <- function(...){
-    TAD_DIR %>% 
+    TAD_RESULTS_DIR %>% 
     parse_results_filelist(
         suffix='-ConsensusTADs.tsv',
         filename.column.name='Sample.Group',
@@ -522,5 +521,136 @@ post_process_ConsensusTAD_TAD_results <- function(results.df){
 }
 
 ###################################################
-# Compute Similarities
+# Standardize results across methods
 ###################################################
+load_hiTAD_results_for_TADCompare <- function(force.redo=FALSE){
+    check_cached_results(
+        results_file=HITAD_TAD_RESULTS_FILE,
+        force_redo=force.redo,
+        results_fnc=load_all_hiTAD_TADs
+    ) %>% 
+    filter(weight == 'balanced') %>% 
+    filter(isMerged) %>% 
+    select(SampleID, resolution, chr, start, end) %>% 
+    mutate(Sample.Group=str_replace_all(SampleID, '.Merged.Merged', '')) %>% 
+    mutate(region=chr) %>% 
+    mutate(length=end - start) %>% 
+    nest(TADs=c(chr, start, end, length)) %>% 
+    dplyr::rename('chr'=region)
+}
+
+load_cooltools_results_for_TADCompare <- function(force.redo=FALSE){
+    # Load boundary annotations
+    check_cached_results(
+        results_file=COOLTOOLS_TAD_RESULTS_FILE,
+        force_redo=force.redo,
+        results_fnc=load_all_cooltools_results,
+        boundaries_only=TRUE
+    ) %>% 
+    # clean up 
+    post_process_cooltools_results() %>% 
+    mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
+    rename('TAD.params'=cooltools.params) %>% 
+    select(resolution, TAD.params, SampleID, chr, bin.start) %>% 
+    # remove entries with < 2 boundaries
+    nest(boundaries=c(bin.start)) %>% 
+    rowwise() %>% filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(TADs=list(convert_boundaries_to_TADs(boundaries=boundaries))) %>% 
+    ungroup() %>% select(-c(boundaries)) %>% unnest(TADs) %>% 
+    # Nest for downstream analysis
+    mutate(region=chr) %>% 
+    group_by(resolution, TAD.params, SampleID, region) %>% 
+    nest(TADs=c(chr, start, end)) %>% 
+    ungroup() %>% 
+    dplyr::rename('chr'=region) %>% 
+    select(resolution, TAD.params, SampleID, chr, TADs)
+}
+
+load_ConsensusTAD_results_for_TADCompare <- function(force.redo=FALSE){
+    check_cached_results(
+        results_file=CONSENSUSTAD_TAD_RESULTS_FILE,
+        force_redo=force.redo,
+        results_fnc=load_all_ConsensusTAD_TADs
+    ) %>% 
+    post_process_ConsensusTAD_TAD_results() %>% 
+    mutate(SampleID=glue('{Sample.Group}.Merged.Merged')) %>% 
+    dplyr::select(
+        method, TAD.params, resolution, 
+        SampleID, Sample.Group,
+        chr, bin.start
+    ) %>% 
+    mutate(chr2=chr) %>% 
+    # remove entries with < 2 boundaries
+    nest(boundaries=c(bin.start)) %>% 
+    rowwise() %>% 
+    filter(nrow(boundaries) > 1) %>% 
+    # convert boundaries to start/end format
+    mutate(TADs=list(convert_boundaries_to_TADs(boundaries=boundaries))) %>% 
+    ungroup() %>% 
+    select(-c(boundaries)) %>% 
+    unnest(TADs) %>% 
+    mutate(length=end - start) %>% 
+    nest(TADs=c(chr, start, end, length)) %>% 
+    dplyr::rename(
+        'TAD.method'=method,
+        'chr'=chr2
+    )
+}
+
+load_all_TAD_results_for_TADCompare <- function(force.redo=FALSE){
+    # hiTAD TAD results
+    hiTAD.TADs.df <- 
+        load_hiTAD_results_for_TADCompare(force.redo=force.redo) %>% 
+        add_column(
+            TAD.params=NULL,
+            TAD.method='hiTAD'
+        )
+    # cooltools boundary results
+    # cooltools.TADs.df <- 
+    #     load_cooltools_results_for_TADCompare(force.redo=force.redo) %>% 
+    #     add_column(TAD.method='cooltools')
+    # ConsensusTAD TAD results 
+    consensusTAD.TADs.df <- 
+        load_ConsensusTAD_results_for_TADCompare(force.redo=force.redo)
+    # default TADCompare method estimates TADs itself, include nothing
+    spectralTAD.TADs.df <- 
+        expand_grid(
+            SampleID=unique(hiTAD.TADs.df$SampleID),
+            chr=CHROMOSOMES,
+            resolution=unique(hiTAD.TADs.df$resolution)
+        ) %>% 
+        add_column(
+            TADs=NULL, # will be estimated by TADCompare
+            TAD.params=NULL,
+            TAD.method='spectralTAD'
+        )
+    # Bind everything together
+    bind_rows(
+        hiTAD.TADs.df,
+        # cooltools.TADs.df,
+        consensusTAD.TADs.df,
+        spectralTAD.TADs.df
+    ) %>%
+    unite(
+        'TAD.set.index',
+        sep='~',
+        remove=FALSE,
+        c(
+          TAD.method,
+          TAD.params,
+          resolution
+        )
+    ) %>% 
+    dplyr::select(-c(TAD.set.index)) %>% 
+    dplyr::rename('pre_tads'=TADs)
+}
+
+load_all_TAD_results <- function(force.redo=FALSE){
+    load_all_TAD_results_for_TADCompare(force.redo=force.redo) %>% 
+    filter(TAD.method != 'spectralTAD') %>% 
+    dplyr::rename('boundaries'=pre_tads) %>%
+    select(-c(chr)) %>% 
+    unnest(boundaries)
+}
+
