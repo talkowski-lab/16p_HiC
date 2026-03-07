@@ -1,5 +1,5 @@
 ---
-title: "Loop Analysis for 16p"
+title: "16p HiC - Loop Analysis"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -103,7 +103,7 @@ n.loops.per.chr.df <-
     )
 ```
 
-## Genome-Wide
+## Genome-Wide {.tabset}
 
 ```{r plot_n_loops_heatmap_gw, results='asis', fig.dim=c(10,6)}
 n.loops.per.chr.df %>% 
@@ -117,8 +117,6 @@ n.loops.per.chr.df %>%
         names=c(NA, 'Celltype', 'Genotype'),
         cols_remove=FALSE
     ) %>%
-    # filter(kernel == 'donut') %>% 
-    # filter(resolution == '25Kb') %>% 
     filter(sig.lvl %in% c('qval < 0.1', 'N.S.')) %>% 
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
@@ -139,7 +137,7 @@ n.loops.per.chr.df %>%
     )
 ```
 
-## Per Chr
+## Per Chr {.tabset}
 
 ```{r plot_n_loops_heatmap_chr, results='asis', fig.dim=c(10,6)}
 n.loops.per.chr.df %>% 
@@ -188,7 +186,7 @@ loops.df %>%
         fill.var='SampleID', 
         facet.row='kernel',
         legend.position='right',
-        outlier.size=0.25,
+        outlier.size=0.15,
         axis.text.x=element_text(angle=45, hjust=1),
         # legend.text=element_text(angle=35, hjust=1),
         axis.title.x=element_blank(),
@@ -219,7 +217,7 @@ loops.df %>%
         # facet.col='kernel',
         facet.row='metric',
         scales='free_y',
-        outlier.size=0.25,
+        outlier.size=0.15,
         strip.text.x=element_text(size=5),
         axis.text.x=element_text(angle=45, hjust=1)
     )
@@ -228,17 +226,13 @@ loops.df %>%
 # Manhattan Plots {.tabset}
 
 Make manhattan plot with q-values
-```{r manhattan_plot, results='asis', fig.dim=c(10,6), eval=FALSE}
+```{r manhattan_plot, results='asis', fig.dim=c(10,6), eval=TRUE}
 loops.df %>% 
     make_nested_plot_tabs(
         # group.cols=c('type', 'isMerged', 'weight', 'resolution'),
         group.cols=c('weight', 'resolution'),
         max.header.lvl=2,
         plot.fnc=plot_jitter,
-        # x.var='SampleID',
-        # y.var='log10.qval',
-        # color.var='Genotype',
-        # shape.var='Genotype',
         x.var='chr',
         y.var='log10.qval',
         color.var='enrichment',
@@ -302,10 +296,15 @@ loops.df %>%
     )
 ```
 
-# Save Filtered Loop Results
+# Analyze Loop "Nesting Structure"
 
-```{r save_filtered_results}
-loops.df %>% 
-    filter_loop_results() %>% 
-    write_tsv(FILTERED_COOLTOOLS_LOOPS_RESULTS_FILE)
+For all bins, calculate how many loops pass over that bin i.e. how many nested loops each bin is in.
+Intuition is that regions that are nested more deeply might have more important/specific regulatory behaviour. 
+
+```{r load_loop_nesting_results}
+loop.nesting.df <- 
+    ALL_LOOP_NESTING_RESULTS_FILE %>%
+    read_tsv(show_col_types=FALSE) %>% 
+    # post_process_cooltools_dots_results() %>% 
+    standardize_data_cols()
 ```

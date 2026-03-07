@@ -36,6 +36,7 @@ hyper.params.df <-
         tibble(
             ambiguity_resolution_method=
                 c(
+                    "overlap",
                     "midpoint",
                     "value"
                 )
@@ -63,11 +64,17 @@ plan(multisession, workers=parsed.args$threads)
 #  each row is 1 nested set of loop calls per condition + context
 nested.loops.df <- 
     # load loop results
-    FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE %>%
-    read_tsv(show_col_types=FALSE) %>% 
+    check_cached_results(
+        results_file=ALL_COOLTOOLS_LOOPS_RESULTS_FILE,
+        # force_redo=TRUE,
+        results_fnc=load_all_cooltools_dots
+    ) %>%
+    # Filter and clean up loops
+    post_process_cooltools_dots_results() %>% 
+    filter_loop_results() %>% 
+    standardize_data_cols() %>% 
     # prep columns for input to IDR2D
     mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
-    select(-c(Edit, Celltype, Genotype)) %>% 
     rename(
         'start.A'=anchor.left,
         'start.B'=anchor.right
@@ -101,9 +108,10 @@ nested.loops.df %>%
         suffixes=c('.P1', '.P2'),
         pair_grouping_cols=
             c(
+                'kernel',
+                'type',
                 'weight',
                 'resolution',
-                'kernel',
                 'chr'
             ),
         sampleID_col='SampleID',

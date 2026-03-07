@@ -1,4 +1,3 @@
-# library('FitHiC')
 library(stringi)
 library(furrr)
 library(idr2d)
@@ -119,11 +118,12 @@ post_process_cooltools_dots_results <- function(results.df) {
 
 filter_loop_results <- function(
     results.df,
-    q.thresh=0.1){
+    q.thresh=LOOP_QVALUE_THRESHOLD){
     results.df %>% 
-    filter(kernel == 'donut') %>% 
+    filter(type == 'cis') %>% 
     filter(weight == 'balanced') %>% 
-    filter(log10.qval <= -log10(q.thresh))
+    filter(kernel == 'donut') %>% 
+    filter(log10.qval >= -log10(q.thresh))
 }
 
 ###################################################
@@ -259,7 +259,7 @@ run_all_IDR2D_analysis <- function(
     sampleID_col='SampleID',
     suffixes=c('.P1', '.P2'),
     ...){
-    # force.redo=parsed.args$force.redo; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); SampleID.fields=c(NA, 'Celltype', 'Genotype'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
+    # force.redo=parsed.args$force.redo; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename( 'SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); suffixes=c('.P1', '.P2'); pair_grouping_cols=c('kernel', 'type', 'weight', 'resolution', 'chr'); sampleID_col='SampleID'; SampleID.fields=c(NA, 'Celltype', 'Genotype')
     # list + format metadata for all specified sample groups to compare
     nested.loops.df %>% 
     enumerate_pairwise_comparisons(
@@ -277,9 +277,10 @@ run_all_IDR2D_analysis <- function(
         output_dir=
             file.path(
                 LOOPS_IDR2D_DIR,
+                glue('kernel_{kernel}'),
+                glue('type_{type}'),
                 glue('weight_{weight}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
-                glue('kernel_{kernel}'),
                 glue('metric_{metric_colname}'),
                 glue('resolve.method_{ambiguity_resolution_method}'),
                 glue('max.gap_{max_gap}'),
@@ -304,17 +305,18 @@ run_all_IDR2D_analysis <- function(
         print(
             mutate(
                 ., 
-                idr.params=glue('{metric_colname}-{value_transformation}-{ambiguity_resolution_method}'),
                 comparison=glue('{SampleID.P1}-{SampleID.P2}')
             ) %>% 
             dplyr::count(
-                resolution, max_gap,
-                idr.params,
-                comparison
-                # .,
-                # metric_colname, value_transformation, ambiguity_resolution_method,
-                # resolution, max_gap,
-                # SampleID.P1, SampleID.P2
+                # comparison
+                metric_colname, ambiguity_resolution_method,
+                resolution, max_gap_bins
+            ) %>%
+            dplyr::rename(
+                'Metric'=metric_colname,
+                # 'V.T'=value_transformation,
+                'A.R.M'=ambiguity_resolution_method,
+                'Max Gap'=max_gap_bins,
             )
         )
     } %>%
@@ -400,22 +402,24 @@ post_process_IDR2D_results <- function(results.df){
     ) %>%
     select(
         -c(
+            # metric, 
+            # resolve.method,
+            # weight,
+            # kernel,
             loop.type,
-            region,
-            weight,
-            kernel,
-            metric, 
-            resolve.method
+            region
         )
     )
 }
 
 filter_loop_IDR2D_results <- function(results.df){
     results.df %>% 
-    filter(weight == 'balanced') %>% 
     filter(kernel == 'donut') %>% 
+    filter(type == 'cis') %>% 
+    filter(weight == 'balanced') %>% 
     filter(metric == 'log10.qval') %>% 
-    filter(resolve.method == 'value')
+    filter(resolve.method == 'value') %>%
+    filter(max.gap.bins.int == 5)
 }
 
 ###################################################
