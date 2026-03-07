@@ -1,5 +1,5 @@
 ---
-title: "TAD Analysis for 16p Samples"
+title: "16p HiC - TAD Analysis"
 author: "Siddharth Reed"
 date: "`r Sys.Date()`"
 ---
@@ -60,18 +60,18 @@ define the most similar pairs of TADs between all between-sample comparisons
 # library(furrr)
 # plan(multisession, workers=length(availableWorkers()))
 all.TAD.pairs.df <- 
-    TADs.df %>% 
-    select(-c(Celltype, Genotype, SampleID)) %>% 
-    nest(boundaries=c(start, end, length)) %>% 
     check_cached_results(
-        results_file=ALL_TAD_SIMILARITY_RESULTS_FILE,
+        results_file=ALL_MOC_FILE,
         # force_redo=TRUE,
         results_fnc=calculate_all_boundary_similarities,
-        boundaries.df=.,
+        boundaries.df=
+            TADs.df %>% 
+            select(-c(SampleID, Celltype, Genotype)) %>% 
+            nest(boundaries=c(start, end, length)),
         only_keep_overlaps=TRUE,
         sample.group.comparisons=
             ALL_SAMPLE_GROUP_COMPARISONS %>%
-            rename(
+            dplyr::rename(
                 'Sample.Group.P1'=Sample.Group.Numerator,
                 'Sample.Group.P2'=Sample.Group.Denominator,
             ),
@@ -85,7 +85,10 @@ all.TAD.pairs.df <-
                 'chr'
             )
     ) %>% 
-    mutate(chr=factor(chr, levels=CHROMOSOMES))
+    filter(!stat %in% c('minimum', 'q1', 'q3', 'maximum')) %>% 
+    mutate(comparison=glue('{Sample.Group.P2} vs {Sample.Group.P1}')) %>% 
+    # mutate(chr=factor(chr, levels=CHROMOSOMES)) %>% 
+    standardize_data_cols()
 # plan(sequential)
 # similarities.df
 ```
@@ -96,25 +99,22 @@ all.TAD.pairs.df <-
 
 ```{r plot_TAD_n_gw, results='asis', fig.dim=c(10,6)}
 TADs.df %>% 
-    dplyr::count(
-        # method, TAD.params, resolution, Sample.Group, chr,
-        across(-c('chr', 'start', 'end', 'length')),
-        name='nTADs'
-    ) %>% 
-    make_nested_plot_tabs(
-        group.cols=c('TAD.method', 'resolution'),
-        max.header.lvl=3,
-        plot.fnc=plot_barplot,
-        x.var='Sample.Group',
+    count(across(-c('chr', 'start', 'end', 'length')), name='nTADs') %>% 
+    # make_nested_plot_tabs(
+    #     group.cols=c('resolution'),
+    #     max.header.lvl=3,
+        # plot.fnc=plot_barplot,
+    plot_barplot(
+        x.var='resolution',
         y.var='nTADs',
-        fill.var='Genotype',
-        facet.col='Celltype',
-        scales='free_x',
-        legend.position='right',
-        # legend.text=element_text(angle=45, hjust=1),
+        fill.var='Sample.Group',
+        facet.col='TAD.method',
+        # facet.row='resolution',
+        # scales='free_x',
+        # legend.position='right',
+        # axis.text.x=element_text(angle=45, hjust=1),
         axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.x=element_text(angle=45, hjust=1)
+        axis.title.y=element_blank()
     )
 ```
 
@@ -148,18 +148,29 @@ TADs.df %>%
 
 # TAD Lengths {.tabset }
 
-```{r plot_TAD_lengths, results='asis', fig.dim=c(8,6)}
+```{r plot_TAD_lengths, results='asis', fig.dim=c(10,6)}
 TADs.df %>% 
+    mutate(
+        TAD.size.band=
+            case_when(
+                length > 5e6 ~ '>  5Mb',
+                length > 2e6 ~ '>  2Mb',
+                length > 1e6 ~ '>  1Mb',
+                length > 5e5 ~ '>  500Kb',
+                TRUE         ~ '<= 500Kb'
+            ) %>%
+            factor(levels=c('<= 500Kb', '>  500Kb', '>  1Mb', '>  2Mb', '>  5Mb'))
+    ) %>% 
+    # filter(TAD.method == 'hiTAD', resolution == '10Kb') %>% 
     make_nested_plot_tabs(
-        # group.cols=c('isMerged', 'weight', 'resolution'),
-        # group.cols=c('method', 'resolution'),
         group.cols=c('TAD.method', 'resolution'),
         max.header.lvl=2,
         plot.fnc=plot_boxplot,
         x.var='chr',
         y.var='length',
         fill.var='Sample.Group',
-        facet.row='Celltype',
+        facet.col='Celltype',
+        facet.row='TAD.size.band',
         scales='free_y',
         y.scale.mode='mb',
         axis.text.x=element_text(angle=45, hjust=1)
@@ -174,7 +185,6 @@ all.TAD.pairs.df %>%
     # mutate(MoC=moc.inner / MoC.norm) %>% 
     filter(stat == 'MoC') %>% 
     pivot_wider(names_from='stat', values_from='value') %>% 
-    mutate(comparison=glue('{Sample.Group.P2} vs {Sample.Group.P1}')) %>% 
     make_nested_plot_tabs(
         # group.cols=c('isMerged', 'weight', 'resolution'),
         # group.cols=c('method', 'TAD.params', 'resolution'),
@@ -185,6 +195,7 @@ all.TAD.pairs.df %>%
         x.var='chr',
         y.var='MoC',
         fill.var='comparison',
+        y.limits=c(0,1),
         # facet.row='Genotype',
         facet.row='Celltype',
         legend.position='right',
@@ -211,8 +222,8 @@ all.TAD.pairs.df %>%
         plot.fnc=plot_barplot,
         x.var='chr',
         y.var='value',
+        y.limits=c(0, 1),
         fill.var='Sample.Group',
-        # shape.var='stat',
         facet.row='context',
         x.scale.mode='discrete',
         y.scale.mode='mb',
