@@ -1,7 +1,6 @@
 # 16p HiC Analysis
 
 Analysis and code of HiC data for 16p samples
-All filepaths below are relative to the project root: `/data/talkowski/Samples/16p_HiC/ `
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -41,6 +40,8 @@ All filepaths below are relative to the project root: `/data/talkowski/Samples/1
 ## File Structure
 
 File structure of all input data, reference files and results
+
+All filepaths below are relative to the project root on our server: `/data/talkowski/Samples/16p_HiC/ `
 
 ### Code Reproducibility
 
