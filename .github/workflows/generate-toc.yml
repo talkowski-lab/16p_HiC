@@ -1,31 +1,13 @@
 # Copied from here:
 # https://www.codegenes.net/blog/automatic-toc-in-github-flavoured-markdown/#option-1-github-actions-automated-on-push
-name: Generate TOC  
-on:  
-  push:  
-    branches: 
-      - main
-    paths:  
-      - '**.md'  # Trigger on changes to Markdown files  
-jobs:  
-  toc:  
-    runs-on: ubuntu-latest  
-    steps:  
-      - name: Checkout code  
-        uses: actions/checkout@v4  # Check out your repo  
- 
-      - name: Generate TOC with doctoc  
-        uses: thlorenz/doctoc  # doctoc GitHub Action  
-        with:  
-          # Path to the Markdown file(s) to process (e.g., README.md)  
-          TARGET_PATHS: 'README.md'  
-          # TOC title (default: "## Table of Contents")  
-          TOC_TITLE: '## Table of Contents'  
-          # Update the TOC in-place (required to commit changes)  
-          UPDATE_ONLY_CHANGED: true  
- 
-      - name: Commit TOC changes  
-        uses: stefanzweifel/git-auto-commit-action@v5  # Auto-commit the updated TOC  
-        with:  
-          commit_message: 'docs: update TOC'  
-          file_pattern: 'README.md'  # Only commit changes to this file
+name: Generate TOC
+on: push
+name: DSL TOC Action
+jobs:
+  doDOCTOC:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Call DOCTOC_action"
+        uses: DougLeonard/DOCTOC_action@v1      
+
