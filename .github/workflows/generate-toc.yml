@@ -1,8 +1,7 @@
 # Copied from here:
 # https://www.codegenes.net/blog/automatic-toc-in-github-flavoured-markdown/#option-1-github-actions-automated-on-push
-name: Generate TOC
-on: push
 name: DSL TOC Action
+on: push
 jobs:
   doDOCTOC:
     runs-on: ubuntu-latest
