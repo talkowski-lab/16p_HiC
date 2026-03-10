@@ -3,6 +3,12 @@ library(tibble)
 library(dplyr)
 library(magrittr)
 library(glue)
+# location of scripts 
+if (grepl('/home/', BASE_DIR)) {
+    SCRIPT_DIR <- file.path(BASE_DIR, '../remote.16p/scripts')
+} else {
+    SCRIPT_DIR <- here('scripts')
+}
 # Sample metadata filename
 SAMPLE_METADATA_FILENAME <- 'HiC.16p.sample_metadata.tsv'
 # Factor levels for variaous metadata categories

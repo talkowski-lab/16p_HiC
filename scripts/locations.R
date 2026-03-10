@@ -3,11 +3,6 @@ library(glue)
 ###################################################
 # Set Root Dirs
 ###################################################
-if (grepl('/home/', BASE_DIR)) {
-    SCRIPT_DIR <- file.path(BASE_DIR, '../remote.16p/scripts')
-} else {
-    SCRIPT_DIR <- here('scripts')
-}
 SAMPLE_METADATA_FILE <- file.path(BASE_DIR, SAMPLE_METADATA_FILENAME)
 REF_DIR              <- file.path(BASE_DIR, 'reference.files')
 RESULTS_DIR          <- file.path(BASE_DIR, 'results')

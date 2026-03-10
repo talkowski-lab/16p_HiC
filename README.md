@@ -405,7 +405,7 @@ Generate various QC results from `distiller-nf` output files
 # Generated merged matrices for each condition
 ./scripts/matrix.utils.sh merge_16p ./results/coolers_library
 # Calculate total bin-wise coverage 
-./scripts/matrix.utils.sh coverage ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
+./scripts/coverage/run.cooltools.coverage.sh -o ./results/sample.QC/coverage/ ./results/coolers_library/**/*.mapq_30.1000.mcool
 ```
 Generate HiCRep results
 ```bash
@@ -422,7 +422,7 @@ Generate TAD and insulation annotations
 # Generate TAD annotations with hiTAD 
 ./scripts/TADs/run.TAD.Callers.sh -e inplace hiTAD ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Generate TAD boundary annotations with cool
-./scripts/TADs/run.TAD.Callers.sh -e inplace cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
+# ./scripts/TADs/run.TAD.Callers.sh -e inplace cooltools ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
 # Generate Consensus TAD results from set of individual matrices with spectralTAD
 Rscript ./scripts/TADs/run.ConsensusTADs.R
 ```
@@ -531,6 +531,8 @@ find results/TADs/results_TADs/method_ConsensusTAD/ -type f  | cut -d'/' -f4-8,1
 find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 's/-TADCompare.tsv//' | sed -e 's/_vs_/\//' | cut -d'/' -f4-7,9- | sort | uniq -c | column -s'/' -t
 # List all loop results
 find results/loops/results_loops/method_cooltools -type f -name '*-dots.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
+# IDR2D results
+find results/loops/results_IDR2D -type f -name '*.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
 # List all multiHiCCompare results
 find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-6,8 | sort | uniq -c | column -s'/' -t
 # List compartment results

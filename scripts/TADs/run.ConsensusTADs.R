@@ -2,8 +2,9 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/TADs/run.TADCompare.R')
+here::i_am('scripts/TADs/run.ConsensusTADs.R')
 BASE_DIR <- here()
+# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
     library(hictkR)
     source(file.path(BASE_DIR, 'scripts', 'constants.R'))

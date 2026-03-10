@@ -2,16 +2,19 @@
 # Depdendencies
 ###################################################
 library(here)
+# setwd('./')
 here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
+BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
     library(hictkR)
-    source(file.path(BASE_DIR, 'scripts', 'constants.R'))
-    source(file.path(BASE_DIR, 'scripts', 'locations.R'))
+    # source(file.path(BASE_DIR, 'scripts/constants.R'))
+    source(file.path(BASE_DIR,'./scripts/constants.R'))
+    source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
-    source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADs.R'))
-    source(file.path(SCRIPT_DIR, 'TADs',  'utils.TADCompare.R'))
+    source(file.path(SCRIPT_DIR, 'TADs/utils.TADs.R'))
+    source(file.path(SCRIPT_DIR, 'TADs/utils.TADCompare.R'))
     library(tidyverse)
     library(magrittr)
     library(purrr)
@@ -75,8 +78,8 @@ comparisons.df <-
         include_merged_col=FALSE
     )
 # used by calls to future_pmap() in functions below
-# message(glue('using {parsed.args$threads} core to parallelize'))
-# plan(multisession, workers=parsed.args$threads)
+message(glue('using {parsed.args$threads} core to parallelize'))
+plan(multisession, workers=parsed.args$threads)
 # Run TADCompare on everything
 comparisons.df %>% 
     run_all_TADCompare(    

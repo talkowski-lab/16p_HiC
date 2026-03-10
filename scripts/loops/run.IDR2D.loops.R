@@ -75,7 +75,7 @@ nested.loops.df <-
     standardize_data_cols() %>% 
     # prep columns for input to IDR2D
     mutate(resolution=scale_numbers(resolution, force_numeric=TRUE)) %>% 
-    rename(
+    dplyr::rename(
         'start.A'=anchor.left,
         'start.B'=anchor.right
     ) %>% 
@@ -101,7 +101,7 @@ nested.loops.df %>%
         force.redo=parsed.args$force.redo,
         sample.group.comparisons=
             ALL_SAMPLE_GROUP_COMPARISONS %>% 
-            rename(
+            dplyr::rename(
                 'SampleID.P1'=Sample.Group.Numerator,
                 'SampleID.P2'=Sample.Group.Denominator
             ),

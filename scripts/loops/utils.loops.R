@@ -1,6 +1,7 @@
 library(stringi)
 library(furrr)
 library(idr2d)
+library(plyranges)
 
 ###################################################
 # cooltools dots
@@ -140,7 +141,7 @@ tidy_IDR2D_sided_results <- function(
         diff.value=value - rep_value,
         diff.rank=rank - rep_rank
     ) %>% 
-    rename(
+    dplyr::rename(
         'chr'=chr_a,
         'anchor.left'=start_a,
         'anchor.right'=start_b,
@@ -423,7 +424,7 @@ filter_loop_IDR2D_results <- function(results.df){
 }
 
 ###################################################
-# Analysis
+# Nesting Analysis
 ###################################################
 calculate_loop_pair_overlap <- function(loop1, loop2){
     # bin   111111111122222222233333333333444444444455555555556666666666
@@ -447,7 +448,7 @@ calculate_loop_nesting <- function(
     reduce(
         region1, 
         region2
-    )
+    ) %>% 
     # mutate(
     #     bins.covered=
     #         pmap(
@@ -495,6 +496,9 @@ calculate_all_loop_nesting <- function(
     unnest(nesting)
 }
 
+###################################################
+# Integration Analysis
+###################################################
 join_expr_and_IDR2D_results <- function(
     idr2d.results.df,
     expression.df,

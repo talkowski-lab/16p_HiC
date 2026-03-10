@@ -457,7 +457,7 @@ run_all_ConsensusTADs <- function(
         )
     } %>%
     arrange(desc(resolution)) %>% 
-        # {.} -> tmp
+        # {.} -> tmp; tmp
     # pmap(
     future_pmap(
         .l=.,
@@ -478,11 +478,28 @@ run_all_ConsensusTADs <- function(
 }
 
 load_ConsensusTADs <- function(filepath, ...){
+    # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', sep='', collapse='; ')
+    # row_index=586; filepath=tmp$filepath[[row_index]]; method=tmp$method[[row_index]]; z.thresh=tmp$z.thresh[[row_index]]; window.size=tmp$window.size[[row_index]]; gap.thresh=tmp$gap.thresh[[row_index]]; resolution=tmp$resolution[[row_index]]; region=tmp$region[[row_index]]; Sample.Group=tmp$Sample.Group[[row_index]]
     read_tsv(
         filepath,
         show_col_types=FALSE,
         progress=FALSE,
-    )
+    ) %>%
+    # to uniquely identify rows for pivoting
+    mutate(idx=row_number()) %>% 
+    mutate(across(ends_with('.score'), as.numeric)) %>% 
+    pivot_longer(
+        ends_with('.score'),
+        names_to='SampleID',
+        values_to='score'
+    ) %>%
+    filter(SampleID == 'consensus.score') %>%
+    filter(!is.na(score)) %>% 
+    pivot_wider(
+        names_from=SampleID,
+        values_from=score
+    ) %>%
+    select(-c(idx))
 }
 
 load_all_ConsensusTAD_TADs <- function(...){
@@ -492,6 +509,7 @@ load_all_ConsensusTAD_TADs <- function(...){
         filename.column.name='Sample.Group',
     ) %>% 
     filter(method == 'ConsensusTAD') %>% 
+        # {.} -> tmp; tmp
     mutate(
         TADs=
             # pmap(
@@ -573,6 +591,7 @@ load_ConsensusTAD_results_for_TADCompare <- function(force.redo=FALSE){
         force_redo=force.redo,
         results_fnc=load_all_ConsensusTAD_TADs
     ) %>% 
+        # {.} -> tmp; tmp
     post_process_ConsensusTAD_TAD_results() %>% 
     mutate(SampleID=glue('{Sample.Group}.Merged.Merged')) %>% 
     dplyr::select(
@@ -653,4 +672,3 @@ load_all_TAD_results <- function(force.redo=FALSE){
     select(-c(chr)) %>% 
     unnest(boundaries)
 }
-

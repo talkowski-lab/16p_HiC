@@ -30,38 +30,6 @@ load_chr_sizes <- function(){
     )
 }
 
-get_min_resolution_per_matrix <- function(
-    df=NULL,
-    as_int=TRUE,
-    filter_res=TRUE){
-    # df=contacts.df; as_int=TRUE; filter_res=TRUE
-    # get minimum viable resolution for each matrix based on Rao et at. 2014 definition
-    MIN_SAMPLE_RESOLUTION_FILE %>%
-    read_tsv(show_col_types=FALSE) %>%
-    dplyr::select(SampleID, resolution) %>% 
-    mutate(resolution=scale_numbers(resolution, force_numeric=as_int)) %>% 
-    add_column(is.smallest.resolution=TRUE) %>% 
-    {
-        if (is.null(df)) {
-            .
-        } else {
-            left_join(
-                .,
-                df,
-                by=join_by(SampleID)
-            )
-        }
-    } %>% 
-    { 
-        if (filter_res) {
-            filter(., is.smallest.resolution) %>%
-            dplyr::select(-c(is.smallest.resolution))
-        } else {
-            .
-        }
-    }
-}
-
 ###################################################
 # Gene Expression Data
 ###################################################

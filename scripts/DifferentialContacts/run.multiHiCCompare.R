@@ -9,11 +9,12 @@ suppressPackageStartupMessages({
     library(optparse)
     library(BiocParallel)
     library(hictkR)
-    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
-    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
+    source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
+    source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
     source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-    source(file.path(SCRIPT_DIR, 'DifferentialContacts', 'utils.multiHiCCompare.R'))
+    source(file.path(SCRIPT_DIR, 'DifferentialContacts/utils.multiHiCCompare.R'))
     library(magrittr)
     library(tidyverse)
 })
@@ -48,7 +49,7 @@ data('hg38_cyto')
 comparisons.df <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
     set_up_sample_comparisons(merging='individual') %>% 
-    rename(
+    dplyr::rename(
         'Sample.Group.P1'=Sample.Group.Numerator,
         'Sample.Group.P2'=Sample.Group.Denominator
     )

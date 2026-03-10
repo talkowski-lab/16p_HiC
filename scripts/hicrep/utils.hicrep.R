@@ -108,9 +108,9 @@ post_proces_hicrep_results <- function(results.df){
             factor(
                 levels=
                     c(
-                         'Merged vs Merged',
-                         'Individual vs Merged',
-                         'Individual vs Individual'
+                        'Merged vs Merged',
+                        'Individual vs Merged',
+                        'Individual vs Individual'
                     )
             )
     ) %>% 

@@ -158,6 +158,7 @@ run_all_TADCompare <- function(
                 glue('{SampleID.Numerator}_vs_{SampleID.Denominator}-TADCompare.tsv')
             )
     ) %>% 
+    # filter(chr != 'chrY') %>% 
     arrange(desc(resolution), desc(chr)) %>% 
     {
         if (!force_redo) {
@@ -182,9 +183,10 @@ run_all_TADCompare <- function(
             )
         )
     } %>%
-        # {.} -> tmp
-    # future_pmap(
-    pmap(
+        # {.} -> tmp; tmp
+        # tmp %>% 
+    # pmap(
+    future_pmap(
         .l=.,
         .f= # Need this wrapper to pass ... arguments to run_multiHiCCompare
             function(results_file, ...){ 
@@ -327,9 +329,10 @@ load_correct_count_TADCompare_results <- function(
     mutate(
         "sig.lvl.{sig.colname} < 1e-15" := .data[[sig.colname]] <  1e-15,
         "sig.lvl.{sig.colname} < 1e-10" := .data[[sig.colname]] <  1e-10,
-        "sig.lvl.{sig.colname} < 1e-5"  := .data[[sig.colname]] <  1e-5,
+        "sig.lvl.{sig.colname} < 1e-05" := .data[[sig.colname]] <  1e-5,
         "sig.lvl.{sig.colname} < 0.001" := .data[[sig.colname]] <  1e-3,
-        "sig.lvl.{sig.colname} < 0.1"   := .data[[sig.colname]] <  0.1,
+        "sig.lvl.{sig.colname} < 0.05 " := .data[[sig.colname]] <  0.050,
+        "sig.lvl.{sig.colname} < 0.1  " := .data[[sig.colname]] <  0.1,
         "sig.lvl.N.S."                  := .data[[sig.colname]] >= 0.1
     ) %>% 
     pivot_longer(
@@ -357,9 +360,10 @@ load_correct_count_TADCompare_results <- function(
                  levels=
                      c(
                          'N.S.',
-                         as.character(glue('{sig.colname} < 0.1')),
+                         as.character(glue('{sig.colname} < 0.1  ')),
+                         as.character(glue('{sig.colname} < 0.05 ')),
                          as.character(glue('{sig.colname} < 0.001')),
-                         as.character(glue('{sig.colname} < 1e-5')),
+                         as.character(glue('{sig.colname} < 1e-05')),
                          as.character(glue('{sig.colname} < 1e-10')),
                          as.character(glue('{sig.colname} < 1e-15'))
                      )
