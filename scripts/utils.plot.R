@@ -10,6 +10,54 @@ library(GGally)
 library(scales)
 
 ###################################################
+# Transform data for plotting
+###################################################
+calc_pct <- function(
+    count.df,
+    cols_exclude=c()){
+    # calculate relative frequency from count data
+    count.df %>% 
+    group_by(across(-c(cols_exclude, 'n'))) %>% 
+    summarize(n=sum(n)) %>% 
+    mutate(total=sum(n)) %>% 
+    ungroup() %>% 
+    mutate(pct=n / total) %>% 
+    mutate(n.label=glue('n = {n}')) %>% 
+    mutate(pct.label=glue('{round(100 * n / total, digits=1)}%')) %>% 
+    mutate(n.and.pct.label=glue('{pct.label}\n({n.label})'))
+}
+
+copy_data_along_inclusive_intervals <- function(
+    plot.df,
+    input_colname,
+    output_colname,
+    thresholds,
+    comparison_op='<',
+    decreasing=TRUE){
+    # plot.df=loops.df; input_colname='log10.qval'; thresholds=c(1, 10, 50, 100, 200); output_colname='sig.band'; comparison_op='>'; decreasing=TRUE
+    # turn comparison operator into a function i.e. '<' becomes function(x, y) {x < y}
+    comparison.fn <- match.fun(comparison_op)
+    # put all thresholds as a tibble column
+    thresholds %>% 
+    tibble(threshold=.) %>%
+    # for every threshold get pretty name and make ordered facet 
+    mutate(
+        {{output_colname}} :=
+            paste(
+                input_colname,
+                comparison_op,
+                threshold
+            ) %>%
+            fct_reorder(thresholds, .desc=decreasing)
+    ) %>% 
+    # Now for every threshold, join all rows from the input dataset
+    cross_join(plot.df) %>%
+    # Only keep rows where the specified column meets the threshold
+    filter(comparison.fn(!!sym(input_colname), threshold)) %>%
+    select(-c(threshold))
+}
+
+###################################################
 # Handling/formatting plots
 ###################################################
 make_ggtheme <- function(...){
@@ -310,6 +358,7 @@ scale_fill_axis <- function(
 
 add_faceting <- function(
     figure,
+    space='fixed',
     facet.group=NULL,
     facet.col=NULL,
     facet.row=NULL,
@@ -323,6 +372,7 @@ add_faceting <- function(
             facet_grid2(
                 rows=vars(!!sym(facet.row)),
                 cols=vars(!!sym(facet.col)),
+                space=space,
                 ...
             )
     } else if (!is.null(facet.row)) {
@@ -330,6 +380,7 @@ add_faceting <- function(
             figure +
             facet_grid2(
                 rows=vars(!!sym(facet.row)),
+                space=space,
                 ...
             )
     } else if (!is.null(facet.col)) {
@@ -337,6 +388,7 @@ add_faceting <- function(
             figure +
             facet_grid2(
                 cols=vars(!!sym(facet.col)),
+                space=space,
                 ...
             )
     } else if (!is.null(facet.group)) {
@@ -361,6 +413,7 @@ post_process_plot <- function(
     facet.ncol=NULL,
     facet.group=NULL,
     scales='fixed',
+    space='fixed',
     x.scale.mode='',
     x.log.base=10,
     x.axis.label.accuracy=0.1,
@@ -384,6 +437,7 @@ post_process_plot <- function(
     figure %>% 
     add_faceting(
         scales=scales,
+        space=space,
         facet.row=facet.row,
         facet.col=facet.col,
         facet.group=facet.group,

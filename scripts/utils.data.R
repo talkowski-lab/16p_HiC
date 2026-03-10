@@ -519,21 +519,6 @@ standardize_data_cols <- function(
     }
 }
 
-calc_pct <- function(
-    count.df,
-    cols_exclude=c()){
-    # calculate relative frequency from count data
-    count.df %>% 
-    group_by(across(-c(cols_exclude, 'n'))) %>% 
-    summarize(n=sum(n)) %>% 
-    mutate(total=sum(n)) %>% 
-    ungroup() %>% 
-    mutate(pct=n / total) %>% 
-    mutate(n.label=glue('n = {n}')) %>% 
-    mutate(pct.label=glue('{round(100 * n / total, digits=1)}%')) %>% 
-    mutate(n.and.pct.label=glue('{pct.label}\n({n.label})'))
-}
-
 ###################################################
 # Load mcool files
 ###################################################
