@@ -20,7 +20,7 @@ notebooks/*_cache/
 # Hidden files
 .domaincaller/
 .DS_Store
-._*
+# ._*
 
 # nextflow stuff
 sample.configs/template.distiller.yml

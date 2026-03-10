@@ -306,7 +306,7 @@ We call compartments using `cooltools eigs-cis`, and phase the calls using `gene
 
 #### Compartment Comparison
 
-Filler text
+Different filler text
 
 ## Reproducing Results
 
