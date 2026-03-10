@@ -39,9 +39,8 @@
 Analysis and code of HiC data for 16p samples
 All filepaths below are relative to the project root: `/data/talkowski/Samples/16p_HiC/ `
 
-
-<!--ts-->
-<!--te-->
+<!-- START doctoc -->
+<!-- END doctoc -->
 
 ## File Structure
 
