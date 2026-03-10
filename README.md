@@ -1,3 +1,39 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [16p HiC Analysis](#16p-hic-analysis)
+  - [File Structure](#file-structure)
+    - [Code Reproducibility](#code-reproducibility)
+    - [Input Data](#input-data)
+    - [Genome Annotation Files](#genome-annotation-files)
+    - [Results Files](#results-files)
+    - [Notebooks](#notebooks)
+  - [Methods](#methods)
+    - [Running distiller pipeline](#running-distiller-pipeline)
+    - [Running qc3C profiling](#running-qc3c-profiling)
+    - [Generate MultiQC reports](#generate-multiqc-reports)
+    - [Calculate QC Metrics](#calculate-qc-metrics)
+    - [Merging Matrices](#merging-matrices)
+    - [HiCRep Analysis](#hicrep-analysis)
+    - [TAD Analysis](#tad-analysis)
+      - [TAD Annotation](#tad-annotation)
+      - [TAD Comparison](#tad-comparison)
+    - [Loop Analysis](#loop-analysis)
+      - [Loop Annotation](#loop-annotation)
+      - [Loop Comparison](#loop-comparison)
+    - [Differential Contact Analysis](#differential-contact-analysis)
+    - [Compartment Analysis](#compartment-analysis)
+      - [Compartment Annotation](#compartment-annotation)
+      - [Compartment Comparison](#compartment-comparison)
+  - [Reproducing Results](#reproducing-results)
+    - [Dependencies](#dependencies)
+    - [Generate Results](#generate-results)
+    - [Compile Notebooks](#compile-notebooks)
+    - [File Summary One-liners](#file-summary-one-liners)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # 16p HiC Analysis
 
 Analysis and code of HiC data for 16p samples

@@ -1,3 +1,25 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [TODO](#todo)
+  - [Cohesin Results](#cohesin-results)
+  - [cmds to run](#cmds-to-run)
+  - [HiCRep](#hicrep)
+  - [Replicate Weiner et al. 2022 16p11.2 analysis](#replicate-weiner-et-al-2022-16p112-analysis)
+  - [TAD analysis](#tad-analysis)
+  - [TADCompare analysis](#tadcompare-analysis)
+  - [Loop analysis](#loop-analysis)
+  - [multiHiCCompare analysis](#multihiccompare-analysis)
+  - [Compartment analysis](#compartment-analysis)
+  - [16p gghic Plots](#16p-gghic-plots)
+  - [H1D analysis](#h1d-analysis)
+  - [Gene Desert analysis](#gene-desert-analysis)
+  - [TRADE analysis](#trade-analysis)
+  - [Phasing analysis](#phasing-analysis)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # TODO
 
 ## Cohesin Results
