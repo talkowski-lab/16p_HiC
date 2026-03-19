@@ -239,40 +239,43 @@ merge_Cohesin_matrices() {
     cooler_dir="$(readlink -e "${1}")"
     # For all groups of matrices
     for read_filter in "${MAPQ_FITERS[@]}"; do 
-    for celltype in "${CELLTYPES_EDITS[@]}"; do 
-    for genotype in "${GENOTYPES_EDITS[@]}"; do 
-        # merge across all biological + technical replicates PER Edit
-        for edit in "${PROJECT_EDITS[@]}"; do 
-            sample_group="${edit}.${celltype}.${genotype}"
+        for celltype in "${CELLTYPES_EDITS[@]}"; do 
+            for genotype in "${GENOTYPES_EDITS[@]}"; do 
+                # merge across all biological + technical replicates PER Edit
+                for edit in "${PROJECT_EDITS[@]}"; do 
+                    sample_group="${edit}.${celltype}.${genotype}"
+                    matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
+                    echo "${sample_group}"
+                    echo '---------------------------------------------'
+                    merge_matrices        \
+                        "${cooler_dir}"   \
+                        "${sample_group}" \
+                        "${read_filter}"  \
+                        "${sample_group}.Merged.Merged"
+                    echo '============================================='
+                done
+                # Merge all WTs across edits
+                if [[ ${genotype} == 'WT' ]]; then
+                    sample_group="${celltype}.${genotype}"
+                    echo "All.${sample_group}"
+                    echo '---------------'
+                    merge_matrices        \
+                        "${cooler_dir}"   \
+                        "*.${sample_group}" \
+                        "${read_filter}"  \
+                        "All.${sample_group}.Merged.Merged"
+                fi
+            done
+            # Merge CTCF.iN.BIALLELIC replicates explic
+            sample_group="${edit}.${celltype}.BIALLELIC"
             matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
-            echo "${sample_group}"
-            echo '---------------------------------------------'
             merge_matrices        \
                 "${cooler_dir}"   \
                 "${sample_group}" \
                 "${read_filter}"  \
                 "${sample_group}.Merged.Merged"
-            echo '============================================='
+            echo '===================================================================='
         done
-        # Merge across edits per genotype & celltype ACROSS Edits
-        # sample_group="${celltype}.${genotype}"
-        # echo "All.${sample_group}"
-        # echo '---------------'
-        # merge_matrices        \
-        #     "${cooler_dir}"   \
-        #     "*.${sample_group}" \
-        #     "${read_filter}"  \
-        #     "All.${sample_group}.Merged.Merged"
-    done
-        sample_group="${edit}.${celltype}.BIALLELIC"
-        matrix_file_pattern="${sample_group}.*.${read_filter}.1000.cool"
-        merge_matrices        \
-            "${cooler_dir}"   \
-            "${sample_group}" \
-            "${read_filter}"  \
-            "${sample_group}.Merged.Merged"
-        echo '===================================================================='
-    done
     done
 }
 

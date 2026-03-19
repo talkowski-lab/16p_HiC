@@ -13,7 +13,6 @@ suppressPackageStartupMessages({
     source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
-    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
     source(file.path(SCRIPT_DIR, 'DifferentialContacts/utils.multiHiCCompare.R'))
     library(magrittr)
     library(tidyverse)
@@ -48,7 +47,8 @@ data('hg38_cyto')
 # List all separate sample sets + parameters to run multiHiCComapre for
 comparisons.df <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
-    set_up_sample_comparisons(merging='individual') %>% 
+    # set_up_sample_comparisons(merging='individual') %>% 
+    set_up_sample_comparisons(merging='both') %>% 
     dplyr::rename(
         'Sample.Group.P1'=Sample.Group.Numerator,
         'Sample.Group.P2'=Sample.Group.Denominator
