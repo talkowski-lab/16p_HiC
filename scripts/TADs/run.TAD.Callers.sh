@@ -5,7 +5,7 @@
 # TAD Calling params
 ###################################################
 # hiTAD params
-declare -rA HITAD_WEIGHTS=(["ICE"]="weight" ["Raw"]="RAW")
+declare -rA HITAD_WEIGHTS=(["balanced"]="weight" ["raw"]="RAW")
 # cooltools insulation params
 # COOLTOOLS_WINDOW_SIZES="20 60 100" # numer of bins, not bp 
 # COOLTOOLS_MFVP=(0.33 0.66 0.9)

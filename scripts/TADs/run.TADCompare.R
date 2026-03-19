@@ -2,14 +2,12 @@
 # Depdendencies
 ###################################################
 library(here)
-# setwd('./')
 here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
-BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
+# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
     library(hictkR)
-    # source(file.path(BASE_DIR, 'scripts/constants.R'))
-    source(file.path(BASE_DIR,'./scripts/constants.R'))
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
     source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
@@ -42,6 +40,10 @@ hyper.params.df <-
 TADs.df <- 
     load_all_TAD_results_for_TADCompare() %>%
     filter(resolution %in% parsed.args$resolutions)
+
+###################################################
+# Generate TADCompare results from merged matrices
+###################################################
 # List all pairs of matrices to compare
 comparisons.list <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
@@ -52,10 +54,6 @@ comparisons.list <-
             ~ paste0(.x, '.Merged.Merged')
         )
     )
-
-###################################################
-# Generate TADCompare results from merged matrices
-###################################################
 # List of pairs of merged matrices to compare
 comparisons.df <- 
     # List merged matrices
@@ -72,7 +70,6 @@ comparisons.df <-
         sample.group.comparisons=comparisons.list,
         pair_grouping_cols=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
         sampleID_col='SampleID',
-        # suffixes=c('.P1', '.P2'),
         suffixes=c('.Numerator', '.Denominator'),
         SampleID.fields=c(NA, 'Celltype', 'Genotype', NA, NA),
         include_merged_col=FALSE

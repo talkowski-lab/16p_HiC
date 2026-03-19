@@ -472,10 +472,14 @@ Generate Loop results
 ```bash
 # generate loop annotations with cooltools + all default params
 ./scripts/loops/run.loops.cooltools.sh ./results/coolers_library/**/*.Merged.Merged*.mapq_30.1000.mcool
-# Use IDR2D to define which loops are reproducible between conditions
-Rscript scripts/loops/run.IDR2D.loops.R
 # Map loops + reproducibility to gene coordinates
 # Rscript scripts/loops/map.loops.to.genes.R
+# Use IDR2D to define which loops are reproducible between conditions
+Rscript scripts/loops/run.IDR2D.loops.R
+# calculate loop valency i.e. how many loops each loop anchor is a part of
+Rscript scripts/loops/calculate.loop.valency.R
+# calculate loop nesting i.e. for each bin, how many loops overlap that bin
+Rscript scripts/loops/calculate.loop.nesting.level.R && parallel -j $(nproc) --bar --eta :::: ./results/loops/all.loop.nesting.bedtools.cmds.txt
 ```
 Generate multiHiCCompare results
 ```bash

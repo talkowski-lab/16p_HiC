@@ -1073,64 +1073,6 @@ enumerate_pairwise_comparisons <- function(
 ###################################################
 # Boundary-based analyes
 ###################################################
-DEP_define_boundary_pairs <- function(
-    boundaries.P1,
-    boundaries.P2,
-    ...){
-    # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', sep='', collapse='; ')
-    # row_index=1; resolution=tmp$resolution[[row_index]]; Sample.Group.P1=tmp$Sample.Group.P1[[row_index]]; chr=tmp$chr[[row_index]]; TAD.method=tmp$TAD.method[[row_index]]; TAD.params=tmp$TAD.params[[row_index]]; boundaries.P1=tmp$boundaries.P1[[row_index]]; Sample.Group.P2=tmp$Sample.Group.P2[[row_index]]; boundaries.P2=tmp$boundaries.P2[[row_index]]; Celltype=tmp$Celltype[[row_index]]; Genotype=tmp$Genotype[[row_index]]
-    # TRansform to iranges for efficient overlaing
-    iranges <- 
-        list(
-            'P1'=boundaries.P1,
-            'P2'=boundaries.P2
-        ) %>% 
-        sapply(
-            simplify=FALSE,
-            USE.NAMES=TRUE,
-            FUN=
-                function(df) {
-                    df %>% 
-                    select(start, length) %>% 
-                    dplyr::rename('width'=length) %>% 
-                    mutate(idx=row_number()) %>% 
-                    as_iranges()
-                }
-        )
-    # Find overlaping TADs 
-    boundary.comparisons <- 
-        iranges[['P1']] %>% 
-        join_overlap_inner(iranges[['P2']]) %>% 
-        as.data.frame() %>% 
-        as_tibble() %>% 
-        add_column(TAD.Detection='Common') %>%
-        {
-            if (only_keep_overlaps){
-                .
-            } else {
-                P1.exclusive.boundaries <- 
-                    iranges[['P1']] %>% 
-                    filter_by_non_overlaps(iranges[['P2']]) %>%
-                    as.data.frame() %>% 
-                    as_tibble() %>%
-                    add_column(TAD.Detection='P1.Only')
-                P2.exclusive.boundaries <- 
-                    iranges[['P2']] %>% 
-                    filter_by_non_overlaps(iranges[['P1']]) %>% 
-                    as.data.frame() %>% 
-                    as_tibble() %>%
-                    add_column(TAD.Detection='P2.Only')
-                bind_rows(
-                    .,
-                    P1.exclusive.boundaries,
-                    P2.exclusive.boundaries
-                )
-            }
-        }
-    # compute similarity metrics for each pair of boundaries 
-    # i.e. (start.P1, end.P2) vs (start.P2, end.P2)
-}
-
 define_boundary_pairs <- function(
     boundaries.P1,
     boundaries.P2,

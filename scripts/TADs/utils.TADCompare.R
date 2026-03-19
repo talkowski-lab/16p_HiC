@@ -331,9 +331,9 @@ load_correct_count_TADCompare_results <- function(
         "sig.lvl.{sig.colname} < 1e-10" := .data[[sig.colname]] <  1e-10,
         "sig.lvl.{sig.colname} < 1e-05" := .data[[sig.colname]] <  1e-5,
         "sig.lvl.{sig.colname} < 0.001" := .data[[sig.colname]] <  1e-3,
-        "sig.lvl.{sig.colname} < 0.05 " := .data[[sig.colname]] <  0.050,
-        "sig.lvl.{sig.colname} < 0.1  " := .data[[sig.colname]] <  0.1,
-        "sig.lvl.N.S."                  := .data[[sig.colname]] >= 0.1
+        "sig.lvl.{sig.colname} < 0.05 " := .data[[sig.colname]] <  0.05,
+        "sig.lvl.{sig.colname} < 0.1  " := .data[[sig.colname]] <  0.10,
+        "sig.lvl.N.S."                  := .data[[sig.colname]] >= 0.10
     ) %>% 
     pivot_longer(
         starts_with('sig.lvl.'),

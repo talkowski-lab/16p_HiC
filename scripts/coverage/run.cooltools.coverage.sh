@@ -21,7 +21,7 @@ help() {
 
 compute_matrix_coverage() {
     echo "Saving results in ${OUTPUT_DIR}"
-    for sample_file in "${@:2}"; do
+    for sample_file in "${@}"; do
         # Extract SampleID
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
@@ -72,6 +72,6 @@ while getopts "o:t:fh" flag; do
     esac
 done
 shift $(( OPTIND-1 ))
-[[ $# -eq 1 ]] && help
+[[ $# -lt 1 ]] && help
 # main
 compute_matrix_coverage "${@}"

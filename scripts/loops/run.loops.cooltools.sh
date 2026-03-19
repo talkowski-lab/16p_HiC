@@ -12,8 +12,7 @@ help() {
 call_loops() {
     output_dir="$(readlink -e "${1}")"
     echo "Saving results in ${output_dir}"
-    mkdir -p "${1}"
-    for sample_file in "${@:2}"; do
+    for sample_file in "${@}"; do
         # Extract SampleID
         sample_ID="$(basename "$sample_file")"
         sample_ID="${sample_ID%%.mcool}"
@@ -41,19 +40,28 @@ call_loops() {
                     # Caculate expected IF of each position
                     expected_contacts_file="${EXPECTED_CONTACTS_ROOT_DIR}/${param_dir}/${sample_ID}-expected.tsv"
                     if ! [[ -f "${expected_contacts_file}" ]]; then
-                        echo "expected contacts  file doesnt exists, generating it"
                         mkdir -p "$(dirname "${expected_contacts_file}")"
                         cmd="cooltools expected-${contact_type} ${weight_flag} --nproc ${THREADS} ${ct_args} --output ${expected_contacts_file} ${uri}"
-                        echo ${uri}
-                        echo ${cmd}
+                        echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=---==--==--'
+                        echo "expected contacts  file doesnt exists, generating it in:"
+                        echo "$(dirname "${expected_contacts_file}")"
+                        echo "$(basename "${expected_contacts_file}")"
+                        # echo ${uri}
+                        echo "${cmd}"
+                        echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=---==--==--'
                         ${cmd}
                     fi
-                    output_file="${output_dir}/${param_dir}/${sample_ID}-dots.tsv"
+                    output_file="${OUTPUT_DIR}/${param_dir}/${sample_ID}-dots.tsv"
                     # call dots with default args
                     [[ -f "${output_file}" ]] && continue
                     mkdir -p "$(dirname "${output_file}")"
                     cmd="cooltools dots ${weight_flag} --nproc ${THREADS} --output ${output_file} ${uri} ${expected_contacts_file}"
+                    echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=---==--==--'
+                    echo "output file doesnt exists, generating it in:"
+                    echo "$(dirname "${output_file}")"
+                    echo "$(basename "${output_file}")"
                     echo "${cmd}"
+                    echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=---==--==--'
                     ${cmd}
             done
             done
@@ -66,6 +74,7 @@ call_loops() {
 ###################################################
 CONDA_DIR="${HOME}/miniforge3"
 EXPECTED_CONTACTS_ROOT_DIR="./results/sample.QC/expected.coverage"
+OUTPUT_DIR="./results/loops/results_loops"
 METHOD="cooltools"
 # RESOLUTIONS=(100000 50000 25000 10000 5000)
 RESOLUTIONS=(25000 10000 5000)
@@ -77,6 +86,7 @@ THREADS=$(nproc)
 while getopts "a:t:m:h" flag; do
     case ${flag} in 
         m) METHOD="${OPTARG}" ;;
+        o) OUTPUT_DIR="${OPTARG}" ;;
         e) EXPECTED_CONTACTS_ROOT_DIR="${OPTARG}" ;;
         a) CONDA_DIR="${OPTARG}" ;;
         t) THREADS="${OPTARG}" ;;

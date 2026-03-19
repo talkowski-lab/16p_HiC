@@ -323,7 +323,6 @@ annotate_DI_with_TADs <- function(
     ...){
     hitad.DI.df %>% 
     nest(DIs=c(bin, DI)) %>% 
-    post_process_hiTAD_DI_results() %>% 
     # Match TAD annotations to bin-wise DI results
     inner_join(
         hitad.TAD.df %>% 
@@ -672,3 +671,4 @@ load_all_TAD_results <- function(force.redo=FALSE){
     select(-c(chr)) %>% 
     unnest(boundaries)
 }
+

@@ -91,6 +91,7 @@ LOOP_RESULTS_DIR                           <- file.path(LOOPS_DIR, 'results_loop
 ALL_COOLTOOLS_LOOPS_RESULTS_FILE           <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
 FILTERED_COOLTOOLS_LOOPS_RESULTS_FILE      <- file.path(LOOPS_DIR, 'filtered.cooltools.loops.tsv')
 ALL_LOOP_NESTING_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltools.nesting.results.tsv')
+# IDR2D Analysis
 LOOPS_IDR2D_DIR                            <- file.path(LOOPS_DIR, 'results_IDR2D')
 ALL_LOOPS_IDR2D_RESULTS_FILE               <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
 FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE <- file.path(LOOPS_DIR, 'filtered.cooltools.IDR2D.results.tsv')

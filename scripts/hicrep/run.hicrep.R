@@ -4,10 +4,10 @@
 library(here)
 here::i_am('scripts/hicrep/run.hicrep.R')
 BASE_DIR <- here()
-BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
+# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
-    source(file.path(BASE_DIR,   'scripts', 'locations.R')) # sets SCRIPT_DIR
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
+    source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     source(file.path(SCRIPT_DIR, 'utils.annotations.R'))
     source(file.path(SCRIPT_DIR, 'hicrep/utils.hicrep.R'))
@@ -46,13 +46,12 @@ hyper.params.df <-
 list_mcool_files() %>%
     select(SampleID, filepath, isMerged) %>% 
     enumerate_pairwise_comparisons(
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype', NA, NA),
         sampleID_col='SampleID',
-        SampleID.fields=c(NA, 'Celltype', 'Genotype', NA, NA),
         suffixes=c('.P1', '.P2'),
         include_merged_col=FALSE,
         sample.group.comparisons=NULL,
         pair_grouping_cols=c('isMerged')
-        # suffixes=c('.P1', '.P2'),
     ) %>% 
     # all pairs of matrices X all sets of hyper params
     cross_join(hyper.params.df) %>% 
@@ -82,10 +81,6 @@ list_mcool_files() %>%
             ~ str_replace(.x, BASE_DIR, '.')
         )
     ) %>% 
-    # ignore results that exists already
-        # {.} -> tmp; tmp
-        # tmp$output_file[50:55]
-        # nrow()
     {
         if (parsed.args$force.redo) {
             .
@@ -93,18 +88,6 @@ list_mcool_files() %>%
             filter(., !(file.exists(output_file) | file.exists(redundant_file)))
         }
     } %>% 
-    # {
-    #     print(
-    #         count(
-    #             .,
-    #             resolution,
-    #             max.window.size,
-    #             is.downsampled,
-    #             Celltype, Genotype
-    #             # SampleID.P1, SampleID.P2
-    #         )
-    #     )
-    # } %>% 
     mutate(
         cmd=glue("hicrep {is.downsampled.flag}--dBPMax {max.window.size} --binSize {resolution} --h {h} {filepath.P1} {filepath.P2} {output_file} 2> /dev/null")
     ) %>% 

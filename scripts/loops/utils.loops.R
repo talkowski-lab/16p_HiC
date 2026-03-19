@@ -1,7 +1,7 @@
 library(stringi)
 library(furrr)
 library(idr2d)
-library(plyranges)
+# library(plyranges)
 
 ###################################################
 # cooltools dots
@@ -129,7 +129,7 @@ filter_loop_results <- function(
 
 ###################################################
 # IDR2D Analysis
-###################################################
+################################################### tidy_IDR2D_sided_results <- function(
 tidy_IDR2D_sided_results <- function(
     results.obj,
     metric_colname,
@@ -499,84 +499,25 @@ calculate_all_loop_nesting <- function(
 ###################################################
 # Integration Analysis
 ###################################################
-join_expr_and_IDR2D_results <- function(
-    idr2d.results.df,
-    expression.df,
-    ...){
-    # samples.avail <- expression.df %>% colnames() %>% grep('16p.', ., value=TRUE)
-    samples.avail <- unique(expression.df$SampleID)
-    idr2d.results.df %>% 
-    filter(
-           SampleID.P1 %in% samples.avail,
-           SampleID.P2 %in% samples.avail
-    ) %>% 
-    inner_join(
-        expression.df,
-        by=
-            join_by(
-                chr,
-                between(y$start, x$anchor.left, x$anchor.right),
-                between(y$end,   x$anchor.left, x$anchor.right)
             )
     )
 }
 
-calc_expr_loop_ztest <- function(
-    idr2d.results.df,
-    expression.df,
-    ...){
-    idr2d.results.df %>% 
-    inner_join(
-        expression.df,
-        by=
-            join_by(
-                SampleID.P1 == SampleID,
-                chr,
-                between(y$start, x$anchor.left, x$anchor.right),
-                between(y$end,   x$anchor.left, x$anchor.right)
             )
     ) %>% 
-    inner_join(
-        expression.df,
-        suffix=c('.P1', '.P2'),
-        by=
-            join_by(
-                SampleID.P2 == SampleID,
-                chr,
-                start, end,
-                symbol, EnsemblID
             )
     ) %>%
-    # for each gene compute pvalue if mean expression is different between conditions
-    add_column(
-        n.rna.replicates.P1=6,
-        n.rna.replicates.P2=6
-    ) %>% 
     mutate(
-        TPM.se.P1=TPM.sd.P1**2 / n.rna.replicates.P1,
-        TPM.se.P2=TPM.sd.P2**2 / n.rna.replicates.P2,
-        expr.Z=(TPM.mean.P2 - TPM.mean.P1) / sqrt(TPM.se.P1 + TPM.se.P2),
-        expr.p=2 * (1 - pnorm(abs(expr.Z)))
     ) %>%
-    # adjust p-values genome-wide
-    group_by(
-        weight, resolution, kernel,
-        resolve.method, metric,
-        SampleID.P1, SampleID.P2
-    ) %>% 
-    mutate(expr.p.adjust=p.adjust(expr.p, method='BH')) %>% 
-    ungroup() %>% 
     select(
         -c(
-            n.rna.replicates.P1, n.rna.replicates.P2,
-            TPM.se.P1, TPM.se.P2,
-            # TPM.sd.P1, TPM.sd.P2,
-            # TPM.mean.P1, TPM.mean.P2,
-            expr.Z, expr.p
         )
     )
 }
 
+###################################################
+# cCRE Integration Analysis
+###################################################
 count_ccres_per_loop <- function(
     ccres.df=NULL,
     idr2d.df=NULL, 
@@ -728,5 +669,86 @@ count_ccres_per_loop <- function(
         tmp %>% 
             rowwise() %>% mutate(across(c(loops, cCREs, overlaps), ~ nrow(.x))) %>% 
             ungroup() %>% summarize(across(c(loops, cCREs, overlaps), sum))
+}
+
+###################################################
+# Expression Integration Analysis
+###################################################
+join_expr_and_IDR2D_results <- function(
+    idr2d.results.df,
+    expression.df,
+    ...){
+    # samples.avail <- expression.df %>% colnames() %>% grep('16p.', ., value=TRUE)
+    samples.avail <- unique(expression.df$SampleID)
+    idr2d.results.df %>% 
+    filter(
+           SampleID.P1 %in% samples.avail,
+           SampleID.P2 %in% samples.avail
+    ) %>% 
+    inner_join(
+        expression.df,
+        by=
+            join_by(
+                chr,
+                between(y$start, x$anchor.left, x$anchor.right),
+                between(y$end,   x$anchor.left, x$anchor.right)
+            )
+    )
+}
+
+calc_expr_loop_ztest <- function(
+    idr2d.results.df,
+    expression.df,
+    ...){
+    idr2d.results.df %>% 
+    inner_join(
+        expression.df,
+        by=
+            join_by(
+                SampleID.P1 == SampleID,
+                chr,
+                between(y$start, x$anchor.left, x$anchor.right),
+                between(y$end,   x$anchor.left, x$anchor.right)
+            )
+    ) %>% 
+    inner_join(
+        expression.df,
+        suffix=c('.P1', '.P2'),
+        by=
+            join_by(
+                SampleID.P2 == SampleID,
+                chr,
+                start, end,
+                symbol, EnsemblID
+            )
+    ) %>%
+    # for each gene compute pvalue if mean expression is different between conditions
+    add_column(
+        n.rna.replicates.P1=6,
+        n.rna.replicates.P2=6
+    ) %>% 
+    mutate(
+        TPM.se.P1=TPM.sd.P1**2 / n.rna.replicates.P1,
+        TPM.se.P2=TPM.sd.P2**2 / n.rna.replicates.P2,
+        expr.Z=(TPM.mean.P2 - TPM.mean.P1) / sqrt(TPM.se.P1 + TPM.se.P2),
+        expr.p=2 * (1 - pnorm(abs(expr.Z)))
+    ) %>%
+    # adjust p-values genome-wide
+    group_by(
+        weight, resolution, kernel,
+        resolve.method, metric,
+        SampleID.P1, SampleID.P2
+    ) %>% 
+    mutate(expr.p.adjust=p.adjust(expr.p, method='BH')) %>% 
+    ungroup() %>% 
+    select(
+        -c(
+            n.rna.replicates.P1, n.rna.replicates.P2,
+            TPM.se.P1, TPM.se.P2,
+            # TPM.sd.P1, TPM.sd.P2,
+            # TPM.mean.P1, TPM.mean.P2,
+            expr.Z, expr.p
+        )
+    )
 }
 

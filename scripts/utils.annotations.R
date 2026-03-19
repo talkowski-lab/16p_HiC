@@ -300,18 +300,6 @@ load_CTCF_sites <- function(force.redo=FALSE){
                 {.[['AH104727']]} %>%
                 # make tidy tibble
                 as_tibble() %>% 
-                # separate_wider_delim(
-                #     name,
-                #     delim='_',
-                #     names=
-                #         c(
-                #             'db',
-                #             'db.set',
-                #             'bioset',
-                #             'genomic.feature',
-                #             'MotifID'
-                #         )
-                # ) %>%
                 dplyr::rename(
                     'length'=width,
                     'chr'=seqnames
@@ -335,32 +323,6 @@ load_encode_ccres <- function(force.redo=FALSE){
         force_redo=force.redo,
         results_fnc=
             function(){
-                # BASE_DIR=file.path(getwd(), '..')
-                # col.list.df <- 
-                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-List.txt.gz') %>%
-                #     read_tsv(
-                #         col_names=c(
-                #             'ID1', 
-                #             'ID2', 'ID3', 'ID4', 'ID5', 'ID6', 'ID7', 'ID8', 
-                #             'SpeciesID',
-                #             'Group',
-                #             '???'
-                #         )
-                #     )
-                # class.mat.df <- 
-                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-Class-Matrix.txt.gz') %>%
-                #     read_tsv() %>% 
-                #     pivot_longer(-cCRE, names_to='BioID', values_to='value')
-                # tissue.info.df <- 
-                #     file.path(ENCODE_CCRE_DIR, 'Core-Collection-Tissues.txt') %>%
-                #     read_tsv()
-                # info.df <- 
-                #     inner_join(
-                #         col.list.df %>% select(ID1, SpeciesID),
-                #         tissue.info.df,
-                #         by=join_by(ID1 == ENCODE_Sample_ID)
-                #     ) %>%
-                #     filter(!is.na(ENCODE_Tissue))
                 # Graphical + explicit definitions of of cCRE types
                 # https://screen-v4.wenglab.org/about
                 # cCRE.descriptions <- 

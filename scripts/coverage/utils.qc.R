@@ -256,8 +256,6 @@ make_summary_stats_table <- function(
             value=as.character(value)
         )
     ) %>% 
-        # distinct(SampleID) %>% print(n=Inf)
-        # {.} %>% head(2) %>% t()
     # Add stats per matrix
     bind_rows(
         pair.stats.list$general.stats %>%

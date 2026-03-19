@@ -4,14 +4,14 @@
 library(here)
 here::i_am('scripts/loops/calculate.loop.nesting.levels.R')
 BASE_DIR <- here()
+# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
     library(purrr)
     library(optparse)
-    source(file.path(BASE_DIR,   'scripts', 'constants.R'))
-    source(file.path(BASE_DIR,   'scripts', 'locations.R'))
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
+    source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
-    source(file.path(SCRIPT_DIR, 'utils.plot.R'))
-    source(file.path(SCRIPT_DIR, 'loops', 'utils.loops.R'))
+    source(file.path(SCRIPT_DIR, 'loops/utils.loops.R'))
     library(magrittr)
     library(tidyverse)
 })
@@ -27,13 +27,9 @@ parsed.args <-
     )
 
 ###################################################
-# Generate DAC results for each comparison
+# Load loops
 ###################################################
-# 2 group comparison + no covariates -> use exact test
-message(glue('using {parsed.args$threads} core to parallelize'))
-plan(multisession, workers=parsed.args$threads)
-#  Prepare loops for comparison between conditions 
-#  each row is 1 nested set of loop calls per condition + context
+# Load all loop data to quantify nesting with
 loops.df <- 
     # load loop results
     check_cached_results(

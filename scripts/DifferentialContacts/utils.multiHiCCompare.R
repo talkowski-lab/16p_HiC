@@ -6,7 +6,6 @@
 library(glue)
 library(multiHiCcompare)
 library(BiocParallel)
-# library(ggplot2)
 library(viridis)
 library(cowplot)
 library(gtable)
@@ -139,7 +138,7 @@ run_multiHiCCompare <- function(
         count(chr, range1, range2) %>% 
         filter(n >= max(n) * frac.cutoff) %>%
         select(chr, range1, range2)
-    message(glue('Testing {nrow(common.bin.pairs)} bin-pairs for DAC'))
+    message(glue('Testing {nrow(common.bin.pairs)} bin-pairs for DIR'))
     # Now only subset to commonly found contacts 
     samples.contacts <- 
         samples.contacts %>%
@@ -430,11 +429,12 @@ load_all_multiHiCCompare_results <- function(
             .names='log.{.col}'
         )
     ) %>% 
-    mutate(
-        chr=
-            chr %>% 
-            rename_chrs(to_label=TRUE) %>% 
-            factor(levels=CHROMOSOMES)
+    # Create a unique ID for each bin tested, to check overlaps across experiments
+    unite(
+        'bin.pair.idx',
+        chr, region1, region2,
+        sep='#',
+        remove=FALSE
     ) %>% 
     mutate(
         tidy.metadata=
@@ -452,21 +452,8 @@ load_all_multiHiCCompare_results <- function(
     unnest(tidy.metadata)
 }
 
-post_process_multiHiCCompare_results <- function(
-    results.df,
-    chromosomes=CHROMOSOMES){
-    # CHROMOSOMES
-    # CHROMOSOMES[c(1,5,10,16,22)]
-    # CHROMOSOMES[c(10,16,22)]
+post_process_multiHiCCompare_results <- function(results.df){
     results.df %>% 
-    # filter results 
-    filter(chr %in% chromosomes) %>% 
-    mutate(distance.bp=region2 - region1) %>% 
-    unite(
-        'bin.pair.idx',
-        chr, region1, region2,
-        sep='#',
-        remove=FALSE
     )
 }
 
@@ -624,104 +611,10 @@ plot_upset <- function(
                             width=0.8
                         )
                 ) +
+                labs(x='Detected DIRs') +
                 make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
             ),
         guides='over' # moves legends over the set sizes
-    ) +
-    ggtitle(title.str)
+    )
 }
-
-n_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        max.header.lvl=3,
-        plot.fnc=plot_heatmap,
-        # x.var='sig.lvl',
-        fill.var='nDACs', 
-        label.var='nDACs',
-        # legend.position='top',
-        # axis.text.x=element_text(angle=45, hjust=1),
-        # legend.text=element_text(angle=35, hjust=1),
-        fill.scale.mode='m',
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank()
-    )
-
-dist_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        plot.fnc=plot_boxplot,
-        # group.cols=c('Celltype', 'resolution'),
-        max.header.lvl=3,
-        # x.var='Sample.Group',
-        # x.scale.mode='discrete',
-        y.var='value',
-        facet.row='statistic',
-        # fill.var='Sample.Group',
-        # facet.row='statistic',
-        outlier.size=0.2,
-        # legend.position='right',
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        # axis.text.x=element_text(angle=45, hjust=1),
-    )
-
-volcano_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        plot.fnc=plot_jitter,
-        # group.cols=c('Celltype', 'resolution'),
-        max.header.lvl=3,
-        x.var='logFC',
-        y.var='log.p.adj.gw',
-        x.axis.label.accuracy=0.01,
-        y.axis.label.accuracy=0.1,
-    )
-
-distance_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        plot.fnc=plot_jitter,
-        max.header.lvl=3,
-        x.var='logFC',
-        y.var='distance.bp',
-        y.scale.mode='mb',
-        scales='free_y'
-        # axis.title.y=element_blank(),
-        # axis.title.x=element_blank(),
-    )
-
-manhattan_plot_fnc <- 
-    partial(
-        make_nested_plot_tabs,
-        plot.fnc=plot_jitter,
-        max.header.lvl=3,
-        x.var='region.bp',
-        x.scale.mode='mb',
-        y.var='value',
-        scale.fill.mode='mb',
-        axis.title.y=element_blank(),
-        axis.title.x=element_blank(),
-        plot.elements=
-            list(
-                # geom_vline(
-                #     xintercept=c(86435256, 86521792), # WAPL region on chr10
-                #     linewidth=0.3,
-                #     linetype='dashed',
-                #     color='#619CFF'
-                # ),
-                # geom_vline(
-                #     xintercept=c(36876769, 37066413), # NIPBL region on chr5
-                #     linewidth=0.3,
-                #     linetype='dashed',
-                #     color='#F8766D'
-                # ),
-                geom_hline(
-                    yintercept=0,
-                    linewidth=0.05,
-                    linetype='solid',
-                    color='black',
-                )
-            )
-    )
 

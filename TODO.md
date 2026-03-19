@@ -22,33 +22,7 @@
 
 # TODO
 
-## Cohesin Results
-
-- [x] generate matrix coveage results
-- [ ] generate HiCRep results
-- [x] generate TAD calls via ConsensusTAD
-- [ ] generate TADCompare results
-- [x] generate merged loop calls
-- [x] generate IDR2D loop reproducibility results
-- [ ] calculate loop nesting levels bin-wise
-- [x] generate compartment results
-- [x] generate multiHiCCompare results
-- [ ] generate H1D metrics 
-- [ ] generate TRADE results from DESeq2 results
-- [ ] Get shrunken logFCs from TRADE model 
-- [ ] compile notebooks
-  - [x] knit Matrix.QC.Rmd
-  - [x] knit Matrix.Coverage.Rmd
-  - [x] knit HiCRep.Rmd
-  - [ ] knit TADs.Rmd
-  - [ ] knit TADCompare.Rmd
-  - [x] knit Loops.Rmd
-  - [x] knit Loop.Reproducibility.Rmd
-  - [ ] knit multiHiCCompare.Rmd
-  - [ ] knit Compartments.Rmd
-  - [ ] knit HiC.Annotated.Heatmaps.Rmd
-
-## cmds to run
+## Notebooks to Compile
 
 - [x] knit Matrix.QC.Rmd
 - [x] knit Matrix.Coverage.Rmd
@@ -73,7 +47,7 @@
   - [x] similarity heatmaps
   - [x] compare tech reps to bio reps
 
-## Replicate Weiner et al. 2022 16p11.2 analysis
+## Replicate 16p11.2 analysis from Weiner et al. 2022
 
 - [ ] wrap figures into notebook
 - [x] do on merged matrices

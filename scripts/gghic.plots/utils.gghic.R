@@ -329,4 +329,3 @@ plot_all_regions_gghic <- function(
     }
 }
 
-

@@ -2,11 +2,11 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/make.distiller.configs.R')
+here::i_am('scripts/distiller/make.distiller.configs.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
-    source(file.path(BASE_DIR, 'scripts', 'locations.R'))
-    source(file.path(SCRIPT_DIR, 'constants.R'))
+    source(file.path(BASE_DIR,   'scripts/constants.R'))
+    source(file.path(SCRIPT_DIR, 'locations.R'))
     source(file.path(SCRIPT_DIR, 'utils.data.R'))
     library(tidyverse)
     library(magrittr)
