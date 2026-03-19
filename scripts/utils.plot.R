@@ -444,6 +444,8 @@ scale_fill_axis <- function(
 add_faceting <- function(
     figure,
     space='fixed',
+    solo_line=TRUE,
+    # trim_blank=TRUE,
     facet.group=NULL,
     facet.col=NULL,
     facet.row=NULL,
@@ -451,29 +453,42 @@ add_faceting <- function(
     facet.ncol=NULL,
     ...){
     # Facet as specified
+    facet.formula <- 
     if (!is.null(facet.col) & !is.null(facet.row)) {
         figure <- 
             figure +
-            facet_grid2(
-                rows=vars(!!sym(facet.row)),
-                cols=vars(!!sym(facet.col)),
+            facet_nested(
+                paste(
+                    paste(facet.row, collapse=' + '),
+                    paste(facet.col, collapse=' + '),
+                    sep=' ~ '
+                ) %>%
+                formula(),
                 space=space,
+                solo_line=solo_line,
+                # trim_blank=trim_blank,
                 ...
             )
     } else if (!is.null(facet.row)) {
         figure <- 
             figure +
-            facet_grid2(
-                rows=vars(!!sym(facet.row)),
+            facet_nested(
+                # formula(glue('~ {paste(facet.row, collapse=" + ")}')),
+                formula(glue('{paste(facet.row, collapse=" + ")} ~ .')),
                 space=space,
+                solo_line=solo_line,
+                # trim_blank=trim_blank,
                 ...
             )
     } else if (!is.null(facet.col)) {
         figure <- 
             figure +
-            facet_grid2(
-                cols=vars(!!sym(facet.col)),
+            facet_nested(
+                # formula(glue('{paste(facet.col, collapse=" + ")} ~ .')),
+                formula(glue('~ {paste(facet.col, collapse=" + ")}')),
                 space=space,
+                solo_line=solo_line,
+                # trim_blank=trim_blank,
                 ...
             )
     } else if (!is.null(facet.group)) {
@@ -499,6 +514,7 @@ post_process_plot <- function(
     facet.group=NULL,
     scales='fixed',
     space='fixed',
+    # trim_blank=TRUE,
     x.scale.mode='',
     x.log.base=10,
     x.axis.label.accuracy=0.1,
@@ -529,6 +545,7 @@ post_process_plot <- function(
     add_faceting(
         scales=scales,
         space=space,
+        # trim_blank=trim_blank,
         facet.row=facet.row,
         facet.col=facet.col,
         facet.group=facet.group,
