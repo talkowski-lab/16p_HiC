@@ -1123,3 +1123,35 @@ plot_jitter <- function(
     )
 }
 
+plot_contours <- function(
+    plot.df,
+    x.var='',
+    y.var='',
+    z.var='', 
+    alpha=0.5,
+    size=0.5,
+    bins=10,
+    scales='fixed',
+    ...){
+    # Set fill group if specified
+    {
+        ggplot(
+            plot.df,
+            aes(
+                x=.data[[x.var]],
+                y=.data[[y.var]],
+                z=.data[[z.var]]
+            )
+        )
+    } %>% 
+    # make it a scatter plot
+    { 
+        . + geom_contour_filled(bins=bins)
+    } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(
+        scales=scales,
+        ...
+    )
+}
+
