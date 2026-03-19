@@ -421,6 +421,7 @@ load_all_multiHiCCompare_results <- function(
     ) %>% 
     unnest(results) %>% 
     select(-c(D, filepaths)) %>%
+    mutate(distance.bp=region2 - region1) %>% 
     mutate(
     # calculate log of all pvalues + add columns
         across(
@@ -455,6 +456,12 @@ load_all_multiHiCCompare_results <- function(
 
 post_process_multiHiCCompare_results <- function(results.df){
     results.df %>% 
+    select(
+        -c(
+            p.value, p.adj,
+            log.p.value, log.p.adj,
+            logCPM
+        )
     )
 }
 
@@ -467,15 +474,7 @@ load_correct_count_multiHiCCompare_results <- function(
         fdr.threshold=1,
         gw.fdr.threshold=1
     ) %>% 
-    # calculate log of all pvalues + add columns
     mutate(
-        across(
-            starts_with('p.'),
-            .f=~ -log10(.x),
-            .names='log.{.col}'
-        )
-    ) %>% 
-   mutate(
         'sig.lvl.p.adj.gw < 1e-15'=p.adj.gw <  1e-15,
         'sig.lvl.p.adj.gw < 1e-10'=p.adj.gw <  1e-10,
         'sig.lvl.p.adj.gw < 1e-5' =p.adj.gw <  1e-5,
@@ -494,25 +493,9 @@ load_correct_count_multiHiCCompare_results <- function(
         # A.min, zero.p, merged,
         # resolution, 
         # Sample.Group, 
-        # Celltype,
         chr,
         sig.lvl,
-        name='nDACs'
-    ) %>%
-   mutate(
-        sig.lvl=
-            factor(
-                sig.lvl,
-                levels=
-                    c(
-                        'N.S.',
-                        'p.adj.gw < 0.1',
-                        'p.adj.gw < 0.001',
-                        'p.adj.gw < 1e-5',
-                        'p.adj.gw < 1e-10',
-                        'p.adj.gw < 1e-15'
-                    )
-            )
+        name='nDIRs'
     )
 }
 
@@ -539,13 +522,7 @@ count_contacts_by_significance <- function(
             )
     ) %>% 
     unnest(results) %>% 
-    select(-c(filepaths)) %>%
-    mutate(
-        chr=
-            chr %>% 
-            rename_chrs(to_label=TRUE) %>% 
-            factor(levels=CHROMOSOMES)
-    ) %>% 
+    select(-c(filepaths)) %>% 
     # format sample pair metadata from SampleIDs
     mutate(
         tidy.metadata=
@@ -555,13 +532,31 @@ count_contacts_by_significance <- function(
                         .data=., 
                         all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
                     ),
-                suffixes=c('.Numerator', '.Denominator'),
                 SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
                 suffixes=c('Numerator', 'Denominator'),
                 keep_separate_metadata_fields=TRUE
             )
     ) %>%
     unnest(tidy.metadata)
+}
+
+post_process_counts_by_significance <- function(results.df){
+    results.df %>% 
+    mutate(
+        sig.lvl=
+            factor(
+                sig.lvl,
+                levels=
+                    c(
+                        'N.S.',
+                        'p.adj.gw < 0.1',
+                        'p.adj.gw < 0.001',
+                        'p.adj.gw < 1e-5',
+                        'p.adj.gw < 1e-10',
+                        'p.adj.gw < 1e-15'
+                    )
+            )
+    )
 }
 
 ###################################################
@@ -571,8 +566,8 @@ plot_upset <- function(
     plot.df,
     make.binary=FALSE,
     category_col='Sample.Group',
-    title.str='Common DACs across Comparisons',
     ...){
+    total.interactions <- nrow(plot.df)
     category_prefix <- fixed(glue('{category_col}.'))
     if (make.binary) {
         plot.df <-
@@ -594,14 +589,33 @@ plot_upset <- function(
         mode='exclusive_intersection',
         name=category_col,
         labeller=function(x) str_remove(x, category_prefix),
+        base_annotations=
+            list(
+                'Common DIRs across Comparisons'=
+                    interaction_size(
+                        text_colors=
+                            c(
+                                on_background='black',
+                                on_bar='black'
+                            )
+                    ) +
+                    annotate(
+                        geom='text',
+                        x=Inf, y=Inf,
+                        label=paste('Total DIRs:', total.interactions),
+                        vjust=1, hjust=1
+                    ) + 
+                    ylab('Common DIRs across Comparisons')
+                
+            ),
         annotations=
             list(
                 'Chrs'=
                     (
-                        ggplot(mapping=aes(fill=chr))
-                        + geom_bar(stat='count', position='fill')
-                        + scale_y_continuous(labels=scales::percent_format())
-                        + ylab('Chrs')
+                        ggplot(mapping=aes(fill=chr)) +
+                        geom_bar(stat='count', position='fill') + 
+                        scale_y_continuous(labels=scales::percent_format()) +
+                        ylab('Chrs')
                     )
             ),
         set_sizes=
@@ -614,6 +628,7 @@ plot_upset <- function(
                             width=0.8
                         )
                 ) +
+                scale_x_continuous(labels=scales::percent_format()) +
                 labs(x='Detected DIRs') +
                 make_ggtheme(axis.text.x=element_text(angle=45, hjust=1))
             ),
