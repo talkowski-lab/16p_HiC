@@ -619,62 +619,78 @@ plot_figure_tabs <- function(
     plot.fnc,
     header.lvl,
     nl.delim,
-    return.figure=FALSE,
-    merge.base.layers=FALSE,
+    figure.output.mode='rmd',
     grob.nrow=1,
     grob.ncol=NULL,
     ...){
-    # List all the groups to plot
-    plot.df[[group.col]] %>% 
-    as.factor() %>% 
-    droplevels() %>% 
-    levels() %>%
-    # make plot with options for each group of the data
-    sapply(
-        function(group.value, plot.df, plot.fnc, header.lvl, group.col, nl.delim, return.figure){
-            figure <- 
-                plot.df %>%
-                filter(!!sym(group.col) == group.value) %>%
-                plot.fnc(...)
-            if (!return.figure & !merge.base.layers) {
-                cat(
-                    strrep('#', header.lvl), group.value,
-                    nl.delim
-                )
-                print(figure)
-                cat(nl.delim)
-            } else {
-                figure
-            }
-        },
-        plot.df=plot.df,
-        plot.fnc=plot.fnc,
-        header.lvl=header.lvl,
-        group.col=group.col,
-        nl.delim=nl.delim,
-        return.figure=return.figure,
-        simplify=FALSE,
-        USE.NAMES=TRUE
-    ) %>%
-    # Plot in separate tabs unless specified, then make a single, multi-panel plot 
+    # List all the individual groups, generate 1 plot per group
+    group.values <- 
+        plot.df[[group.col]] %>% 
+        as.factor() %>% 
+        droplevels() %>% 
+        levels()
+    # Generate figures on mutually exclusive subsets of the data
+    figures <- 
+        # make plot with options for each group of the data
+        future_pmap(
+            .l=list(group.value=group.values),
+            .f=
+                function(group.value, group.col, plot.df, plot.fnc){
+                    plot.df %>%
+                    filter(!!sym(group.col) == group.value) %>%
+                    plot.fnc(...)
+                },
+            group.col=group.col,
+            plot.df=plot.df,
+            plot.fnc=plot.fnc,
+            .progress=FALSE
+        )
+    # print(group.values)
+    # print(length(figures))
+    # make a named list of figures
+    names(figures) <- group.values
+    # Print/combine/return plots as specified
     {
-        if (merge.base.layers) {
+        # Print each figure under a md heading for Rmd notebooks
+        if (figure.output.mode == 'rmd') {
+            figures %>%
+            names() %>% 
+            sapply(
+                FUN=
+                    function(group.value, figures, header.lvl, nl.delim){
+                        cat(
+                            strrep('#', header.lvl), 
+                            group.value,
+                            nl.delim
+                        )
+                        print(figures[[group.value]])
+                        cat(nl.delim)
+                    },
+                figures=figures,
+                header.lvl=header.lvl,
+                nl.delim=nl.delim
+            )
+        # merge all the plots into a single figure with labeled panels
+        } else if (figure.output.mode == 'merged') {
             cat(
                 strrep('#', header.lvl),
                 nl.delim
             )
             cowplot::plot.grid(
-                plotlist=.,
+                plotlist=figures,
                 nrow=grob.nrow,
                 ncol=grob.ncol,
-                labels=names(.),
+                labels=group.values,
                 axis='tb',
                 align='hv'
             ) %>%
             print()
             cat(nl.delim)
+        # just return all the figures
+        } else if (figure.output.mode == 'return') {
+            return(figures)
         } else {
-            NULL
+            stop(glue('Invalid arg for figure.output.mode: {figure.output.mode}'))
         }
     }
 }
@@ -686,15 +702,10 @@ make_tabs_recursive <- function(
     plot.fnc,
     tabset.format,
     nl.delim,
-    return.figure,
-    merge.base.layers,
-    plot_file=NA,
-    width=NA,
-    height=NA,
+    figure.output.mode,
     ...){
     if (length(group.cols) > 1) {
         group.col <- group.cols[1]
-        # message(paste(current.header.lvl, group.col, collapse=','))
         group.values <- 
             plot.df[[group.col]] %>% 
             as.factor() %>% 
@@ -712,8 +723,7 @@ make_tabs_recursive <- function(
                 plot.fnc=plot.fnc,
                 tabset.format=tabset.format,
                 nl.delim=nl.delim,
-                return.figure=return.figure,
-                merge.base.layers=merge.base.layers,
+                figure.output.mode=figure.output.mode,
                 ...
             )
         }
@@ -724,31 +734,26 @@ make_tabs_recursive <- function(
             header.lvl=current.header.lvl,
             plot.fnc=plot.fnc,
             nl.delim=nl.delim,
-            return.figure=return.figure,
-            merge.base.layers=merge.base.layers,
+            figure.output.mode=figure.output.mode,
             ...
         )
     } else if (length(group.cols) == 0) {
         figure <- 
             plot.df %>%
             plot.fnc(...)
-        if (!is.na(plot_file)) {
-            ggsave(
-                plot_file,
-                figure,
-                width=width,
-                height=height,
-                units='in'
-            )
-        } else if (return.figure) {
-            return(figure)
-        } else {
+        if (figure.output.mode == 'rmd') {
             cat(
                 strrep('#', header.lvl),
                 nl.delim
             )
             print(figure)
             cat(nl.delim)
+        } else if (figure.output.mode == 'return') {
+            return(figure)
+        } else if (figure.output.mode == 'merged') {
+            return(figure)
+        } else {
+            stop(glue('Invalid arg for figure.output.mode: {figure.output.mode}'))
         }
     }
 }
@@ -761,8 +766,7 @@ make_nested_plot_tabs <- function(
     add.top.layer=FALSE,
     tabset.format="{.tabset}",
     nl.delim="\n\n\n",
-    return.figure=FALSE,
-    merge.base.layers=FALSE,
+    figure.output.mode='rmd',
     ...){
     cat(nl.delim)
     if (add.top.layer) {
@@ -776,8 +780,7 @@ make_nested_plot_tabs <- function(
         plot.fnc=plot.fnc,
         tabset.format=tabset.format,
         nl.delim=nl.delim,
-        return.figure=return.figure,
-        merge.base.layers=merge.base.layers,
+        figure.output.mode=figure.output.mode,
         ...
     )
     cat(nl.delim)
@@ -871,7 +874,7 @@ plot_boxplot <- function(
     } %>% 
     # make it a boxplot 
     { 
-        . + geom_boxplot(outlier.size=1) 
+        . + geom_boxplot(outlier.size=outlier.size) 
     } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...)
