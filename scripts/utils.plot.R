@@ -269,6 +269,91 @@ scale_y_axis <- function(
     }
 }
 
+scale_color_axis <- function(
+    figure,
+    scale.mode='',
+    log.base=10,
+    axis.label.accuracy=0.1,
+    n.breaks=NULL,
+    limits=NULL,
+    expand=c(0.00, 0.00, 0.00, 0.00),
+    ...){
+    # autodetect discrete scale
+    is.data.discrete <- !is.numeric(rlang::eval_tidy(rlang::quo_squash(figure@mapping$colour), figure@data))
+    if (is.data.discrete) { scale.mode <- 'discrete' }
+    # Scale color axis based on scale_mode argument
+    if (scale.mode == 'pct') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_color_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=label_percent(),
+            ...
+        )
+    } else if (scale.mode == 'm') {
+        figure +
+        coord_cartesian(xlim=limits) +
+        scale_color_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_number(
+                    scale_cut=cut_short_scale(),
+                    accuracy=axis.label.accuracy
+                ),
+            ...
+        )
+    } else if (scale.mode == 'mb') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_color_continuous(
+            expand=expand,
+            n.breaks=n.breaks,
+            labels=
+                label_bytes(
+                    units="auto_si",
+                    accuracy=axis.label.accuracy
+                ),
+            ...
+        )
+    } else if (scale.mode == 'log10') {
+        figure +
+        coord_cartesian(ylim=limits) +
+        scale_color_log10(
+            expand=expand,
+            guide='axis_logticks',
+            labels=
+                label_log(
+                    base=log.base,
+                    digits=max(1, -log10(axis.label.accuracy)),
+                    signed=FALSE
+                ),
+            ...
+        )
+    } else if (scale.mode == 'discrete') {
+        figure +
+        scale_color_discrete(expand=expand)
+    } else if (scale.mode == '') {
+        if (is.null(limits)) {
+            figure + 
+            scale_color_continuous(
+                labels=
+                    function(x) {
+                        format(x, digits=max(1, -log10(axis.label.accuracy)))
+                    }
+            )
+        } else {
+            figure + 
+            coord_cartesian(ylim=limits) +
+            scale_color_continuous(
+                expand=expand,
+                ...
+            )
+        }
+    }
+}
+
 scale_fill_axis <- function(
     figure,
     scale.mode='',
@@ -426,6 +511,12 @@ post_process_plot <- function(
     y.n.breaks=NULL,
     y.limits=NULL,
     y.expand=c(0.00, 0.00, 0.00, 0.00),
+    color.scale.mode='',
+    color.log.base=10,
+    color.axis.label.accuracy=0.1,
+    color.n.breaks=NULL,
+    color.limits=NULL,
+    color.expand=c(0.00, 0.00, 0.00, 0.00),
     fill.scale.mode='',
     fill.log.base=10,
     fill.axis.label.accuracy=0.1,
@@ -461,6 +552,15 @@ post_process_plot <- function(
         n.breaks=y.n.breaks,
         limits=y.limits,
         expand=y.expand
+    ) %>% 
+    # Set color scaling (log, Mb, percent etc.)
+    scale_color_axis(
+        scale.mode=color.scale.mode,
+        log.base=color.log.base,
+        axis.label.accuracy=color.axis.label.accuracy,
+        n.breaks=color.n.breaks,
+        limits=color.limits,
+        expand=color.expand
     ) %>% 
     # Set fill scaling (log, Mb, percent etc.)
     scale_fill_axis(
