@@ -33,6 +33,14 @@ GENE_CONSTRAINTS_FILE        <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
 # ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
 
 ###################################################
+# BED files
+###################################################
+BED_FILES_DIR                 <- file.path(RESULTS_DIR, 'bed_files')
+LOOP_BED_FILES_DIR            <- file.path(BED_FILES_DIR, 'loops')
+TAD_BED_FILES_DIR             <- file.path(BED_FILES_DIR, 'TADs')
+MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
+
+###################################################
 # RNASeq
 ###################################################
 EXPRESSION_DATA_DIR     <- file.path(RESULTS_DIR, 'RNASeq', 'expression')
@@ -90,11 +98,14 @@ LOOPS_DIR                                  <- file.path(RESULTS_DIR, 'loops')
 LOOP_RESULTS_DIR                           <- file.path(LOOPS_DIR, 'results_loops')
 ALL_COOLTOOLS_LOOPS_RESULTS_FILE           <- file.path(LOOPS_DIR, 'all.cooltools.loops.tsv')
 FILTERED_COOLTOOLS_LOOPS_RESULTS_FILE      <- file.path(LOOPS_DIR, 'filtered.cooltools.loops.tsv')
-ALL_LOOP_NESTING_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltools.nesting.results.tsv')
 # IDR2D Analysis
 LOOPS_IDR2D_DIR                            <- file.path(LOOPS_DIR, 'results_IDR2D')
 ALL_LOOPS_IDR2D_RESULTS_FILE               <- file.path(LOOPS_DIR, 'all.cooltools.IDR2D.results.tsv')
 FILTERED_LOOPS_FILTERED_IDR2D_RESULTS_FILE <- file.path(LOOPS_DIR, 'filtered.cooltools.IDR2D.results.tsv')
+# Nesting analysis
+ALL_LOOP_VALENCY_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltools.valency.results.tsv')
+ALL_LOOP_NESTING_RESULTS_DIR               <- file.path(LOOPS_DIR, 'results_nesting')
+ALL_LOOP_NESTING_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltools.nesting.results.tsv')
 
 ###################################################
 # Differential Contact results from multiHiCCompare

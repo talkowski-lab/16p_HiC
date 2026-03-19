@@ -424,95 +424,270 @@ filter_loop_IDR2D_results <- function(results.df){
 }
 
 ###################################################
-# Nesting Analysis
+# Valency Analysis
 ###################################################
-calculate_loop_pair_overlap <- function(loop1, loop2){
-    # bin   111111111122222222233333333333444444444455555555556666666666
-    # bin   123456789012345678901234567890123456789012345678901234567890
-    # l1    --------------|==================|--------------------------
-    # l2    --------------|============|--------------------------------
-    # l3    --------------|=========|-----------------------------------
-    # track 000000000000003333333333322211111100000000000000000000000000
-    loop1$start loop1$end
-    loop2$start loop2$end
+calculate_all_loop_valency <- function(
+    loops.df,
+    ...){
+    # calculate how many loops each anchor is a part of
+    loops.df %>%
+    mutate(
+        valency.results=
+            pmap(
+                .l=list(loops),
+                .f=
+                    function(df) {
+                        df %>%
+                        pivot_longer(
+                            starts_with('anchor.'),
+                            names_to='anchor.side',
+                            names_prefix='anchor.',
+                            values_to='anchor.position'
+                        ) %>% 
+                        group_by(anchor.position) %>% 
+                        dplyr::summarize(
+                            across(
+                                .cols=c(count, length, enrichment, log10.qval),
+                                .fns=list('mean'=mean, 'min'=min, 'max'=max, 'median'=median),
+                                .names="{.col}-{.fn}"
+                            ),
+                            valency=dplyr::n()
+                        )
+                    },
+            .progress=TRUE
+        )
+    ) %>%
+    unnest(valency.results) %>%
+    select(-c(loops))
 }
 
-calculate_loop_nesting <- function(
-    loops,
-    resolution,
-    ...){
-    # loops=tmp$loops[[1]]; resolution=tmp$resolution[[1]];
-    loops %>% 
-        arrange(anchor.left, anchor.right) %>% 
-        head(20) %>% 
-    reduce(
-        region1, 
-        region2
-    ) %>% 
-    # mutate(
-    #     bins.covered=
-    #         pmap(
-    #             .l=.,
-    #             .f=
-    #                 function(anchor.left, anchor.right, resolution, ...){
-    #                     seq(anchor.left, anchor.right, resolution)
-    #                 }
-    #         )
-    # ) %>%
-    # unnest(bins.covered) %>%
-    # dplyr::rename('bin'=bins.covered) %>% 
-        {.} -> cln.tmp; cln.tmp
-    mutate(
-        bin.type=
-            case_when(
-                bin == anchor.left  ~ 'anchor',
-                bin == anchor.right ~ 'anchor',
-                TRUE                ~ 'inside'
-            )
-    ) %>% 
-    select(-c(anchor.left, anchor.right)) %>%
-    # count(bin, name='n.loops.crossing')
-    group_by(bin) %>%
-    summarize(
-        n.loop.crossings=n(),
-        across(-c(bin), ~ unique(.x))
+post_process_loop_valency_results <- function(results.df){
+    results.df %>% 
+    pivot_longer(
+        -c(
+           type, weight, resolution,
+           SampleID, 
+           chr, 
+           kernel,
+           anchor.position, valency
+        ),
+        names_to='tmp',
+        values_to='value',
+    ) %>%
+    separate_wider_delim(
+        tmp,
+        delim='-',
+        names=c('feature', 'stat')
+    ) %>%
+    pivot_wider(
+        names_from=stat,
+        values_from=value
     )
 }
 
-calculate_all_loop_nesting <- function(
+###################################################
+# Nesting Analysis
+###################################################
+generate_all_loop_bed_files <- function(
     loops.df,
-    ...){
-    loops.df %>%
-        {.} -> tmp; tmp
-        tmp %>% head(5) %>% 
+    force_redo=FALSE){
+    loops.df %>% 
     mutate(
-        nesting=
+        output_dir=
+            file.path(
+                LOOP_BED_FILES_DIR,
+                'method_cooltools',
+                glue('kernel_{kernel}'),
+                glue('type_{type}'),
+                glue('weight_{weight}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
+                # glue('region_{chr}')
+            ),
+        results_file=
+            file.path(
+                output_dir,
+                glue('{SampleID}-loops.bed')
+            )
+    ) %>% 
+    {
+        if (!force_redo) {
+            filter(., !file.exists(results_file))
+        } else{
+            .
+        }
+    } %T>% 
+    # future_pmap(
+    pmap(
+        .l=.,
+        .f=
+            function(loops, results_file, output_dir, ...){
+                dir.create(output_dir, recursive=TRUE, showWarnings=FALSE)
+                write_tsv(loops, results_file, col_names=FALSE)
+            },
+        .progress=TRUE
+    )
+}
+
+generate_loop_nesting_calculation_cmds <- function(
+    bin.files.df,
+    force_redo=FALSE){
+    LOOP_BED_FILES_DIR %>%
+    parse_results_filelist(
+        filename.column.name='SampleID',
+        suffix='-loops.bed'
+    ) %>%
+    left_join(
+        bin.files.df,
+        by='resolution'
+    ) %>%
+    mutate(
+        output_dir=
+            file.path(
+                ALL_LOOP_NESTING_RESULTS_DIR,
+                'method_cooltools',
+                glue('kernel_{kernel}'),
+                glue('type_{type}'),
+                glue('weight_{weight}'),
+                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
+                # glue('region_{chr}')
+            ),
+        results_file=
+            file.path(
+                output_dir,
+                glue('{SampleID}-loops.nesting.track.tsv')
+            )
+    ) %>% 
+    {
+        if (!force_redo) {
+            filter(., !file.exists(results_file))
+        } else{
+            .
+        }
+    } %>% 
+    # bedtools intersect 
+    #     -a all.bins.bed  # list of all bins in a chr at a specified resolution
+    #     -b loops.bed     # all loops called on the same chr at the same resolution
+    #     -wao             # save all loop info for every loop overlapping a bin + include all bins with no overlaps 
+    #     -f 1.0           # only map loops to bins inside of them (i.e. fully overlapped)
+    mutate(bed.cmd=glue('mkdir -p {output_dir} && bedtools intersect -a {binlist.filepath} -b {filepath} -wao -f 1.0 >| {results_file}')) %>% 
+    select(bed.cmd) %>%
+    write_tsv(
+        file.path(LOOPS_DIR, 'all.loop.nesting.bedtools.cmds.txt'),
+        col_names=FALSE
+    )
+}
+
+load_loop_nesting_results <- function(filepath){
+    read_tsv(
+        filepath,
+        show_col_types=FALSE,
+        progress=FALSE,
+        col_names=
+            c(
+                'chr', 'bin.start', 'bin.end',
+                'chr.loop', 'loop.start', 'loop.end',
+                'loop.count', 'loop.length', 'loop.enrichment', 'loop.log10_qval',
+                'resolution.redundant'
+            ),
+        col_types=
+            list(
+                col_character(), col_integer(), col_integer(), 
+                col_character(), col_integer(), col_integer(), 
+                col_integer(), col_integer(), col_double(), col_double(),
+                col_integer()
+            )
+    )
+}
+
+load_all_loop_nesting_results <- function(){
+    # results.df <- 
+    ALL_LOOP_NESTING_RESULTS_DIR %>% 
+    parse_results_filelist(
+        filename.column.name='SampleID',
+        suffix='-loops.nesting.track.tsv'
+    ) %>%
+    mutate(
+        nesting.results=
+        # future_pmap(
             pmap(
                 .l=.,
-                .f=calculate_loop_nesting,
+                .f=
+                    function(filepath, ...){
+                        load_loop_nesting_results(filepath) %>% 
+                        # filter out bins that overlap 0 loops
+                        filter(chr.loop != '.') %>% 
+                        # pivot so each loop feature is its own row per loop overlap
+                        pivot_longer(
+                            c(starts_with('loop.'), -loop.start, -loop.end),
+                            names_prefix='loop.',
+                            names_to='loop.feature',
+                            values_to='loop.value'
+                        ) %>%
+                        # for each bin + loop feature 
+                        group_by(
+                            chr, bin.start, bin.end,
+                            loop.feature
+                        ) %>%
+                        # summarize the loop feature statistics + count how many loops overlap this bin
+                        summarize(
+                            nesting.lvl=n(),
+                            across(
+                                .cols=c(loop.value),
+                                .fn=
+                                    list(
+                                        'mean'=mean,
+                                        'min'=min,
+                                        'max'=max,
+                                        'sum'=sum
+                                    ),
+                                .names="{.fn}"
+
+                            )
+                        )
+                    },
                 .progress=TRUE
             )
     ) %>%
-    unnest(nesting)
-}
-
-###################################################
-# Integration Analysis
-###################################################
-            )
-    )
-}
-
-            )
-    ) %>% 
-            )
-    ) %>%
-    mutate(
-    ) %>%
+    unnest(nesting.results) %>% 
     select(
         -c(
+            filepath,
+            resolution.redundant,
+            # bin.end,
+            chr.loop
         )
     )
+}
+
+post_process_loop_nesting_result <- function(results.df){
+    results.df
+}
+
+load_all_loop_nesting_count_result <- function(){
+    ALL_LOOP_NESTING_RESULTS_DIR %>% 
+    parse_results_filelist(suffix='-loop.nesting.track.tsv') %>%
+    mutate(
+        nesting.results=
+        # future_pmap(
+            pmap(
+                .l=.,
+                .f=
+                    function(filepath, ...){
+                        load_loop_nesting_results(filepath) %>% 
+                        # mark which bins had no overlapping loops
+                        mutate(no.overlaps=(chr.loop != '.')) %>%
+                        count(
+                            chr, bin.start. bin.end, 
+                            no.overlaps,
+                            name='n.loops.overlapping'
+                        ) %>%
+                        mutate(n.loops.overlapping=ifelse(no.overlaps, 0, n.loops.overlapping))
+                    },
+                .progress=TRUE
+            )
+    ) %>%
+    unnest(nesting.results) %>% 
+    select(-c(filepath, no.overlaps))
 }
 
 ###################################################
