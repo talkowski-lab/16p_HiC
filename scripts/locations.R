@@ -23,12 +23,14 @@ COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
 ###################################################
 # Functional genome annotations
 ###################################################
-ENCODE_CCRE_DIR              <- '/data/talkowski/tools/ref/ENCODE/cCRE/v4'
-ENCODE_CCRE_ANNOTATIONS_FILE <- file.path(REF_DIR, 'ENCODE.v4.cCRE.anontations.tsv')
-CTCF_SITE_FILE               <- file.path(REF_DIR, 'CTCF.annotations.tsv')
-GENE_DESERT_REGIONS_FILE     <- file.path(REF_DIR, 'hg38_gene_deserts.tsv')
-GENOME_GTF_FILE              <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
-GENE_CONSTRAINTS_FILE        <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
+ENCODE_CCRE_DIR               <- '/data/talkowski/tools/ref/ENCODE/cCRE/v4'
+ENCODE_CCRE_ANNOTATIONS_FILE  <- file.path(REF_DIR, 'ENCODE.v4.cCRE.anontations.tsv')
+CTCF_SITE_FILE                <- file.path(REF_DIR, 'CTCF.annotations.tsv')
+GENE_DESERT_REGIONS_FILE      <- file.path(REF_DIR, 'hg38_gene_deserts.tsv')
+GENOME_GTF_FILE               <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
+# list of files listing bin-wise data + bed files for use with external tools
+GENE_CONSTRAINTS_FILE         <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
+GENOME_BINS_FILES_DIR         <- file.path(REF_DIR, 'genome.bins')
 # FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
 # ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
 
@@ -77,9 +79,6 @@ TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 HITAD_TAD_RESULTS_FILE        <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
 # HITAD_DI_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 # HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
-# COOLTOOLS_TAD_RESULTS_FILE    <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
-# COOLTOOLS_DI_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.DI.annotations.tsv')
-# COOLTOOLS_MOC_RESULTS_FILE     <- file.path(TAD_DIR, 'all.cooltools.TAD.MoCs.tsv')
 CONSENSUSTAD_TAD_RESULTS_FILE <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
 # CONSENSUSTAD_DI_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.DI.annotations.tsv')
 # CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
@@ -121,8 +120,6 @@ MULTIHICCOMPARE_SIG_RESULTS_FILE      <- file.path(MULTIHICCOMPARE_DIR, 'all.mul
 COMPARTMENTS_DIR              <- file.path(RESULTS_DIR, 'compartments')
 COMPARTMENTS_RESULTS_DIR      <- file.path(COMPARTMENTS_DIR, 'results_compartments')
 ALL_COMPARTMENTS_RESULTS_FILE <- file.path(COMPARTMENTS_DIR, 'all.cooltools.compartments.tsv')
-# DCHIC_REF_DIR                  <- file.path(REF_DIR, 'dcHiC')
-# COMPARTMENTS_PREPROCESSED_DIR  <- file.path(COMPARTMENTS_DIR, 'pre.processed.input')
 
 ###################################################
 # gghic results
