@@ -215,11 +215,7 @@ glue_sample_ID <- function(
 
 get_info_from_SampleIDs <- function(
     df,
-    sample_ID_col='SampleID',
-    col_prefix='',
-    keep_id=TRUE,
-    include_merged_col=FALSE,
-    nest_col=NA,
+    SampleID.col='SampleID',
     SampleID.delim='.',
     SampleID.fields=
         c(
@@ -229,6 +225,9 @@ get_info_from_SampleIDs <- function(
             'CloneID',
             'TechRepID'
         ),
+    field.suffix='',
+    include_merged_col=FALSE,
+    keep_id=TRUE,
     ...){
     df %>%
     {
@@ -237,7 +236,7 @@ get_info_from_SampleIDs <- function(
                 .,
                 !!as.character(glue('{col_prefix}isMerged')) :=
                     ifelse(
-                        grepl('Merged', !!sym(sample_ID_col)),
+                        grepl('Merged', !!sym(SampleID.col)),
                         'Merged',
                         'Individual'
                     ) %>% 
@@ -249,43 +248,22 @@ get_info_from_SampleIDs <- function(
     } %>% 
     # Split SampleID into separate metadata columns specified as input
     separate_wider_delim(
-        all_of(sample_ID_col),
+        all_of(SampleID.col),
         delim=fixed(SampleID.delim),
         names=
             ifelse(
                 is.na(SampleID.fields),
                 NA,
-                paste0(col_prefix, SampleID.fields)
+                glue('{SampleID.fields}{SampleID.delim}{field.suffix}')
             ),
         cols_remove=!keep_id
-    ) %>% 
-    {
-        if (!is.na(nest_col)) {
-            if (col_prefix  != '') {
-                nest(., !!nest_col := starts_with(col_prefix))
-            } else {
-                nest(
-                    ., 
-                    !!nest_col :=
-                        all_of(
-                            ifelse(
-                                include_merged_col,
-                                c(SampleID.fields, 'isMerged'),
-                                SampleID.fields
-                            )
-                        )
-                )
-            }
-        } else {
-            .
-        }
-    }
+    )
 }
 
 get_info_from_MatrixIDs <- function(
     df,
     matrix_ID_col='MatrixID',
-    sample_ID_col='SampleID',
+    SampleID.col='SampleID',
     col_prefix='',
     keep_id=TRUE,
     nest_col=NA,
@@ -316,9 +294,9 @@ get_info_from_MatrixIDs <- function(
     ) %>% 
     # create SampleID
     {
-        if (!is.null(sample_ID_col)) {
-            mutate( ., !!sample_ID_col := pmap(.l=., .f=glue_sample_ID)) %>%
-            unnest(!!sym(sample_ID_col))
+        if (!is.null(SampleID.col)) {
+            mutate( ., !!SampleID.col := pmap(.l=., .f=glue_sample_ID)) %>%
+            unnest(!!sym(SampleID.col))
         } else {
             .
         }
@@ -623,7 +601,7 @@ list_mcool_files <- function(
     mutate(MatrixID=str_remove(basename(filepath), '.mcool')) %>% 
     get_info_from_MatrixIDs(
         matrix_ID_col='MatrixID',
-        sample_ID_col='SampleID',
+        SampleID.col='SampleID',
         col_prefix='',
         keep_id=FALSE,
         nest_col=NA,
@@ -962,60 +940,118 @@ get_all_row_combinations <- function(
     select(-c(matches('\\.idx')))
 }
 
+extract_sample_pair_metadata <- function(
+    SampleIDs.df,
+    suffixes,
+    ...){
+    # Separate IDs of 2 matrices being compared for each results file
+    # Extract sample metadata from IDs
+    SampleIDs.df %>% 
+    # Split SampleID into separate metadata columns specified as input
+    get_info_from_SampleIDs(
+        SampleID.col=colnames(SampleIDs.df)[[1]],
+        field.suffix=suffixes[[1]],
+        ...
+    ) %>% 
+    # Split SampleID into separate metadata columns specified as input
+    get_info_from_SampleIDs(
+        SampleID.col=colnames(SampleIDs.df)[[2]],
+        field.suffix=suffixes[[2]],
+        ...
+    )
+}
+
+extract_all_sample_pair_metadata <- function(
+    data.df,
+    SampleID.fields,
+    SampleID.cols=c('SampleID.P1', 'SampleID.P2'),
+    suffixes=c('P1', 'P2'),
+    ...){
+    data.df %>% 
+    mutate(
+        tidy.metadata=
+            extract_sample_pair_metadata(
+                SampleIDs.df=
+                    select(
+                        .data=., 
+                        all_of(c(SampleID.cols[[1]], SampleID.cols[[2]]))
+                    ),
+                suffixes=suffixes,
+                SampleID.fields=SampleID.fields,
+                keep_id=FALSE,
+                ...
+            )
+    ) %>%
+    unnest(tidy.metadata)
+}
+
 tidy_pair_metadata <- function(
     sampleID.pairs.df,
+    SampleID.fields,
+    suffixes,
+    delim='.',
+    keep_separate_metadata_fields=FALSE,
     ...){
-    sampleID_col.P1 <- colnames(sampleID.pairs.df)[[1]]
-    sampleID_col.P2 <- colnames(sampleID.pairs.df)[[2]]
+    # sampleID.pairs.df=tmp %>% select(all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))); SampleID.fields=c('Edit', 'Celltype', 'Genotype'); suffixes=c('Numerator', 'Denominator'); delim='.'; keep_separate_metadata_fields=TRUE
     sampleID.pairs.df %>% 
     # necessary to make sure pairs stay unique when pivoting
     mutate(row.index=row_number()) %>% 
     # Separate IDs of 2 matrices being compared for each results file
-    # Extract sample metadata from IDs
-    get_info_from_SampleIDs(
-        sample_ID_col=sampleID_col.P1,
-        col_prefix='SampleInfo.P1.',
+    extract_sample_pair_metadata(
         keep_id=FALSE,
-        ...
+        SampleID.fields=SampleID.fields,
+        delim=delim,
+        suffixes=c('P1', 'P2'),
+        # ...
     ) %>% 
-    # Repeat for the other sample in each pair
-    get_info_from_SampleIDs(
-        sample_ID_col=sampleID_col.P2,
-        col_prefix='SampleInfo.P2.',
-        keep_id=FALSE,
-        ...
-    ) %>% 
-    # Now format sample metadata per pair for easy grouping+plotting
+    # Now pivot to longer possible format i.e. 2 * nrow(sampleID.pairs.df) * length(SampleID.fields) rows
     pivot_longer(
-        starts_with('SampleInfo'),
-        names_prefix='SampleInfo.',
+        ends_with(c('P1', 'P2')),
         names_to='metadata.field',
         values_to='value'
     ) %>%
     separate_wider_delim(
         metadata.field,
-        delim='.',
-        names=c('pair.index', 'metadata.field')
+        delim=delim,
+        names=c('metadata.field', 'pair.index')
     ) %>% 
+    # Now each there are nrow(sampleID.pairs.df) * length(SampleID.fields) rows
     pivot_wider(
         names_from='pair.index',
         values_from='value'
     ) %>% 
-    # mutate(metadata.value=glue('{P1} vs {P2}')) %>% 
-    rowwise() %>% 
+    # sort pair values so that output column is consistent e.g.
+    # you will only ever see "DEL vs WT" and not "WT vs DEL", regardless of P1/P2 ordering
+    # rowwise() %>% 
     mutate(
         metadata.value=
-            sort(c(P1, P2)) %>% 
-            paste(collapse=' vs ')
+            case_when(
+                P1 >= P2 ~ glue('{P1} vs {P2}'),
+                P1 <  P2 ~ glue('{P2} vs {P1}'),
+                TRUE     ~ NA
+            )
+            # sort(c(P1, P2)) %>% 
+            # paste(collapse=' vs ')
     ) %>%
-    ungroup() %>% 
-    select(-c(P1, P2)) %>% 
+    # ungroup() %>% 
+    # return to the same number of rows as the input, with separate columns for each field for P1/P2
     pivot_wider(
         names_from=metadata.field,
-        values_from=metadata.value
+        # names_glue="{metadata.field}{delim}{.value}",
+        names_glue=glue("{metadata.field}[delim]{.value}", .open='[', .close=']'),
+        values_from=c(metadata.value, P1, P2)
     ) %>%
-    select(-all_of(c('row.index')))
-    # select(-all_of(c('row.index', sampleID_col.P1, sampleID_col.P2)))
+    # Clean up columns/column names
+    dplyr::rename_with(~ str_remove(.x, '.metadata.value')) %>%
+    {
+        if (keep_separate_metadata_fields){
+            dplyr::rename_with(., ~ str_replace(.x, 'P1$', suffixes[[1]])) %>%
+            dplyr::rename_with(   ~ str_replace(.x, 'P2$', suffixes[[2]]))
+        } else {
+            select(., -ends_with(c('P1', 'P2')))
+        }
+    } %>% 
+    select(-c(row.index))
 }
 
 enumerate_pairwise_comparisons <- function(
@@ -1024,7 +1060,8 @@ enumerate_pairwise_comparisons <- function(
     pair_grouping_cols=c(),
     SampleID.fields=NULL,
     sampleID_col='SampleID',
-    suffixes=c('.P1', '.P2'),
+    suffixes=c('P1', 'P2'),
+    delim='.',
     ...){
     # data.df=nested.loops.df; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% dplyr::rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
     sampleID_col.P1 <- glue('{sampleID_col}{suffixes[[1]]}') # SampleID.P1
@@ -1047,6 +1084,7 @@ enumerate_pairwise_comparisons <- function(
             )
         }
     } %>% 
+    # format sample pair metadata
     {
         if(!is.null(SampleID.fields)) {
             mutate(
@@ -1058,8 +1096,9 @@ enumerate_pairwise_comparisons <- function(
                                 .data=., 
                                 all_of(c(sampleID_col.P1, sampleID_col.P2))
                             ),
-                        suffixes=suffixes,
                         SampleID.fields=SampleID.fields,
+                        suffixes=suffixes,
+                        delim=delim,
                         ...
                     )
             ) %>%

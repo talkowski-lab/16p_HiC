@@ -370,7 +370,19 @@ load_all_IDR2D_results <- function(){
 
 post_process_IDR2D_results <- function(results.df){
     results.df %>% 
+    extract_all_sample_pair_metadata(
+        SampleID.cols=c('SampleID.P1', 'SampleID.P2'),
+        SampleID.fields=c('Edit', NA, 'Genotype'),
+        suffixes=c('P1', 'P2')
+    ) %>% 
     mutate(
+        Genotype.Group=
+            case_when(
+                Genotype.P1 == 'WT' & Genotype.P2 != 'WT' ~ '* vs WT',
+                Genotype.P2 == 'WT' & Genotype.P1 != 'WT' ~ '* vs WT',
+                TRUE                                      ~ 'other'
+            ) %>%
+            factor(levels=c('* vs WT', 'other')),
         comparison=glue('{SampleID.P1} vs {SampleID.P2}'),
         max.gap.bins.int=max.gap / resolution,
         max.gap=

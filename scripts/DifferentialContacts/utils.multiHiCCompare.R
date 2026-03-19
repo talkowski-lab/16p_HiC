@@ -436,6 +436,7 @@ load_all_multiHiCCompare_results <- function(
         sep='#',
         remove=FALSE
     ) %>% 
+    # tidy sample metadata
     mutate(
         tidy.metadata=
             tidy_pair_metadata(
@@ -444,9 +445,9 @@ load_all_multiHiCCompare_results <- function(
                         .data=., 
                         all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
                     ),
-                suffixes=c('.Numerator', '.Denominator'),
+                suffixes=c('Numerator', 'Denominator'),
                 SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
-                # ...
+                keep_separate_metadata_fields=TRUE
             )
     ) %>%
     unnest(tidy.metadata)
@@ -545,6 +546,7 @@ count_contacts_by_significance <- function(
             rename_chrs(to_label=TRUE) %>% 
             factor(levels=CHROMOSOMES)
     ) %>% 
+    # format sample pair metadata from SampleIDs
     mutate(
         tidy.metadata=
             tidy_pair_metadata(
@@ -555,7 +557,8 @@ count_contacts_by_significance <- function(
                     ),
                 suffixes=c('.Numerator', '.Denominator'),
                 SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
-                # ...
+                suffixes=c('Numerator', 'Denominator'),
+                keep_separate_metadata_fields=TRUE
             )
     ) %>%
     unnest(tidy.metadata)
