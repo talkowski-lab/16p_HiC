@@ -25,6 +25,8 @@ Analysis and code of HiC data for 16p samples
   - [Loop Analysis](#loop-analysis)
     - [Loop Annotation](#loop-annotation)
     - [Loop Comparison](#loop-comparison)
+    - [Loop Valency](#loop-valency)
+    - [Loop Nesting](#loop-nesting)
   - [Differential Contact Analysis](#differential-contact-analysis)
   - [Compartment Analysis](#compartment-analysis)
     - [Compartment Annotation](#compartment-annotation)
