@@ -229,12 +229,26 @@ get_info_from_SampleIDs <- function(
     include_merged_col=FALSE,
     keep_id=TRUE,
     ...){
+    SampleID.fields <- 
+        if (field.suffix == ''){ 
+            ifelse(
+                is.na(SampleID.fields),
+                NA,
+                SampleID.fields
+            )
+        } else {
+            ifelse(
+                is.na(SampleID.fields),
+                NA,
+                glue('{SampleID.fields}{SampleID.delim}{field.suffix}')
+            )
+        }
     df %>%
     {
         if (include_merged_col){
             mutate(
                 .,
-                !!as.character(glue('{col_prefix}isMerged')) :=
+                isMerged=
                     ifelse(
                         grepl('Merged', !!sym(SampleID.col)),
                         'Merged',
@@ -250,25 +264,15 @@ get_info_from_SampleIDs <- function(
     separate_wider_delim(
         all_of(SampleID.col),
         delim=fixed(SampleID.delim),
-        names=
-            ifelse(
-                is.na(SampleID.fields),
-                NA,
-                glue('{SampleID.fields}{SampleID.delim}{field.suffix}')
-            ),
+        names=SampleID.fields,
         cols_remove=!keep_id
     )
 }
 
 get_info_from_MatrixIDs <- function(
     df,
-    matrix_ID_col='MatrixID',
-    SampleID.col='SampleID',
-    col_prefix='',
-    keep_id=TRUE,
-    nest_col=NA,
-    delim=fixed('.'),
-    separate_names=
+    MatrixID.col='MatrixID',
+    MatrixID.fields=
         c(
             'Edit',
             'Celltype',
@@ -279,52 +283,78 @@ get_info_from_MatrixIDs <- function(
             'ReadFilter',
             NA
         ),
+    MatrixID.delim=fixed('.'),
+    SampleID.col='SampleID',
+    SampleID.fields=
+        c(
+            'Edit',
+            'Celltype',
+            'Genotype'
+        ),
+    SampleID.delim=fixed('.'),
+    field.suffix='',
+    include_merged_col=FALSE,
+    keep_id=FALSE,
     ...){
+    # MatrixID.col='MatrixID'; MatrixID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', NA, 'ReadFilter', NA); MatrixID.delim=fixed('.'); SampleID.col='SampleID'; SampleID.fields=c('Edit', 'Celltype', 'Genotype'); SampleID.delim=fixed('.'); field.suffix=''; include_merged_col=FALSE; keep_id=FALSE;
+    MatrixID.fields <- 
+        if (field.suffix == ''){ 
+            ifelse(
+                is.na(MatrixID.fields),
+                NA,
+                MatrixID.fields
+            )
+        } else {
+            ifelse(
+                is.na(MatrixID.fields),
+                NA,
+                glue('{MatrixID.fields}{MatrixID.delim}{field.suffix}')
+            )
+        }
+    SampleID_glue_pattern <- 
+        paste0(
+            '{', SampleID.fields, '}', 
+            collapse=SampleID.delim
+        )
     # Set up some column names/variables
-    col_names <- c(separate_names[!is.na(separate_names)], 'isMerged')
+    col_names <- c(MatrixID.fields[!is.na(MatrixID.fields)], 'isMerged')
     # extract + format metadata
     df %>%
-    mutate(isMerged=grepl('Merged', !!sym(matrix_ID_col))) %>% 
+    {
+        if (include_merged_col){
+            mutate(
+                .,
+                isMerged=
+                    ifelse(
+                        grepl('Merged', !!sym(MatrixID.col)),
+                        'Merged',
+                        'Individual'
+                    ) %>% 
+                    factor()
+            )
+        } else {
+            .
+        }
+    } %>% 
     separate_wider_delim(
-        all_of(matrix_ID_col),
-        delim=delim,
-        names=separate_names,
+        all_of(MatrixID.col),
+        delim=MatrixID.delim,
+        names=MatrixID.fields,
         too_many='merge',
         cols_remove=!keep_id
     ) %>% 
     # create SampleID
     {
-        if (!is.null(SampleID.col)) {
-            mutate( ., !!SampleID.col := pmap(.l=., .f=glue_sample_ID)) %>%
-            unnest(!!sym(SampleID.col))
-        } else {
-            .
-        }
-    } %>% 
-    # dplyr::rename columns with a common prefix
-    {
-        if (col_prefix != '') {
-            dplyr::rename_with(
+        if (SampleID.col != '') {
+            mutate(
                 ., 
-                .fn=~ paste0(col_prefix, .x), 
-                .cols=all_of(col_names)
-            )
-        } else {
-            .
-        }
-    } %>% 
-    # nest and dplyr::rename columns as specified
-    {
-        if (!is.na(nest_col) && col_prefix != '') {
-            nest(
-                .,
-                !!nest_col := all_of(paste0(col_prefix, col_names))
-            )
-        } else if (!is.na(nest_col) && col_prefix == '') {
-            nest(
-                .,
-                !!nest_col := all_of(col_names)
-            )
+                !!SampleID.col := 
+                    pmap(
+                        .l=.,
+                        .f=~ glue(SampleID_glue_pattern)
+                    )
+            ) %>%
+            unnest(!!sym(SampleID.col))
         } else {
             .
         }
@@ -600,7 +630,7 @@ list_mcool_files <- function(
     # parse sample metadata
     mutate(MatrixID=str_remove(basename(filepath), '.mcool')) %>% 
     get_info_from_MatrixIDs(
-        matrix_ID_col='MatrixID',
+        MatrixID.col='MatrixID',
         SampleID.col='SampleID',
         col_prefix='',
         keep_id=FALSE,

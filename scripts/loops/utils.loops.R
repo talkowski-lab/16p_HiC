@@ -293,6 +293,7 @@ run_all_IDR2D_analysis <- function(
                 glue('{SampleID.P1}_vs_{SampleID.P2}-IDR2D.tsv')
             )
     ) %>% 
+    filter(chr != 'chrY') %>% 
     arrange(desc(chr)) %>% 
     {
         if (!force.redo) {
@@ -335,7 +336,10 @@ run_all_IDR2D_analysis <- function(
 
 load_IDR2D_results <- function(filepath, ...){
     filepath %>%
-    read_tsv(show_col_types=FALSE)
+    read_tsv(
+        show_col_types=FALSE,
+        progress=FALSE
+    )
 }
 
 list_all_IDR2D_results <- function(
@@ -359,31 +363,26 @@ load_all_IDR2D_results <- function(){
         idr2d=
             # pmap(
             future_pmap(
-                .,
-                load_IDR2D_results,
+                .l=.,
+                .f=load_IDR2D_results,
                 .progress=TRUE
             )
     ) %>%
     unnest(idr2d) %>% 
+    extract_all_sample_pair_metadata(
+        SampleID.cols=c('SampleID.P1', 'SampleID.P2'),
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
+        suffixes=c('Numerator', 'Denominator')
+    ) %>% 
     select(-c(filepath))
 }
 
 post_process_IDR2D_results <- function(results.df){
     results.df %>% 
-    extract_all_sample_pair_metadata(
-        SampleID.cols=c('SampleID.P1', 'SampleID.P2'),
-        SampleID.fields=c('Edit', NA, 'Genotype'),
-        suffixes=c('P1', 'P2')
-    ) %>% 
     mutate(
-        Genotype.Group=
-            case_when(
-                Genotype.P1 == 'WT' & Genotype.P2 != 'WT' ~ '* vs WT',
-                Genotype.P2 == 'WT' & Genotype.P1 != 'WT' ~ '* vs WT',
-                TRUE                                      ~ 'other'
-            ) %>%
-            factor(levels=c('* vs WT', 'other')),
-        comparison=glue('{SampleID.P1} vs {SampleID.P2}'),
+        comparison=
+            glue('{SampleID.P1} vs {SampleID.P2}') %>% 
+            fct_reorder2(SampleID.P1, SampleID.P2),
         max.gap.bins.int=max.gap / resolution,
         max.gap=
             fct_reorder(
@@ -590,6 +589,7 @@ generate_loop_nesting_calculation_cmds <- function(
 }
 
 load_loop_nesting_results <- function(filepath){
+    # Load bedtools intersect output with all data for each loop overlapping each bin
     read_tsv(
         filepath,
         show_col_types=FALSE,
@@ -599,7 +599,7 @@ load_loop_nesting_results <- function(filepath){
                 'chr', 'bin.start', 'bin.end',
                 'chr.loop', 'loop.start', 'loop.end',
                 'loop.count', 'loop.length', 'loop.enrichment', 'loop.log10_qval',
-                'resolution.redundant'
+                'bin.overlap.bp'
             ),
         col_types=
             list(
@@ -699,18 +699,22 @@ load_all_loop_nesting_results <- function(){
             )
     ) %>%
     unnest(nesting.results) %>% 
-    select(
-        -c(
-            filepath,
-            resolution.redundant,
-            # bin.end,
-            chr.loop
-        )
-    )
+    select(-c(filepath))
 }
 
 post_process_loop_nesting_result <- function(results.df){
-    results.df
+    results.df %>% 
+    mutate(nest.length=nest.end - nest.start) %>% 
+    pivot_longer(
+        starts_with('metric.'),
+        names_to='tmp',
+        values_to='value'
+    ) %>% 
+    separate_wider_delim(
+        tmp,
+        delim='.',
+        names=c(NA, 'stat', 'loop.feature')
+    )
 }
 
 load_all_loop_nesting_count_result <- function(){
