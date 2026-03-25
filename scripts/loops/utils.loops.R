@@ -611,6 +611,72 @@ load_loop_nesting_results <- function(filepath){
     )
 }
 
+summarize_loop_nesting_results <- function(results.df) {
+    # compute summary stats across all loops overlapping each bin
+    # then collapse run of contiguous bins together (i.e. all bins within the exact same set of loops)
+    # nesting results as output from bedtools intersect
+    # filepath %>% load_loop_nesting_results() %>% 
+    results.df %>% 
+    # filter out bins that overlap 0 loops
+    filter(chr.loop != '.') %>% 
+    # pivot so each loop feature is its own row per loop overlap
+    pivot_longer(
+        c(starts_with('loop.'), -loop.start, -loop.end),
+        names_prefix='loop.',
+        names_to='loop.feature',
+        values_to='loop.value'
+    ) %>%
+    # for each bin + loop feature 
+    group_by(
+        chr, bin.start, bin.end,
+        loop.feature
+    ) %>%
+    # summarize the loop feature statistics + count how many loops overlap this bin
+    summarize(
+        nesting.lvl=n(),
+        across(
+            .cols=c(loop.value),
+            .fn=
+                list(
+                    'mean'=mean,
+                    'min'=min,
+                    'max'=max,
+                    'sum'=sum
+                ),
+            .names="metric.{.fn}"
+
+        )
+    ) %>%
+    # pivot so every stat across every feature is a sperate column
+    # now each row represents 1 bin + the nesting results for the bin
+    ungroup() %>% 
+    pivot_wider(
+        names_from=loop.feature,
+        names_glue='{.value}.{loop.feature}',
+        values_from=starts_with('metric.')
+    ) %>% 
+    # Now collapse bin-wise results for all sets of contiguous bins at the same nesting lvl
+    # so each row is a segment (start-end) instead of a single bin
+    # all bins collapsed this way have the same nesting stats
+    group_by(
+        across(
+            c(
+                starts_with('metric.'), 
+                'nesting.lvl',
+                'chr'
+            )
+        )
+    ) %>%
+    # Take the leftmost start and righmost end for all segments i.e. groups of contiguous bins that
+    # by definition have the same loop nesting stats, since they are covered by the same set of loops
+    summarize(
+        nest.start=min(bin.start),
+        nest.end=max(bin.end)
+    ) %>%
+    ungroup() %>%
+    relocate(chr, nest.start, nest.end, nesting.lvl)
+}
+
 load_all_loop_nesting_results <- function(){
     # results.df <- 
     ALL_LOOP_NESTING_RESULTS_DIR %>% 
@@ -625,37 +691,9 @@ load_all_loop_nesting_results <- function(){
                 .l=.,
                 .f=
                     function(filepath, ...){
-                        load_loop_nesting_results(filepath) %>% 
-                        # filter out bins that overlap 0 loops
-                        filter(chr.loop != '.') %>% 
-                        # pivot so each loop feature is its own row per loop overlap
-                        pivot_longer(
-                            c(starts_with('loop.'), -loop.start, -loop.end),
-                            names_prefix='loop.',
-                            names_to='loop.feature',
-                            values_to='loop.value'
-                        ) %>%
-                        # for each bin + loop feature 
-                        group_by(
-                            chr, bin.start, bin.end,
-                            loop.feature
-                        ) %>%
-                        # summarize the loop feature statistics + count how many loops overlap this bin
-                        summarize(
-                            nesting.lvl=n(),
-                            across(
-                                .cols=c(loop.value),
-                                .fn=
-                                    list(
-                                        'mean'=mean,
-                                        'min'=min,
-                                        'max'=max,
-                                        'sum'=sum
-                                    ),
-                                .names="{.fn}"
-
-                            )
-                        )
+                        filepath %>% 
+                        load_loop_nesting_results() %>% 
+                        summarize_loop_nesting_results()
                     },
                 .progress=TRUE
             )
@@ -685,11 +723,12 @@ load_all_loop_nesting_count_result <- function(){
                 .l=.,
                 .f=
                     function(filepath, ...){
-                        load_loop_nesting_results(filepath) %>% 
+                        filepath %>% 
+                        load_loop_nesting_results() %>% 
                         # mark which bins had no overlapping loops
                         mutate(no.overlaps=(chr.loop != '.')) %>%
                         count(
-                            chr, bin.start. bin.end, 
+                            chr, bin.start, bin.end, 
                             no.overlaps,
                             name='n.loops.overlapping'
                         ) %>%
