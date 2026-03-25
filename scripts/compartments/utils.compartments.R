@@ -10,10 +10,28 @@ library(furrr)
 # Generate cooltools results
 ###################################################
 quantize_track <- function(
+    values,
+    thresholds,
+    desc=FALSE,
     ...){
+    values %>% 
+    tibble(value=.) %>%
+    # thresholds must be a named list
     mutate(
+        group=
+            cut(
+                value,
+                breaks=c(-Inf, thresholds, Inf),
+                labels=
+                    ifelse(
+                        is.null(names(thresholds)),
+                        paste('<', thresholds),
+                        names(thresholds)
+                    )
+            )
     ) %>% 
-    mutate(group=fct_reorder(group, value, .desc=desc))
+    mutate(group=fct_reorder(group, value, .desc=desc)) %>%
+    select(group)
 }
 
 load_cooltools_compartment_results <- function(filepath){
@@ -21,17 +39,12 @@ load_cooltools_compartment_results <- function(filepath){
     read_tsv(show_col_types=FALSE)
 }
 
-list_all_cooltools_compartment_results <- function(){
+load_all_cooltools_compartment_results <- function(){
     COMPARTMENTS_RESULTS_DIR %>%
     parse_results_filelist(
-        suffix='-cis.vecs.tsv',
-        filename.column.name='MatrixID'
-    ) # %>% 
-    # get_info_from_MatrixIDs(keep_id=FALSE)
-}
-
-load_all_cooltools_compartment_results <- function(){
-    list_all_cooltools_compartment_results() %>%
+        filename.column.name='SampleID',
+        suffix='-.cis.vecs.tsv'
+    ) %>%  
     mutate(
         compartments=
             future_pmap(
@@ -46,5 +59,14 @@ load_all_cooltools_compartment_results <- function(){
 }
 
 post_process_cooltools_compartment_results <- function(results.df){
+    results.df %>%
+    quantize_track_values(
+        column_to_quantize='eigs',
+        n_quantiles=5,
+        labels=c('A', 'B'),
+        thresholds=c(0),
+        thresh.min=-Inf,
+        thresh.max=Inf
+    )
 }
 
