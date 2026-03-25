@@ -117,7 +117,7 @@ nested.loops.df %>%
         sampleID_col='SampleID',
         SampleID.fields=
             c(
-                NA,
+                'Edit',
                 'Celltype',
                 'Genotype'
             )

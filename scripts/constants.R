@@ -3,6 +3,7 @@ library(tibble)
 library(dplyr)
 library(magrittr)
 library(glue)
+options(dplyr.summarise.inform = FALSE)
 # location of scripts 
 if (grepl('/home/', BASE_DIR)) {
     SCRIPT_DIR <- file.path(BASE_DIR, '../remote.16p/scripts')

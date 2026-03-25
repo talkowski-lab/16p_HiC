@@ -20,7 +20,7 @@ load_pairtools_stats <- function(
             'TechRepID'
         ),
     ...){
-    # file.suffix='.hg38.dedup.stats'; samples.to.include=NULL; SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', 'Batch')
+    # file.suffix='.hg38.dedup.stats'; samples.to.include=NULL; SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID')
     # Load all stats
     all.stats.df <- 
         PAIRS_DIR %>%
@@ -60,7 +60,7 @@ load_pairtools_stats <- function(
         select(-c(filepath)) %>%
         unnest(stats)
     # Compute stats for merged matrices and add as new rows
-    all.stats.df <- 
+    # all.stats.df <- 
         all.stats.df %>% 
         get_info_from_SampleIDs(
             keep_id=FALSE,

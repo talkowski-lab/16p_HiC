@@ -115,7 +115,6 @@ reference.files/
 ├── ENCODE.v4.cCRE.anontations.tsv   # ENCODE cCREs annotations
 ├── gene.constraints.CNVR.tsv        # Constraint metrics for each gene
 └── genome.tracks/                   # Several set metrics, computed bin-wise across the genome
-    ├── ???
     └── track.type_genecov/
 ```
 
@@ -154,7 +153,7 @@ $ tree -L 1 /data/talkowski/Samples/16p_HiC/results/ -P "*_library|mapped_*|*qc"
     │   │   └── 16p.NSC.DEL.A3.TR1.lane1.hg38.0.bam
     │   └── .../
     └── pairs_library
-        ├── 16p.NSC.DEL.A3.TR1/
+        ├── 16p.NSC.DEL.A3.TR1/
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dedup.stats
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.bam
         │   ├── 16p.NSC.DEL.A3.TR1.hg38.dups.pairs.gz
@@ -643,9 +642,9 @@ find results/TADs/results_TADCompare/ -type f -name '*-TADCompare.tsv' | sed -e 
 # List all loop results
 find results/loops/results_loops/method_cooltools -type f -name '*-dots.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
 # IDR2D results
-find results/loops/results_IDR2D -type f -name '*.tsv' | cut -d'/' -f4-6 | sort | uniq -c | column -s'/' -t
+find results/loops/results_IDR2D -type f -name '*.tsv' | sed -e 's/_vs_/\//' -e 's/-IDR2D.tsv//' | cut -d'/' -f7,12,13 | sort -t'/' -k1,1 -k3,3 | uniq -c | column -s'/' -t
 # List all multiHiCCompare results
-find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | cut -d'/' -f4-6,8 | sort | uniq -c | column -s'/' -t
+find results/multiHiCCompare/results/ -type f -name '*-multiHiCCompare.tsv' | sed -s 's/-multiHiCCompare.tsv//' | sed -e 's/_vs_/\//' | cut -d'/' -f4-7 | sort -t'/' -k4,4h | uniq -c | column -s'/' -t
 # List compartment results
 find results/compartments/results_compartments/ -type f -name '*-cis.vecs.tsv' | sed -s 's/-cis.vecs.tsv//' | cut -d'/' -f4- | sort | uniq -c | column -s'/' -t
 ```

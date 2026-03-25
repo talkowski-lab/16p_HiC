@@ -243,7 +243,7 @@ load_all_DESeq2_results <- function(force.redo=FALSE){
                                     .data=., 
                                     all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator')),
                                 ),
-                            suffixes=c('.Numerator', '.Denominator'),
+                            suffixes=c('Numerator', 'Denominator'),
                             SampleID.fields=c(NA, 'Celltype', 'Genotype'),
                         )
                 ) %>%

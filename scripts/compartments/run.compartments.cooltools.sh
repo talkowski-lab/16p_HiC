@@ -67,6 +67,8 @@ run_cooltools_compartments() {
     bins_file="${GENOME_BINS_DIR}/resolution_${resolution}/genome.bins.tsv"
     track_file="${TRACK_FILES_DIR}/track.type_${TRACK_TYPE}/resolution_${resolution}/${GENOME_NAME}-genome.track.tsv"
     uri="${sample_file}::/resolutions/${resolution}"
+    # Skip if file is generated
+    [[ -f "${output_prefix}.cis.vecs.tsv" ]] && continue
     mkdir -p "${param_dir}"
     cooltools eigs-cis --phasing-track "${track_file}" --n-eigs 3 --clr-weight-name ${COMPARTMENT_WEIGHTS[${weight_name}]} -o "${output_prefix}" "${uri}" 
     # echo "====================================="

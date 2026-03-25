@@ -60,6 +60,7 @@ compute_matrix_coverage() {
 ###################################################
 THREADS=$(nproc)
 FORCE_REDO=0
+OUTPUT_DIR="./results/sample.QC/coverage"
 # Handle CLI args
 [[ $# -eq 0 ]] && echo "No Args" && help
 while getopts "o:t:fh" flag; do

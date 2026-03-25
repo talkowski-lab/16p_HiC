@@ -8,6 +8,7 @@ library(ggpubr)
 library(ggh4x)
 library(GGally)
 library(scales)
+library(furrr)
 
 ###################################################
 # Transform data for plotting
@@ -798,7 +799,7 @@ plot_barplot <- function(
     label.color='black',
     label.size=3,
     position='dodge',
-    legend.cols=1,
+    legend.cols=NA,
     ...){
     # Set fill group if specified
     {
@@ -823,9 +824,14 @@ plot_barplot <- function(
     } %>% 
     # make it a boxplot 
     { 
-        . + 
-        geom_col(position=position) +
-        guides(fill=guide_legend(ncol=legend.cols))
+        if (!is.na(legend.cols)) {
+            . + 
+            geom_col(position=position) +
+            guides(fill=guide_legend(ncol=legend.cols))
+        } else {
+            . + 
+            geom_col(position=position)
+        }
     } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...) %>% 
@@ -835,6 +841,12 @@ plot_barplot <- function(
             geom_text(
                 aes(label=.data[[label.var]]), 
                 position=position_stack(vjust=0.5),
+                # position=
+                #     ifelse(
+                #         position == 'dodge',
+                #         position_dodge(),
+                #         position_stack(vjust=0.5)
+                #     ),
                 color=label.color,
                 size=label.size,
             )

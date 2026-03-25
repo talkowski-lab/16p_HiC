@@ -419,8 +419,12 @@ post_process_TADCompare_results <- function(results.df){
             isBoundary, DifferenceType
         )
     ) %>% 
+    mutate(log.p.adj.gw=-log10(p.adj.gw)) %>% 
+    filter(isBoundary == 'TAD') %>% 
     select(
         -c(
+            TAD.isDifferential,
+            isDifferential,
             z.thresh,
             window.size,
             gap.thresh
