@@ -95,95 +95,28 @@ make_ggtheme <- function(...){
     )
 }
 
-scale_x_axis <- function(
-    figure,
-    scale.mode='',
-    log.base=10,
-    axis.label.accuracy=0.1,
-    n.breaks=NULL,
-    limits=NULL,
-    expand=c(0.00, 0.00, 0.00, 0.00),
-    ...){
-    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$x), figure@data)
-    if (!is.numeric(scale.data)) {
-        scale.mode <- 'discrete'
-    }
-    # Scale y axis based on scale.mode argumetn
-    if (scale.mode == 'pct') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_x_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=label_percent(),
-            ...
+build_axis_fnc <- function(
+    scale.axis,
+    scale.mode,
+    limits){
+    axis.type <- 
+        case_when(
+            scale.mode == 'pct'      ~ 'continuous',
+            scale.mode == 'm'        ~ 'continuous',
+            scale.mode == 'mb'       ~ 'continuous',
+            scale.mode == 'log10'    ~ 'log10',
+            scale.mode == 'discrete' ~ 'discrete',
+            scale.mode == ''         ~ 'continuous'
         )
-    } else if (scale.mode == 'm') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_x_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_number(
-                    scale_cut=cut_short_scale(),
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'mb') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_x_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_bytes(
-                    units="auto_si",
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'log10') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_x_log10(
-            expand=expand,
-            guide='axis_logticks',
-            labels=
-                label_log(
-                    base=log.base,
-                    digits=max(1, -log10(axis.label.accuracy)),
-                    signed=FALSE
-                ),
-            ...
-        )
-    } else if (scale.mode == 'discrete') {
-        figure +
-        scale_x_discrete(expand=expand)
-    } else if (scale.mode == '') {
-        if (is.null(limits)) {
-            figure + 
-            scale_x_continuous(
-                expand=expand,
-                labels=
-                    function(x) {
-                        format(x, digits=max(1, -log10(axis.label.accuracy)))
-                    }
-            )
-        } else {
-            figure + 
-            coord_cartesian(xlim=limits) +
-            scale_x_continuous(
-                expand=expand,
-                ...
-            )
-        }
-    }
+    glue('scale_{scale.axis}_{axis.type}') %>%
+    as.symbol() %>%
+    eval()
+
 }
 
-scale_y_axis <- function(
+scale_axis <- function(
     figure,
+    scale.axis='x',
     scale.mode='',
     log.base=10,
     axis.label.accuracy=0.1,
@@ -191,27 +124,35 @@ scale_y_axis <- function(
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
-    # autodetect discrete scale
-    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$y), figure@data)
-    if (!is.numeric(scale.data)) {
-        scale.mode <- 'discrete'
-    }
-    # Scale y axis based on scale_mode argumetn
+    # check if data is discrete
+    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping[[scale.axis]]), figure@data)
+    if (!is.numeric(scale.data)) { scale.mode <- 'discrete' }
+    rm(scale.data)
+    # figure out which axis function to call
+    axis_fnc <- 
+        build_axis_fnc(
+            scale.axis=scale.axis,
+            scale.mode=scale.mode,
+            limits=limits
+        )
+    # Set axis scaling/labeling based on scale.mode argument
+    # Scaling for percentages
     if (scale.mode == 'pct') {
         figure +
-        coord_cartesian(ylim=limits) +
-        scale_y_continuous(
+        axis_fnc(
             expand=expand,
             n.breaks=n.breaks,
+            limits=limits,
             labels=label_percent(),
             ...
         )
+    # Human scaling for large numbers e.g. 1K, 1M, 1B
     } else if (scale.mode == 'm') {
         figure +
-        coord_cartesian(xlim=limits) +
-        scale_y_continuous(
+        axis_fnc(
             expand=expand,
             n.breaks=n.breaks,
+            limits=limits,
             labels=
                 label_number(
                     scale_cut=cut_short_scale(),
@@ -219,12 +160,14 @@ scale_y_axis <- function(
                 ),
             ...
         )
+    # Human scaling in bytes e.g. 1Kb, 1Mb, 1Gb. 
+    # Useful for genomic coordinates + sizes
     } else if (scale.mode == 'mb') {
         figure +
-        coord_cartesian(ylim=limits) +
-        scale_y_continuous(
+        axis_fnc(
             expand=expand,
             n.breaks=n.breaks,
+            limits=limits,
             labels=
                 label_bytes(
                     units="auto_si",
@@ -232,11 +175,12 @@ scale_y_axis <- function(
                 ),
             ...
         )
+    # scale axis on log10, for large numbers
     } else if (scale.mode == 'log10') {
         figure +
-        coord_cartesian(ylim=limits) +
-        scale_y_log10(
+        axis_fnc(
             expand=expand,
+            limits=limits,
             guide='axis_logticks',
             labels=
                 label_log(
@@ -246,13 +190,15 @@ scale_y_axis <- function(
                 ),
             ...
         )
+    # Discrete set of labeld i.e. DEL,WT
     } else if (scale.mode == 'discrete') {
         figure +
-        scale_y_discrete(expand=expand)
+        axis_fnc(expand=expand)
+    # No scaling, just set limits and label rounding
     } else if (scale.mode == '') {
         if (is.null(limits)) {
             figure + 
-            scale_y_continuous(
+            axis_fnc(
                 expand=expand,
                 labels=
                     function(x) {
@@ -261,180 +207,8 @@ scale_y_axis <- function(
             )
         } else {
             figure + 
-            coord_cartesian(ylim=limits) +
-            scale_y_continuous(
-                expand=expand,
-                ...
-            )
-        }
-    }
-}
-
-scale_color_axis <- function(
-    figure,
-    scale.mode='',
-    log.base=10,
-    axis.label.accuracy=0.1,
-    n.breaks=NULL,
-    limits=NULL,
-    expand=c(0.00, 0.00, 0.00, 0.00),
-    ...){
-    # autodetect discrete scale
-    is.data.discrete <- !is.numeric(rlang::eval_tidy(rlang::quo_squash(figure@mapping$colour), figure@data))
-    if (is.data.discrete) { scale.mode <- 'discrete' }
-    # Scale color axis based on scale_mode argument
-    if (scale.mode == 'pct') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_color_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=label_percent(),
-            ...
-        )
-    } else if (scale.mode == 'm') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_color_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_number(
-                    scale_cut=cut_short_scale(),
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'mb') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_color_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_bytes(
-                    units="auto_si",
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'log10') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_color_log10(
-            expand=expand,
-            guide='axis_logticks',
-            labels=
-                label_log(
-                    base=log.base,
-                    digits=max(1, -log10(axis.label.accuracy)),
-                    signed=FALSE
-                ),
-            ...
-        )
-    } else if (scale.mode == 'discrete') {
-        figure +
-        scale_color_discrete(expand=expand)
-    } else if (scale.mode == '') {
-        if (is.null(limits)) {
-            figure + 
-            scale_color_continuous(
-                labels=
-                    function(x) {
-                        format(x, digits=max(1, -log10(axis.label.accuracy)))
-                    }
-            )
-        } else {
-            figure + 
-            coord_cartesian(ylim=limits) +
-            scale_color_continuous(
-                expand=expand,
-                ...
-            )
-        }
-    }
-}
-
-scale_fill_axis <- function(
-    figure,
-    scale.mode='',
-    log.base=10,
-    axis.label.accuracy=0.1,
-    n.breaks=NULL,
-    limits=NULL,
-    expand=c(0.00, 0.00, 0.00, 0.00),
-    ...){
-    # autodetect discrete scale
-    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping$fill), figure@data)
-    if (!is.numeric(scale.data)) {
-        scale.mode <- 'discrete'
-    }
-    # Scale fill axis based on scale_mode argument
-    if (scale.mode == 'pct') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_fill_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=label_percent(),
-            ...
-        )
-    } else if (scale.mode == 'm') {
-        figure +
-        coord_cartesian(xlim=limits) +
-        scale_fill_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_number(
-                    scale_cut=cut_short_scale(),
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'mb') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_fill_continuous(
-            expand=expand,
-            n.breaks=n.breaks,
-            labels=
-                label_bytes(
-                    units="auto_si",
-                    accuracy=axis.label.accuracy
-                ),
-            ...
-        )
-    } else if (scale.mode == 'log10') {
-        figure +
-        coord_cartesian(ylim=limits) +
-        scale_fill_log10(
-            expand=expand,
-            guide='axis_logticks',
-            labels=
-                label_log(
-                    base=log.base,
-                    digits=max(1, -log10(axis.label.accuracy)),
-                    signed=FALSE
-                ),
-            ...
-        )
-    } else if (scale.mode == 'discrete') {
-        figure +
-        scale_fill_discrete(expand=expand)
-    } else if (scale.mode == '') {
-        if (is.null(limits)) {
-            figure + 
-            scale_fill_continuous(
-                labels=
-                    function(x) {
-                        format(x, digits=max(1, -log10(axis.label.accuracy)))
-                    }
-            )
-        } else {
-            figure + 
-            coord_cartesian(ylim=limits) +
-            scale_fill_continuous(
+            axis_fnc(
+                limits=limits,
                 expand=expand,
                 ...
             )
@@ -444,8 +218,10 @@ scale_fill_axis <- function(
 
 add_faceting <- function(
     figure,
-    space='fixed',
-    solo_line=TRUE,
+    # space='fixed',
+    # solo_line=TRUE,
+    # independent='',
+    # axes=FALSE,
     # trim_blank=TRUE,
     facet.group=NULL,
     facet.col=NULL,
@@ -465,8 +241,10 @@ add_faceting <- function(
                     sep=' ~ '
                 ) %>%
                 formula(),
-                space=space,
-                solo_line=solo_line,
+                # space=space,
+                # solo_line=solo_line,
+                # independent=independent,
+                # axes=axes,
                 # trim_blank=trim_blank,
                 ...
             )
@@ -474,10 +252,11 @@ add_faceting <- function(
         figure <- 
             figure +
             facet_nested(
-                # formula(glue('~ {paste(facet.row, collapse=" + ")}')),
                 formula(glue('{paste(facet.row, collapse=" + ")} ~ .')),
-                space=space,
-                solo_line=solo_line,
+                # space=space,
+                # solo_line=solo_line,
+                # independent=independent,
+                # axes=axes,
                 # trim_blank=trim_blank,
                 ...
             )
@@ -485,11 +264,12 @@ add_faceting <- function(
         figure <- 
             figure +
             facet_nested(
-                # formula(glue('{paste(facet.col, collapse=" + ")} ~ .')),
                 formula(glue('~ {paste(facet.col, collapse=" + ")}')),
-                space=space,
-                solo_line=solo_line,
+                # space=space,
+                # solo_line=solo_line,
+                # independent=independent,
                 # trim_blank=trim_blank,
+                # axes=axes,
                 ...
             )
     } else if (!is.null(facet.group)) {
@@ -498,8 +278,8 @@ add_faceting <- function(
             facet_wrap2(
                 vars(!!sym(facet.group)),
                 nrow=facet.nrow,
-                ncol=facet.ncol,
-                ...
+                ncol=facet.ncol
+                # ...
             )
     }
     figure
@@ -508,14 +288,16 @@ add_faceting <- function(
 post_process_plot <- function(
     figure,
     theme.obj=NULL,
+    scales='fixed',
+    space='fixed',
+    independent=FALSE,
+    drop=TRUE,
+    axes='margins',
     facet.row=NULL,
     facet.nrow=NULL,
     facet.col=NULL,
     facet.ncol=NULL,
     facet.group=NULL,
-    scales='fixed',
-    space='fixed',
-    # trim_blank=TRUE,
     x.scale.mode='',
     x.log.base=10,
     x.axis.label.accuracy=0.1,
@@ -546,7 +328,9 @@ post_process_plot <- function(
     add_faceting(
         scales=scales,
         space=space,
-        # trim_blank=trim_blank,
+        independent=independent,
+        axes=axes,
+        drop=drop,
         facet.row=facet.row,
         facet.col=facet.col,
         facet.group=facet.group,
@@ -554,7 +338,8 @@ post_process_plot <- function(
         facet.ncol=facet.ncol
     ) %>% 
     # Set x-axis scaling (log, Mb, percent etc.)
-    scale_x_axis(
+    scale_axis(
+        scale.axis='x',
         scale.mode=x.scale.mode,
         log.base=x.log.base,
         axis.label.accuracy=x.axis.label.accuracy,
@@ -563,7 +348,8 @@ post_process_plot <- function(
         expand=x.expand
     ) %>% 
     # Set y-axis scaling (log, Mb, percent etc.)
-    scale_y_axis(
+    scale_axis(
+        scale.axis='y',
         scale.mode=y.scale.mode,
         log.base=y.log.base,
         axis.label.accuracy=y.axis.label.accuracy,
@@ -572,7 +358,8 @@ post_process_plot <- function(
         expand=y.expand
     ) %>% 
     # Set color scaling (log, Mb, percent etc.)
-    scale_color_axis(
+    scale_axis(
+        scale.axis='color',
         scale.mode=color.scale.mode,
         log.base=color.log.base,
         axis.label.accuracy=color.axis.label.accuracy,
@@ -581,7 +368,8 @@ post_process_plot <- function(
         expand=color.expand
     ) %>% 
     # Set fill scaling (log, Mb, percent etc.)
-    scale_fill_axis(
+    scale_axis(
+        scale.axis='fill',
         scale.mode=fill.scale.mode,
         log.base=fill.log.base,
         axis.label.accuracy=fill.axis.label.accuracy,
