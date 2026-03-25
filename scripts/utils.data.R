@@ -763,7 +763,7 @@ set_up_sample_comparisons <- function(
             .
         }
     } %>%
-    select(-c(isMerged)) %>% 
+    # select(-c(isMerged)) %>% 
     mutate(
         across(
             starts_with('Sample.Group.'),
@@ -771,7 +771,8 @@ set_up_sample_comparisons <- function(
             .names='{.col}.Pattern'
         )
     ) %>% 
-    nest(samples.df=everything()) %>%
+    # nest(samples.df=everything()) %>%
+    nest(samples.df=-c(isMerged)) %>%
     # Now group samples by condition,
     cross_join(
         comparison.groups %>% 

@@ -248,9 +248,9 @@ run_all_multiHiCCompare <- function(
             file.path(
                 MULTIHICCOMPARE_DIR,
                 'results',
-                # glue('merged_{isMerged}'),
                 glue('zero.p_{zero.p}'),
                 glue('A.min_{A.min}'),
+                glue('merged_{isMerged}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}'),
                 # glue('resolution.type_{resolution.type}'),
                 glue('region_{chr}')
@@ -282,6 +282,7 @@ run_all_multiHiCCompare <- function(
                 .,
                 zero.p,
                 A.min,
+                isMerged,
                 resolution,
                 Sample.Group.Numerator,
                 Sample.Group.Denominator
@@ -456,6 +457,9 @@ load_all_multiHiCCompare_results <- function(
 
 post_process_multiHiCCompare_results <- function(results.df){
     results.df %>% 
+    mutate(merged=ifelse(merged, 'Merged', 'Individual')) %>% 
+    mutate(Edit.Numerator=as.factor(Edit.Numerator)) %>% 
+    mutate(Sample.Group=fct_reorder(Sample.Group, as.integer(Edit.Numerator))) %>% 
     select(
         -c(
             p.value, p.adj,
@@ -542,6 +546,8 @@ count_contacts_by_significance <- function(
 
 post_process_counts_by_significance <- function(results.df){
     results.df %>% 
+    mutate(Edit.Numerator=as.factor(Edit.Numerator)) %>% 
+    mutate(merged=ifelse(merged, 'Merged', 'Individual')) %>% 
     mutate(
         sig.lvl=
             factor(
@@ -565,20 +571,23 @@ post_process_counts_by_significance <- function(results.df){
 plot_upset <- function(
     plot.df,
     make.binary=FALSE,
-    category_col='Sample.Group',
+    category_col='Comparison',
     ...){
+    # make.binary=FALSE; category_col='Comparison';
     total.interactions <- nrow(plot.df)
     category_prefix <- fixed(glue('{category_col}.'))
     if (make.binary) {
-        plot.df <-
+        # plot.df <-
+        tmp <- 
             plot.df %>%
             add_column(is.category=TRUE) %>%
             pivot_wider(
                 names_from=category_col,
                 names_prefix=category_prefix,
                 values_from=is.category,
-                values_fill=FALSE
+                values_fill=list(FALSE)
             )
+        tmp %>%  head(2) %>% t()
     } 
     upset(
         plot.df,
@@ -592,7 +601,7 @@ plot_upset <- function(
         base_annotations=
             list(
                 'Common DIRs across Comparisons'=
-                    interaction_size(
+                    intersection_size(
                         text_colors=
                             c(
                                 on_background='black',

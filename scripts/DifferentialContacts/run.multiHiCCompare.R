@@ -4,6 +4,7 @@
 library(here)
 here::i_am('scripts/DifferentialContacts/run.multiHiCCompare.R')
 BASE_DIR <- here()
+# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
 suppressPackageStartupMessages({
     library(purrr)
     library(optparse)
@@ -44,16 +45,16 @@ register(MulticoreParam(workers=parsed.args$threads * 2 / 4), default=TRUE)
 plan(multisession,      workers=parsed.args$threads * 2 / 4)
 # GRanges object with Centro/Telomere regions to filter
 data('hg38_cyto') 
-# List all separate sample sets + parameters to run multiHiCComapre for
+# List all separate sets of individual replicates to compare + parameters to run multiHiCComapre
 comparisons.df <- 
     ALL_SAMPLE_GROUP_COMPARISONS %>% 
-    # set_up_sample_comparisons(merging='individual') %>% 
     set_up_sample_comparisons(merging='both') %>% 
     dplyr::rename(
         'Sample.Group.P1'=Sample.Group.Numerator,
         'Sample.Group.P2'=Sample.Group.Denominator
     )
-# comparisons.df
+# List all pairs of merged matrices to compare
+# Run 
 comparisons.df %>% 
     run_all_multiHiCCompare(    
         hyper.params.df=hyper.params.df,
