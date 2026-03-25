@@ -8,7 +8,6 @@ NDV.misc
 
 # Data
 fastq/
-public.data/
 
 # Results
 results/
@@ -58,3 +57,6 @@ reference.files/hg38_gene_deserts.tsv
 reference.files/genome.bins
 reference.files/genome.tracks
 reference.files/packages/
+public.data/PMID_30545851
+public.data/PMID_37090552/Gluta_GSE228118/GSE228118_Gluta_HiC_merged_loops.bed12
+public.data/PMID_37090552/Gluta_GSE228118
