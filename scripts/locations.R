@@ -41,6 +41,7 @@ BED_FILES_DIR                 <- file.path(RESULTS_DIR, 'bed_files')
 LOOP_BED_FILES_DIR            <- file.path(BED_FILES_DIR, 'loops')
 TAD_BED_FILES_DIR             <- file.path(BED_FILES_DIR, 'TADs')
 MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
+CCRES_BED_DIR                 <- file.path(BED_FILES_DIR, 'cCREs')
 
 ###################################################
 # RNASeq
