@@ -120,6 +120,41 @@
 ####  [Spatial patterns of CTCF sites define the anatomy of TADs and their boundaries](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02108-x)  
 ####   [CTCF shapes chromatin structure and gene expression in health and disease](https://pmc.ncbi.nlm.nih.gov/articles/PMC9442299/)
 
+#### Unformatted Paper Links
+
+https://academic.oup.com/bib/article/23/1/bbab509/6446983#327092372
+https://www.cell.com/ajhg/fulltext/S0002-9297(21)00009-4#fig1
+https://www.nature.com/articles/nmeth.4325
+https://pmc.ncbi.nlm.nih.gov/articles/PMC10531246/#sec2-ijms-24-13814
+https://github.com/mdozmorov/HiC_data?tab=readme-ov-file#cell-lines
+https://www.sciencedirect.com/science/article/pii/S2211124720309104?via=ihub
+https://pmc.ncbi.nlm.nih.gov/articles/PMC6297223/#Abs1
+https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.905202/full
+https://www.nature.com/articles/s41380-025-03352-y.pdf
+https://www.biorxiv.org/content/10.1101/2023.11.24.567971v1.full.pdf
+https://www.biorxiv.org/content/10.1101/2023.04.04.535480v1.full
+https://academic.oup.com/nar/article/51/20/11142/7301278#424819438
+https://academic.oup.com/nar/article/40/9/3849/1138988
+https://academic.oup.com/bioinformaticsadvances/article/3/1/vbad152/7319106#425603573
+https://academic.oup.com/gigascience/article/9/1/giz158/5695848
+https://pmc.ncbi.nlm.nih.gov/articles/PMC11413648/
+https://pmc.ncbi.nlm.nih.gov/articles/PMC6408958/#S11
+https://pmc.ncbi.nlm.nih.gov/articles/PMC6028237/
+https://www.nature.com/articles/s41467-024-52296-4
+https://www.nature.com/articles/s41594-024-01431-2?fromPaywallRec=false
+https://www.nature.com/articles/s41592-021-01248-7#Fig2
+https://www.nature.com/articles/nature11279
+https://www.nature.com/articles/s41586-022-04570-y?fromPaywallRec=false
+https://www.nature.com/articles/s41588-025-02489-4
+https://www.nature.com/articles/s41380-025-03352-y#Sec8
+https://www.nature.com/articles/s41467-020-19452-y
+https://www.nature.com/articles/nature14222
+https://www.nature.com/articles/nature19847#accession-codes
+https://www.nature.com/articles/s41594-022-00892-7?error=server_error#Sec11
+https://www.nature.com/articles/s41467-020-19283-x#Fig2
+https://www.nature.com/articles/s41467-023-39043-x#Sec10
+https://www.nature.com/articles/s41576-023-00638-1#Fig2
+
 ## QC Notes
 
 * “However, between replicates, TAD structures are shown to share only of their boundaries, suggesting that chromosome structure is not a static feature, but remains variable even in identical cell populations” \- [discussion sectio](https://academic.oup.com/nargab/article/2/1/lqz008/5576144#209716725)n  
