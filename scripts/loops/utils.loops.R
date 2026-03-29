@@ -499,46 +499,6 @@ post_process_loop_valency_results <- function(results.df){
 ###################################################
 # Nesting Analysis
 ###################################################
-generate_all_loop_bed_files <- function(
-    loops.df,
-    force_redo=FALSE){
-    loops.df %>% 
-    mutate(
-        output_dir=
-            file.path(
-                LOOP_BED_FILES_DIR,
-                'method_cooltools',
-                glue('kernel_{kernel}'),
-                glue('type_{type}'),
-                glue('weight_{weight}'),
-                glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
-                # glue('region_{chr}')
-            ),
-        results_file=
-            file.path(
-                output_dir,
-                glue('{SampleID}-loops.bed')
-            )
-    ) %>% 
-    {
-        if (!force_redo) {
-            filter(., !file.exists(results_file))
-        } else{
-            .
-        }
-    } %T>% 
-    # future_pmap(
-    pmap(
-        .l=.,
-        .f=
-            function(loops, results_file, output_dir, ...){
-                dir.create(output_dir, recursive=TRUE, showWarnings=FALSE)
-                write_tsv(loops, results_file, col_names=FALSE)
-            },
-        .progress=TRUE
-    )
-}
-
 generate_loop_nesting_calculation_cmds <- function(
     bin.files.df,
     force_redo=FALSE){

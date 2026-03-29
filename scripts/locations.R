@@ -38,10 +38,17 @@ GENOME_BINS_FILES_DIR         <- file.path(REF_DIR, 'genome.bins')
 # BED files
 ###################################################
 BED_FILES_DIR                 <- file.path(RESULTS_DIR, 'bed_files')
-LOOP_BED_FILES_DIR            <- file.path(BED_FILES_DIR, 'loops')
-TAD_BED_FILES_DIR             <- file.path(BED_FILES_DIR, 'TADs')
-MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
 CCRES_BED_DIR                 <- file.path(BED_FILES_DIR, 'cCREs')
+TAD_BED_FILES_DIR             <- file.path(BED_FILES_DIR, 'TADs')
+LOOP_BED_FILES_DIR            <- file.path(BED_FILES_DIR, 'loops')
+COMPARTMENT_BED_FILES_DIR     <- file.path(BED_FILES_DIR, 'compartments')
+MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
+
+###################################################
+# Functional Enrichment DIR
+###################################################
+FUNCTIONAL_ENRICHMENTS_DIR    <- file.path(RESULTS_DIR, 'functional.enrichments')
+ALL_CCRE_ENRICHMENT_CMDS_FILE <- file.path(FUNCTIONAL_ENRICHMENTS_DIR, 'all.cCRE.bedtools.intersect.cmds.txt')
 
 ###################################################
 # RNASeq
