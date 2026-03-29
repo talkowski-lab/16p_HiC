@@ -84,13 +84,15 @@ WEINER_REPLICATION_PLOTS_DIR <- file.path(WEINER_REPLICATION_DIR, 'plots')
 # TAD Annotations
 ###################################################
 TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
-HITAD_TAD_RESULTS_FILE        <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
+TAD_RESULTS_DIR                <- file.path(TAD_DIR, 'results_TADs')
+HITAD_TAD_RESULTS_DIR          <- file.path(TAD_RESULTS_DIR, 'method_hiTAD')
+HITAD_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
 # HITAD_DI_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 # HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
-CONSENSUSTAD_TAD_RESULTS_FILE <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
+CONSENSUSTAD_TAD_RESULTS_DIR   <- file.path(TAD_RESULTS_DIR, 'method_ConsensusTAD')
+CONSENSUSTAD_TAD_RESULTS_FILE  <- file.path(TAD_DIR, 'all.ConsensusTAD.TADs.tsv')
 # CONSENSUSTAD_DI_FILE          <- file.path(TAD_DIR, 'all.ConsensusTAD.DI.annotations.tsv')
 # CONSENSUSTAD_MOC_FILE         <- file.path(TAD_DIR, 'all.ConsensusTAD.TAD.MoCs.tsv')
-TAD_RESULTS_DIR                <- file.path(TAD_DIR, 'results_TADs')
 ALL_TAD_RESULTS_FILE           <- file.path(TAD_DIR, 'all.all.TADs.tsv')
 ALL_MOC_FILE                   <- file.path(TAD_DIR, 'all.all.TAD.MoCs.tsv')
 # TADCompare results
