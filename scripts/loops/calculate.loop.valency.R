@@ -2,7 +2,7 @@
 # Depdendencies
 ###################################################
 library(here)
-here::i_am('scripts/loops/calculate.loop.nesting.levels.R')
+here::i_am('scripts/loops/calculate.loop.valency.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
     library(purrr)
@@ -26,7 +26,7 @@ parsed.args <-
     )
 
 ###################################################
-# Generate DAC results for each comparison
+# Calculate Loop Valency for each loop anchor
 ###################################################
 # 2 group comparison + no covariates -> use exact test
 message(glue('using {parsed.args$threads} core to parallelize'))

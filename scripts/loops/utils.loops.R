@@ -16,15 +16,22 @@ load_cooltools_dots <- function(
     )
 }
 
-list_all_cooltools_dots_results <- function(){
+list_all_cooltools_dots_results <- function(resolutions=NULL){
     LOOP_RESULTS_DIR %>% 
     parse_results_filelist(suffix='-dots.tsv') %>%
     filter(method == 'cooltools') %>% 
+    {
+        if (!is.null(resolutions)) {
+            filter(., resolution %in% resolutions)
+        } else {
+            .
+        }
+    } %>% 
     get_info_from_MatrixIDs(keep_id=FALSE)
 }
 
-load_all_cooltools_dots <- function(){
-    list_all_cooltools_dots_results() %>% 
+load_all_cooltools_dots <- function(resolutions=NULL){
+    list_all_cooltools_dots_results(resolutions=resolutions) %>% 
     mutate(
         loops=
             # pmap(
@@ -343,6 +350,7 @@ load_IDR2D_results <- function(filepath, ...){
 }
 
 list_all_IDR2D_results <- function(
+    resolutions=NULL,
     suffixes=c('.P1', '.P2'),
     ...){
     LOOPS_IDR2D_DIR %>% 
@@ -350,6 +358,13 @@ list_all_IDR2D_results <- function(
         suffix='-IDR2D.tsv',
         filename.column.name='Sample.Group.Pair'
     ) %>% 
+    {
+        if (!is.null(resolutions)) {
+            filter(., resolution %in% resolutions)
+        } else {
+            .
+        }
+    } %>% 
     separate_wider_delim(
         Sample.Group.Pair,
         delim='_vs_',
@@ -357,8 +372,8 @@ list_all_IDR2D_results <- function(
     )
 }
 
-load_all_IDR2D_results <- function(){
-    list_all_IDR2D_results() %>% 
+load_all_IDR2D_results <- function(resolutions=NULL){
+    list_all_IDR2D_results(resolutions=resolutions) %>% 
     mutate(
         idr2d=
             # pmap(
@@ -386,12 +401,12 @@ post_process_IDR2D_results <- function(results.df){
         max.gap.bins.int=max.gap / resolution,
         max.gap=
             fct_reorder(
-                glue('max gap = {scale_numbers(max.gap, force_chr=TRUE)}'),
+                glue('{scale_numbers(max.gap, force_chr=TRUE)}'),
                 max.gap.bins.int
             ),
         max.gap.bins=
             fct_reorder(
-                glue('max gap = {max.gap.bins.int} bins'),
+                glue('{max.gap.bins.int} bins'),
                 max.gap.bins.int
             ),
         is.loop.shared=
@@ -571,7 +586,7 @@ load_loop_nesting_results <- function(filepath){
     )
 }
 
-summarize_loop_nesting_results <- function(results.df) {
+summarize_loop_nesting_results <- function(results.df, resolution, ...) {
     # compute summary stats across all loops overlapping each bin
     # then collapse run of contiguous bins together (i.e. all bins within the exact same set of loops)
     # nesting results as output from bedtools intersect
@@ -627,11 +642,11 @@ summarize_loop_nesting_results <- function(results.df) {
             )
         )
     ) %>%
-    # Take the leftmost start and righmost end for all segments i.e. groups of contiguous bins that
+    # Take the leftmost start and righmost end for all groups of contiguous bins (i.e. segments) that
     # by definition have the same loop nesting stats, since they are covered by the same set of loops
     summarize(
         nest.start=min(bin.start),
-        nest.end=max(bin.end)
+        nest.end=max(bin.end) - resolution # start of the last bin in the nested region
     ) %>%
     ungroup() %>%
     relocate(chr, nest.start, nest.end, nesting.lvl)
@@ -650,10 +665,10 @@ load_all_loop_nesting_results <- function(){
             pmap(
                 .l=.,
                 .f=
-                    function(filepath, ...){
+                    function(filepath, resolution, ...){
                         filepath %>% 
                         load_loop_nesting_results() %>% 
-                        summarize_loop_nesting_results()
+                        summarize_loop_nesting_results(resolution)
                     },
                 .progress=TRUE
             )
@@ -664,6 +679,8 @@ load_all_loop_nesting_results <- function(){
 
 post_process_loop_nesting_result <- function(results.df){
     results.df %>% 
+    filter(kernel == 'donut') %>% 
+    filter(weight == 'balanced') %>% 
     mutate(nest.length=nest.end - nest.start) %>% 
     pivot_longer(
         starts_with('metric.'),
@@ -674,6 +691,12 @@ post_process_loop_nesting_result <- function(results.df){
         tmp,
         delim='.',
         names=c(NA, 'stat', 'loop.feature')
+    ) %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='.',
+        names=c('Edit', 'Celltype', 'Genotype'),
+        cols_remove=FALSE
     )
 }
 

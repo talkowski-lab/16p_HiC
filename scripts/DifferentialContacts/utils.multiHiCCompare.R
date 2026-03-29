@@ -457,9 +457,12 @@ load_all_multiHiCCompare_results <- function(
 
 post_process_multiHiCCompare_results <- function(results.df){
     results.df %>% 
-    mutate(merged=ifelse(merged, 'Merged', 'Individual')) %>% 
-    mutate(Edit.Numerator=as.factor(Edit.Numerator)) %>% 
-    mutate(Sample.Group=fct_reorder(Sample.Group, as.integer(Edit.Numerator))) %>% 
+    mutate(
+        merged=ifelse(merged, 'Merged', 'Individual'),
+        Edit.Numerator=as.factor(Edit.Numerator),
+        Sample.Group=fct_reorder(Sample.Group, as.integer(Edit.Numerator)),
+        chr=rename_chrs(chr, to_label=TRUE)
+    ) %>% 
     select(
         -c(
             p.value, p.adj,
@@ -546,9 +549,10 @@ count_contacts_by_significance <- function(
 
 post_process_counts_by_significance <- function(results.df){
     results.df %>% 
-    mutate(Edit.Numerator=as.factor(Edit.Numerator)) %>% 
-    mutate(merged=ifelse(merged, 'Merged', 'Individual')) %>% 
     mutate(
+        Edit.Numerator=as.factor(Edit.Numerator),
+        merged=ifelse(merged, 'Merged', 'Individual'),
+        chr=rename_chrs(chr, to_label=TRUE),
         sig.lvl=
             factor(
                 sig.lvl,
