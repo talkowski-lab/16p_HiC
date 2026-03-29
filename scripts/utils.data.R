@@ -74,6 +74,7 @@ parse_results_filelist <- function(
     filename.column.name='MatrixID',
     pattern=NA,
     param_delim='_',
+    parse_filepath_to_columns=TRUE,
     ...){
     # input_dir=file.path(TAD_DIR, 'method_cooltools'); suffix='-TAD.tsv'; filename.column.name='MatrixID'; pattern=NA; param_delim='_';
     # !!NOTICE!!
@@ -100,37 +101,44 @@ parse_results_filelist <- function(
         }
     } %>% 
     # Extract param info from directory names into structured columns
-    separate_longer_delim(
-        fileinfo,
-        delim='/'
-    ) %>%
-    mutate(
-        fileinfo=
-            ifelse(
-                grepl(suffix_pattern, fileinfo),
-                paste(
-                    filename.column.name,
-                    fileinfo,
-                    sep=param_delim
-                ) %>% 
-                str_remove(suffix),
-                fileinfo
+    {
+        if (parse_filepath_to_columns) {
+            separate_longer_delim(
+                .,
+                fileinfo,
+                delim='/'
+            ) %>%
+            mutate(
+                fileinfo=
+                    ifelse(
+                        grepl(suffix_pattern, fileinfo),
+                        paste(
+                            filename.column.name,
+                            fileinfo,
+                            sep=param_delim
+                        ) %>% 
+                        str_remove(suffix),
+                        fileinfo
+                    )
+            ) %>% 
+            separate_wider_delim(
+                fileinfo,
+                delim='_',
+                too_many="merge",  # in case filenames have delim inside
+                names=
+                    c(
+                        'Parameter',
+                        'Value'
+                    )
+            ) %>%
+            pivot_wider(
+                names_from=Parameter,
+                values_from=Value
             )
-    ) %>% 
-    separate_wider_delim(
-        fileinfo,
-        delim='_',
-        too_many="merge",  # in case filenames have delim inside
-        names=
-            c(
-                'Parameter',
-                'Value'
-            )
-    ) %>%
-    pivot_wider(
-        names_from=Parameter,
-        values_from=Value
-    ) %>% 
+        } else {
+            .
+        }
+    } %>% 
     # Fix column types based on content
     readr::type_convert()
 }
@@ -346,15 +354,7 @@ get_info_from_MatrixIDs <- function(
     # create SampleID
     {
         if (SampleID.col != '') {
-            mutate(
-                ., 
-                !!SampleID.col := 
-                    pmap(
-                        .l=.,
-                        .f=~ glue(SampleID_glue_pattern)
-                    )
-            ) %>%
-            unnest(!!sym(SampleID.col))
+            mutate(., !!SampleID.col := glue(SampleID_glue_pattern))
         } else {
             .
         }
@@ -435,7 +435,8 @@ rename_chrs <- function(
             TRUE                         ~ NA
         ) %>% 
         as.character() %>% 
-        paste0('chr', .)
+        paste0('chr', .) %>%
+        factor(levels=CHROMOSOMES)
     } else if (is.character(chrs) & to_label){
         case_when(
             chrs == 'Genome.Wide'        ~ 'Genome.Wide',
@@ -445,7 +446,8 @@ rename_chrs <- function(
             grepl('chr', chrs)           ~ chrs,
             TRUE                         ~ NA
         ) %>%
-        as.character()
+        as.character() %>% 
+        factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
     } else {
         stop('Invalid input to rename_chrs()')
     }
@@ -1152,24 +1154,31 @@ define_boundary_pairs <- function(
     # the following 3 columns: start, end, length
     # add indices to track all pairs of boundaries
     # only keep overlapping pairs
-    cross_join(
+    inner_join(
         boundaries.P1 %>% mutate(idx=row_number()),
         boundaries.P2 %>% mutate(idx=row_number()),
-        suffix=c('.P1', '.P2')
-    ) %>%
-    {
-        if (only_keep_overlaps){
-            filter(
-                .,
-                between(start.P1, start.P2, end.P2) |
-                between(end.P1,   start.P2, end.P2) |
-                between(start.P2, start.P1, end.P1) |
-                between(end.P2,   start.P1, end.P1)
-            )
-        } else {
-            .
-        }
-    } %>%
+        suffix=c('.P1', '.P2'),
+        by=join_by(overlaps(x$start, x$end, y$start, y$end))
+    ) %>% 
+    # cross_join(
+    #     boundaries.P1 %>% mutate(idx=row_number()),
+    #     boundaries.P2 %>% mutate(idx=row_number()),
+    #     suffix=c('.P1', '.P2')
+    # ) %>%
+    # {
+    #     if (only_keep_overlaps){
+    #         filter(
+    #             .,
+    #             dplyr::overlaps(start.P1, end.P1, start.P2, end.P2)
+    #             # between(start.P1, start.P2, end.P2) |
+    #             # between(end.P1,   start.P2, end.P2) |
+    #             # between(start.P2, start.P1, end.P1) |
+    #             # between(end.P2,   start.P1, end.P1)
+    #         )
+    #     } else {
+    #         .
+    #     }
+    # } %>%
     # compute similarity metrics for each pair of boundaries 
     # i.e. (start.P1, end.P2) vs (start.P2, end.P2)
     rowwise() %>% 
@@ -1245,72 +1254,74 @@ calculate_boundary_similarities <- function(
     boundaries.P2,
     only_keep_overlaps=TRUE,
     ...){
-    # For all pairs of boundaries between P1 vs P2 only keeps the most similar pair for each
-    # so if |P1| = 10 boundary sets (10 rows) and |P2| = 5
-    # then for each set in P1 I only keep 1 set from P2, the "most similar" one 
-    # i.e. largest jaccard index
-    pairs.df <- 
-        define_boundary_pairs(
-            boundaries.P1,
-            boundaries.P2,
-            only_keep_overlaps=only_keep_overlaps
-        )
+    # paste0(colnames(tmp), '=tmp$', colnames(tmp), '[[row_index]]', collapse='; '); row_index=1
+    # resolution=tmp$resolution[[row_index]]; method.P1=tmp$method.P1[[row_index]]; Sample.Group.P1=tmp$Sample.Group.P1[[row_index]]; chr=tmp$chr[[row_index]]; boundaries.P1=tmp$boundaries.P1[[row_index]]; method.P2=tmp$method.P2[[row_index]]; Sample.Group.P2=tmp$Sample.Group.P2[[row_index]]; boundaries.P2=tmp$boundaries.P2[[row_index]]; Edit=tmp$Edit[[row_index]]; Genotype=tmp$Genotype[[row_index]]
+    # boundaries.P1=boundaries.P1 %>% rename('length'=TAD.length)
+    # boundaries.P2=boundaries.P1
     # MoC normalization constant
     nboundaries.P1 <- nrow(boundaries.P1)
     nboundaries.P2 <- nrow(boundaries.P2)
     norm_const <- 1 / (sqrt(nboundaries.P1 * nboundaries.P2) - 1)
     # Compute MoC 
     moc.df <- 
-        pairs.df %>% 
+        # For all pairs of boundaries between P1 vs P2 only keeps the most similar pair for each
+        # so if |P1| = 10 boundary sets (10 rows) and |P2| = 5
+        # then for each set in P1 I only keep 1 set from P2, the "most similar" one 
+        # i.e. largest jaccard index
+        define_boundary_pairs(
+            boundaries.P1,
+            boundaries.P2,
+            only_keep_overlaps=only_keep_overlaps
+        ) %>% 
         summarize(
-            boundary.nPairs=n(),
-            boundary.MoC=(sum(moc.inner) - 1) * norm_const,
-        ) %>%
-        pivot_longer(
-            everything(),
-            names_to='tmp',
-            values_to='value'
-        ) %>%
-        separate_wider_delim(
-            tmp,
-            delim='.',
-            names=c('context', 'stat')
+            n.TADPairs=n(),
+            MoC=(sum(moc.inner) - 1) * norm_const
         )
-    # summarize similarity statistics across those "most similar" boundary pair sets
-    stats.df <- 
-        pairs.df %>% 
-        dplyr::rename_with(~ str_remove(.x, '.diff$')) %>% 
-        select(c(start, end, length, jaccard)) %>% 
-        pivot_longer(
-             everything(),
-             names_to='context',
-             values_to='value'
-         ) %>% 
-        group_by(context) %>%
-        reframe(broom::tidy(summary(value))) %>% 
-        # reframe(skimr::skim_without_charts(value)) %>% 
-        pivot_longer(
-            -c(context),
-            names_to='stat',
-            values_to='value'
-        )
-        # return tidy stats table
-        bind_rows(
-            stats.df,
-            moc.df
-        )
-
+        # pivot_longer(
+        #     everything(),
+        #     names_to='tmp',
+        #     values_to='value'
+        # ) %>%
+        # separate_wider_delim(
+        #     tmp,
+        #     delim='.',
+        #     names=c('context', 'stat')
+        # )
+    moc.df
+    # # summarize similarity statistics across those "most similar" boundary pair sets
+    # stats.df <- 
+    #     pairs.df %>% 
+    #     dplyr::rename_with(~ str_remove(.x, '.diff$')) %>% 
+    #     select(c(start, end, length, jaccard)) %>% 
+    #     pivot_longer(
+    #          everything(),
+    #          names_to='context',
+    #          values_to='value'
+    #      ) %>% 
+    #     group_by(context) %>%
+    #     reframe(broom::tidy(summary(value))) %>% 
+    #     # reframe(skimr::skim_without_charts(value)) %>% 
+    #     pivot_longer(
+    #         -c(context),
+    #         names_to='stat',
+    #         values_to='value'
+    #     )
+    # # return tidy stats table
+    # bind_rows(
+    #     stats.df,
+    #     moc.df
+    # )
 }
 
 calculate_all_boundary_similarities <- function(
     boundaries.df,
     pair_grouping_cols,
+    sampleID_col,
+    SampleID.fields,
     sample.group.comparisons=NULL,
-    sampleID_col='Sample.Group',
-    SampleID.fields=c(NA, 'Celltype', 'Genotype'),
     only_keep_overlaps=TRUE,
     ...){
-    # boundaries.df=TADs.df %>% select(-c(SampleID)) %>% nest(boundaries=c(start, end, length)); only_keep_overlaps=TRUE; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator); pair_grouping_cols=c('resolution', 'TAD.method', 'TAD.params', 'chr'); sampleID_col='Sample.Group'; SampleID.fields=c(NA, 'Celltype', 'Genotype')
+    # boundaries.df=TADs.df %>% select(resolution, method, Sample.Group, chr, start, end, TAD.length, TAD.start.score, TAD.end.score, starts_with('TAD.inner.')) %>% nest(boundaries=c(start, end, TAD.length, TAD.start.score, TAD.end.score, starts_with('TAD.inner.'))); only_keep_overlaps=TRUE; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% dplyr::rename('Sample.Group.P1'=Sample.Group.Numerator, 'Sample.Group.P2'=Sample.Group.Denominator,); SampleID.fields=c('Edit', NA, 'Genotype'); pair_grouping_cols=c('resolution', 'chr'); sampleID_col='Sample.Group'; 
     # boundaries.df Must contain the following columns
     # SampleInfo: nested tibble of Sample attributes
     # 3 columns; start, end, length indicating each set of boundaries
@@ -1323,8 +1334,9 @@ calculate_all_boundary_similarities <- function(
         sampleID_col=sampleID_col,
         suffixes=c('.P1', '.P2'),
     ) %>% 
+        # {.} -> tmp;  tmp
+        # tmp %>% filter(Sample.Group.P1 == Sample.Group.P2)
     # Finally compute all MoCs for all listed pairs of annotations
-
     mutate(
         similarities=
             # pmap(
