@@ -6,6 +6,7 @@
 library(ggplot2)
 library(ggpubr)
 library(ggh4x)
+library(ggridges)
 library(GGally)
 library(scales)
 library(furrr)
@@ -293,6 +294,7 @@ post_process_plot <- function(
     independent=FALSE,
     drop=TRUE,
     axes='margins',
+    margins=FALSE,
     facet.row=NULL,
     facet.nrow=NULL,
     facet.col=NULL,
@@ -331,6 +333,7 @@ post_process_plot <- function(
         independent=independent,
         axes=axes,
         drop=drop,
+        margins=margins,
         facet.row=facet.row,
         facet.col=facet.col,
         facet.group=facet.group,
@@ -683,6 +686,7 @@ plot_boxplot <- function(
 plot_density <- function(
     plot.df,
     x.var='',
+    y.var='',
     fill.var=NULL, 
     alpha=0.7,
     ...){
@@ -691,21 +695,25 @@ plot_density <- function(
         if (is.null(fill.var)) {
             ggplot(
                 plot.df,
-                aes(x=.data[[x.var]])
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                )
             )
         } else {
             ggplot(
                 plot.df,
                 aes(
                     x=.data[[x.var]],
-                    group=.data[[fill.var]],
+                    y=.data[[y.var]],
+                    # group=.data[[fill.var]],
                     fill=.data[[fill.var]]
                 )
             )
         }
     } %>% 
     # make it a boxplot 
-    { . + geom_density(alpha=alpha) } %>% 
+    { . + geom_density_ridges(alpha=alpha) } %>% 
     # Handle faceting + scaling + theme options
     post_process_plot(...)
 }
