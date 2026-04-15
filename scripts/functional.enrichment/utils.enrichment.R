@@ -3,7 +3,7 @@ library(furrr)
 library(idr2d)
 # library(plyranges)
 ###################################################
-# Handle cCRE data
+# Handle JASPAR 2022 CTCF data
 ###################################################
 load_CTCF_sites <- function(force.redo=FALSE){
     # https://dozmorovlab.github.io/CTCF/
@@ -25,6 +25,7 @@ load_CTCF_sites <- function(force.redo=FALSE){
                 # make tidy tibble
                 as_tibble() %>% 
                 dplyr::rename(
+                    'motif'=name,
                     'length'=width,
                     'chr'=seqnames
                 ) %>% 
@@ -41,6 +42,57 @@ load_CTCF_sites <- function(force.redo=FALSE){
     )
 }
 
+split_CTCF_sites <- function(CTCF.df){
+    CTCF.df %>% 
+    dplyr::rename('# chr'=chr) %>% 
+    nest(positions.df=-c(motif)) %>%
+    mutate(
+        output_dir=
+            file.path(
+                ANNOTATIONS_BED_DIR,
+                glue('annotation_CTCF'),
+                glue('annotation.type_{motif}')
+            ),
+        results_file=
+            file.path(
+                output_dir,
+                glue('{motif}_JASPAR.2022.CTCF.sites.bed')
+            )
+    ) %>%
+    pwalk(
+        .l=.,
+        .f=
+            function(positions.df, results_file, ...){
+                dir.create(dirname(results_file), showWarnings=FALSE, recursive=TRUE)
+                write_tsv(
+                    positions.df,
+                    results_file,
+                    col_names=TRUE
+                )
+            }
+    )
+}
+
+count_CTCFs <- function(force.redo=FALSE){
+    check_cached_results(
+        results_file=CTCF_COUNTS_FILE,
+        force_redo=force.redo,
+        results_fnc=
+            function(){
+                load_CTCF_sites() %>%
+                dplyr::rename('annotation.type'=motif) %>% 
+                count(
+                    chr,
+                    annotation.type,
+                    name='total.annotations'
+                )
+            }
+    )
+}
+
+###################################################
+# Handle ENCODE cCRE data
+###################################################
 load_encode_ccres <- function(force.redo=FALSE){
     check_cached_results(
         results_file=ENCODE_CCRE_ANNOTATIONS_FILE,
@@ -83,12 +135,14 @@ split_cCRE_annotations <- function(cCRES.df){
     # Split large file into 1 filer per cCRE type 
     # easier to count per type with bedtools this way (multiple databases)
     cCRES.df %>% 
-    nest(positions=-c(cCRE.type)) %>% 
+    dplyr::rename('# chr'=chr) %>% 
+    nest(positions.df=-c(cCRE.type)) %>% 
     mutate(
         output_dir=
             file.path(
-                CCRES_BED_DIR,
-                glue('cCRE.type_{cCRE.type}')
+                ANNOTATIONS_BED_DIR,
+                glue('annotation_cCRE'),
+                glue('annotation.type_{cCRE.type}')
             ),
         results_file=
             file.path(
@@ -104,33 +158,32 @@ split_cCRE_annotations <- function(cCRES.df){
                 write_tsv(
                     positions.df,
                     results_file,
-                    col_names=FALSE
+                    col_names=TRUE
                 )
             }
     )
 }
 
-list_all_cCRES_bed_files <- function(){
-    CCRES_BED_DIR %>%
-    parse_results_filelist(
-        suffix='.bed',
-        filename.column.name='tmp',
-        parse_filepath_to_columns=TRUE
-    ) %>%
-    dplyr::rename('cCRE.filepath'=filepath) %>% 
-    select(-c(tmp))
+count_cCREs <- function(force.redo=FALSE){
+    check_cached_results(
+        results_file=ENCODE_CCRE_COUNTS_FILE,
+        force_redo=force.redo,
+        results_fnc=
+            function(){
+                load_encode_ccres() %>%
+                dplyr::rename('annotation.type'=cCRE.type) %>% 
+                count(
+                    chr,
+                    annotation.type,
+                    name='total.annotations'
+                )
+            }
+    )
 }
 
 ###################################################
-# Make BED Files
+# Generate BED Files
 ###################################################
-# BED utils
-make_region_bed_files <- function(regions.df){
-}
-
-make_anchors_bed_files <- function(regions.df){
-}
-
 write_all_bed_files <- function(
     features.df,
     force_redo=FALSE){
