@@ -2,6 +2,7 @@ library(stringi)
 library(furrr)
 library(idr2d)
 # library(plyranges)
+
 ###################################################
 # Handle JASPAR 2022 CTCF data
 ###################################################
@@ -211,31 +212,7 @@ write_all_bed_files <- function(
         .progress=TRUE
     )
 }
-# TADs
-format_TADs_for_bed_files <- function(TADs.df){
-    TADs.df %>% 
-    dplyr::rename('# chr'=chr) %>% 
-    nest(
-        features=
-            c(
-                `# chr`,
-                start, 
-                end,
-                starts_with('TAD.'),
-                -TAD.params
-            )
-    ) %>% 
-    mutate(
-        results_file=
-            file.path(
-                TAD_BED_FILES_DIR,
-                param_dir,
-                'region_TAD.spans',
-                glue('{Sample.Group}-TADs.bed')
-            )
-    )
-}
-
+# Handle TAD Boundaries
 format_TAD_anchors_for_bed_files <- function(TADs.df){
     TADs.df %>% 
     # The end is actually the end of the last bin, transformt so its the start of the last bin inside the TAD
@@ -245,33 +222,79 @@ format_TAD_anchors_for_bed_files <- function(TADs.df){
     mutate(boundary.end=boundary + resolution) %>% 
     dplyr::rename(
         "boundary.start"=boundary,
-        "boundary.score"=score,
-        '# chr'=chr
-    ) %>% 
-    nest(
-        features=
-            c(
-                `# chr`,
-                boundary.start, 
-                boundary.end,
-                boundary.side,
-                boundary.score,
-                TAD.bins,
-                TAD.length
-
-            )
-    ) %>% 
-    mutate(
-        results_file=
-            file.path(
-                TAD_BED_FILES_DIR,
-                param_dir,
-                'region_TAD.boundaries',
-                glue('{Sample.Group}-TAD.boundaries.bed')
-            )
+        "boundary.score"=score
     )
 }
-# Loops
+
+generate_all_TAD_bed_files <- function(force_redo=FALSE){
+    # Load all TAD annotations
+    message('Loading TADs...')
+    TADs.df <- 
+        ALL_TAD_RESULTS_FILE %>%
+        read_tsv() %>% 
+        mutate(
+            param_dir=
+                file.path(
+                    glue('method_{method}'),
+                    glue('TAD.params_{TAD.params}'),
+                    glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
+                    # glue('region_{chr}')
+                )
+        )
+    message('Generating TAD BED files...')
+    # Make bed files for the span of each TAD in a nested directory structure for bedtools queries
+    TADs.df %>% 
+        dplyr::rename('# chr'=chr) %>% 
+        nest(
+            features=
+                c(
+                    `# chr`,
+                    start, 
+                    end,
+                    starts_with('TAD.'),
+                    -TAD.params
+                )
+        ) %>% 
+        mutate(
+            results_file=
+                file.path(
+                    TAD_BED_FILES_DIR,
+                    param_dir,
+                    'feature.type_TAD.spans',
+                    glue('{Sample.Group}-TADs.bed')
+                )
+        ) %>% 
+        write_all_bed_files(force_redo=force_redo)
+    # Make bed files for just the TAD anchors in a nested directory structure for bedtools queries
+    TADs.df %>% 
+        format_TAD_anchors_for_bed_files() %>% 
+        dplyr::rename('# chr'=chr) %>% 
+        nest(
+            features=
+                c(
+                    `# chr`,
+                    boundary.start, 
+                    boundary.end,
+                    boundary.side,
+                    boundary.score,
+                    TAD.bins,
+                    TAD.length
+
+                )
+        ) %>% 
+        mutate(
+            results_file=
+                file.path(
+                    TAD_BED_FILES_DIR,
+                    param_dir,
+                    'feature.type_TAD.boundaries',
+                    glue('{Sample.Group}-TAD.boundaries.bed')
+                )
+        ) %>% 
+        write_all_bed_files(force_redo=force_redo)
+    message('Finished generating TAD BED files')
+}
+# Handle Loops interiors as bed
 make_loop_span_bed_files <- function(loops.df) {
     loops.df %>% 
     dplyr::rename('# chr'=chr) %>% 
@@ -293,13 +316,13 @@ make_loop_span_bed_files <- function(loops.df) {
             file.path(
                 LOOP_BED_FILES_DIR,
                 param_dir,
-                'region_loop.spans',
+                'feature.type_loop.spans',
                 glue('{SampleID}-loops.bed')
             )
     )
 }
-
-make_loop_bedpe_files <- function(loops) {
+# Handle Loops as beddpe
+make_loop_bedpe_files <- function(loops.df) {
     loops.df %>% 
     dplyr::rename(
         'anchor.left.start'=anchor.left,
@@ -327,12 +350,12 @@ make_loop_bedpe_files <- function(loops) {
             file.path(
                 LOOP_BED_FILES_DIR,
                 param_dir,
-                'region_loops',
+                'feature.type_loops',
                 glue('{SampleID}-loops.bedpe')
             )
     )
 }
-
+# Handle Loop Anchors 
 make_loop_anchor_bed_files <- function(loop.valency.df) {
     loop.valency.df %>% 
     mutate(
@@ -343,7 +366,7 @@ make_loop_anchor_bed_files <- function(loop.valency.df) {
                 glue('type_{type}'),
                 glue('weight_{weight}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
-                # glue('region_{chr}')
+                # glue('feature.type_{chr}')
             )
     ) %>% 
     # pivot stats so every row represents a unique loop
@@ -374,12 +397,12 @@ make_loop_anchor_bed_files <- function(loop.valency.df) {
             file.path(
                 LOOP_BED_FILES_DIR,
                 param_dir,
-                'region_loop.anchors',
+                'feature.type_loop.anchors',
                 glue('{SampleID}-loop.anchors.bed')
             )
     )
 }
-
+# Handle Loop Nesting
 make_loop_nesting_bed_files <- function(loop.nesting.df) {
     loop.nesting.df %>% 
     mutate(
@@ -390,7 +413,6 @@ make_loop_nesting_bed_files <- function(loop.nesting.df) {
                 glue('type_{type}'),
                 glue('weight_{weight}'),
                 glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
-                # glue('region_{chr}')
             )
     ) %>% 
     # Prepare for writing to bed files
@@ -412,12 +434,62 @@ make_loop_nesting_bed_files <- function(loop.nesting.df) {
             file.path(
                 LOOP_BED_FILES_DIR,
                 param_dir,
-                'region_loop.nesting',
+                'feature.type_loop.nesting',
                 glue('{SampleID}-loop.nesting.bed')
             )
     )
 }
-# DIRs
+
+generate_all_Loop_bed_files <- function(force_redo=FALSE){
+    # Load all loop annotations
+    message('Loading loops...')
+    loops.df <- 
+        ALL_COOLTOOLS_LOOPS_RESULTS_FILE %>%
+        read_tsv() %>% 
+        post_process_cooltools_dots_results() %>% 
+        filter_loop_results() %>% 
+        mutate(
+            param_dir=
+                file.path(
+                    'method_cooltools',
+                    glue('kernel_{kernel}'),
+                    glue('type_{type}'),
+                    glue('weight_{weight}'),
+                    glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
+                    # glue('region_{chr}')
+                )
+        )
+    message('Generating all loop BED files...')
+    # Make bed files for the span of each loop in a nested directory structure for bedtools queries
+    loops.df %>% 
+        make_loop_span_bed_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    # Make bed files for just the loop anchors in a nested directory structure for bedtools queries
+    loops.df %>% 
+        make_loop_bedpe_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    # Make bed files for just the loop anchors in a nested directory structure for bedtools queries
+    # We already generated this data with the loop valency analysis, so we can use that and convert it to structured bed files
+    ALL_LOOP_VALENCY_RESULTS_FILE %>%
+        read_tsv() %>% 
+        post_process_loop_valency_results() %>% 
+        make_loop_anchor_bed_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    # Also make bed files for the loop nesting regions, where every row represents a
+    # contiguous set of bins that are overlapped by the exact same set of loops.
+    ALL_LOOP_NESTING_RESULTS_FILE %>%
+        read_tsv() %>% 
+        make_loop_nesting_bed_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+
+    message('Finished generating all loop BED files')
+}
+
+generate_all_Compartment_bed_files <- function(force_redo=FALSE){
+# Load compartment data
+    # compartments.df <- 
+}
+# Handle DIRs interiors
 make_DIR_span_bed_files <- function(DIRs.df){
     DIRs.df %>% 
     dplyr::rename('# chr'=chr) %>% 
@@ -437,12 +509,12 @@ make_DIR_span_bed_files <- function(DIRs.df){
             file.path(
                 MULTIHICCOMPARE_BED_FILES_DIR,
                 param_dir,
-                'region_DIR.spans',
-                glue('{Sample.Group}-DIRs.bed')
+                'feature.type_DIR.spans',
+                glue('{SampleID.Numerator}-{SampleID.Denominator}-DIRs.bed')
             )
     )
 }
-
+# Handle DIRs as bedpe
 make_DIR_bedpe_files <- function(DIRs.df) {
     DIRs.df %>% 
     dplyr::rename(
@@ -470,12 +542,12 @@ make_DIR_bedpe_files <- function(DIRs.df) {
             file.path(
                 MULTIHICCOMPARE_BED_FILES_DIR,
                 param_dir,
-                'region_DIRs',
-                glue('{Sample.Group}-DIRs.bedpe')
+                'feature.type_DIRs',
+                glue('{SampleID.Numerator}-{SampleID.Denominator}-DIRs.bedpe')
             )
     )
 }
-
+# Handle DIR anchors
 make_DIR_anchor_bed_files <- function(DIRs.df) {
     DIRs.df %>% 
     dplyr::rename(
@@ -506,14 +578,45 @@ make_DIR_anchor_bed_files <- function(DIRs.df) {
             file.path(
                 MULTIHICCOMPARE_BED_FILES_DIR,
                 param_dir,
-                'region_DIR.anchors',
-                glue('{Sample.Group}-DIR.anchors.bed')
+                'feature.type_DIR.anchors',
+                glue('{SampleID.Numerator}-{SampleID.Denominator}-DIR.anchors.bed')
             )
     )
 }
 
+generate_all_DIR_bed_files <- function(force_redo=FALSE){
+    # Load all DIRs
+    message('Loading DIRs...')
+    DIRs.df <- 
+        ALL_MULTIHICCOMPARE_RESULTS_FILE %>%
+        read_tsv() %>% 
+        post_process_multiHiCCompare_results() %>% 
+        select(-c(bin.pair.idx, distance.bp)) %>% 
+        mutate(
+            param_dir=
+                file.path(
+                    glue('merged_{merged}'),
+                    glue('resolution_{scale_numbers(resolution, force_numeric=TRUE)}')
+                )
+        )
+    message('Generating DIR BED files...')
+    # Make bed files for the region between DIR anchors in a nested directory structure for bedtools queries. Unlike with TADs or loops, I do not necessairily expect the "inside" of a DIR to show signal unless it overlps with some other features.
+    DIRs.df %>% 
+        make_DIR_span_bed_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    # Make bedpe files, which store both anchors on the same line, to preserve the association
+    DIRs.df %>% 
+        make_DIR_bedpe_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    # Make bed files for just the DIR anchors in a nested directory structure for bedtools queries
+    DIRs.df %>% 
+        make_DIR_anchor_bed_files() %>% 
+        write_all_bed_files(force_redo=FORCE_REDO)
+    message('Finished generating DIR BED files')
+}
+
 ###################################################
-# Build BED Commands
+# Generate bedtools intersect cmds for enrichment
 ###################################################
 list_bed_files <- function(
     bed_dir,
@@ -528,22 +631,25 @@ list_bed_files <- function(
     mutate(
         param_dir=dirname(str_remove(filepath, glue('{bed_dir}/'))),
         file.type=str_extract(filepath, '\\.([^\\.]+)$', group=1),
-        results_file=
-            file.path(
-                FUNCTIONAL_ENRICHMENTS_DIR,
-                basename(bed_dir),
-                param_dir,
-                glue('{SampleID}-intersect.cCRE.tsv')
-            )
     ) %>%
     select(
         resolution,
-        region,
+        feature.type,
         file.type,
         SampleID,
         param_dir,
-        filepath,
-        results_file
+        filepath
+    )
+}
+
+list_all_annotation_bed_files <- function(){
+    ANNOTATIONS_BED_DIR %>%
+    parse_results_filelist(suffix='.bed') %>%
+    mutate(filepath=str_replace_all(filepath, ' ' , '.')) %>% 
+    group_by(annotation) %>% 
+    summarize(
+        annotation.filepaths=paste(filepath, collapse=' '),
+        annotation.types=paste(annotation.type, collapse=' ')
     )
 }
 
@@ -551,31 +657,23 @@ make_bedtools_cmds <- function(
     feature.bed.files.df,
     bed_cmds_file,
     force_redo=FALSE){
+    # bed_cmds_file=ALL_ENRICHMENT_CMDS_FILE; force_redo=FALSE
     dir.create(dirname(bed_cmds_file), showWarnings=FALSE, recursive=TRUE)
     feature.bed.files.df %>% 
-    {
-        if (!force_redo) {
-            filter(., !file.exists(results_file))
-        } else{
-            .
-        }
-    } %>% 
-    # cCRE bed files to count overlaps with for each features
-    cross_join(
-        list_all_cCRES_bed_files() %>% 
-        mutate(cCRE.filepath=str_replace_all(cCRE.filepath, ' ' , '.')) %>% 
-        summarize(
-            cCRE.filepaths=paste(cCRE.filepath, collapse=' '),
-            cCRE.names=paste(cCRE.type, collapse=' '),
-        )
-    ) %>% 
+    # {
+    #     if (!force_redo) {
+    #         filter(., !file.exists(results_file))
+    #     } else{
+    #         .
+    #     }
+    # } %>% 
     # generate bedtools intersect command
     # bedtools intersect 
-    #     -a loops.bed    # all loops called on the same chr at the same resolution
-    #     -b cCRE_files   # list of all cCRE database files to intersect against
-    #     -wao            # keep all overalpping region info
-    #     -C              # count how many cCREs of each type overlap each region
-    #     -names          # include cCREs names in counting
+    #     -a features.bed     # all loops called on the same chr at the same resolution
+    #     -b annotation.fiels # list of all cCRE database files to intersect against
+    #     -wa                 # keep all overalpping region info
+    #     -names              # include cCREs names in counting
+    rowwise() %>% 
     mutate(
         # remove spaces in filenames
         across(
@@ -584,50 +682,240 @@ make_bedtools_cmds <- function(
         ),
         mkdir.cmd=
             glue('mkdir -p {dirname(results_file)}'),
+        features.colnames=
+            filepath %>%
+            read_tsv(n_max=1, show_col_types=FALSE, progress=FALSE) %>%
+            colnames() %>% 
+            str_remove('^# +') %>% 
+            list(),
+        annotation.colnames=
+            annotation.filepaths %>%
+            str_split(' ') %>% 
+            first() %>% 
+            read_tsv(n_max=1, show_col_types=FALSE, progress=FALSE) %>%
+            colnames() %>% 
+            str_remove('^# +') %>% 
+            list(),
+        bed.colnames=
+            list(
+                c(
+                    features.colnames,
+                    'annotation.type',
+                    paste0(annotation.colnames, '.annotation'),
+                    'overlap.length'
+                ) %>%
+                paste(collapse=fixed('\\t'))
+            ),
         add.column.names.cmd=
-            glue("head -1 {filepath} | sed -e 's/^# //' | sed -e 's/$/\\tcCRE.type\\tcCRE.overlaps/' >| {results_file}"),
+            # glue("echo -e '# {bed.colnames}' >| {results_file}"),
+            glue("echo -e '{bed.colnames}' >| {results_file}"),
         bedtools.intersect.cmd=
-            glue('bedtools intersect -a {filepath} -b {cCRE.filepaths} -names {cCRE.names} -wao -C >> {results_file}'),
+            glue('bedtools intersect -a {filepath} -b {annotation.filepaths} -names {annotation.types} -wo >> {results_file}'),
         bed.cmd=
             glue('{mkdir.cmd}; {add.column.names.cmd}; {bedtools.intersect.cmd}')
     ) %>% 
     select(bed.cmd) %>%
     write_tsv(
-        # file.path(LOOPS_DIR, 'all.loop.nesting.bedtools.cmds.txt'),
         bed_cmds_file,
         col_names=FALSE
     )
 }
 
 ###################################################
-# Load cCRE enrichment data
+# Load Overlap Results
 ###################################################
-load_cCRE_overlap_results <- function(filepath){
+load_and_summarize_CTCF_overlaps <- function(filepath){
+    filepath %>%
+    read_tsv(
+        show_col_types=FALSE,
+        progress=FALSE
+    ) %>% 
+    mutate(log10_qvalue=-log10(qvalue.annotation)) %>% 
+    dplyr::rename('score'=score.annotation) %>% 
+    select(-c(overlap.length, qvalue.annotation)) %>% 
+    group_by(across(-c('score', 'log10_qvalue', ends_with('.annotation')))) %>%
+    summarize(
+        n.overlaps=n(),
+        across(
+            .cols=
+                c(
+                    score,
+                    # pvalue,
+                    # qvalue,
+                    log10_qvalue
+                ),
+            .fn=
+                list(
+                    'min'=min,
+                    'q25'=partial(stats::quantile, probs=0.25, na.rm=TRUE),
+                    'mean'=mean,
+                    'median'=median,
+                    'var'=var,
+                    'q75'=partial(stats::quantile, probs=0.75, na.rm=TRUE),
+                    'max'=max,
+                    'total'=sum
+                ),
+            .names="CTCF.{.col}.{.fn}"
+        )
+    ) %>%
+    ungroup()
 }
 
-list_all_cCRE_overlap_results <- function(hic.features.df){
-    hic.features.df %>% 
-    parse_results_filelist(suffix='-intersect.cCRE.tsv')
+load_and_summarize_cCRE_overlaps <- function(filepath){
+    filepath %>%
+    read_tsv(
+        show_col_types=FALSE,
+        progress=FALSE
+    ) %>% 
+    select(-c(overlap.length)) %>% 
+    group_by(across(-ends_with('.annotation'))) %>% 
+    count(name='n.overlaps')
 }
 
-load_all_cCRE_overlap_results <- function(hic.features.df){
-    hic.features.df %>% 
-    list_all_cCRE_overlap_results() %>% 
+fetch_overlap_file_locations <- function(feature.type){
+    # print(feature.type)
+    case_when(
+        feature.type == 'binwise'                ~ BINWISE_FUNCTIONAL_ENRICHMENT_DIR,
+        feature.type == 'TAD.spans'              ~ TAD_ENRICHMENTS_DIR,
+        feature.type == 'TAD.boundaries'         ~ TAD_ENRICHMENTS_DIR,
+        feature.type == 'loop.anchors'           ~ LOOP_ENRICHMENTS_DIR,
+        feature.type == 'loop.nesting'           ~ LOOP_ENRICHMENTS_DIR,
+        feature.type == 'loop.spans'             ~ LOOP_ENRICHMENTS_DIR,
+        feature.type == 'compartment.boundaries' ~ COMPARTMENTS_ENRICHMENTS_DIR,
+        feature.type == 'compartments'           ~ COMPARTMENTS_ENRICHMENTS_DIR,
+        feature.type == 'DIR.anchors'            ~ MULTIHICCOMPARE_ENRICHMENTS_DIR,
+        feature.type == 'DIR.spans'              ~ MULTIHICCOMPARE_ENRICHMENTS_DIR,
+        # TRUE                                     ~ stop(glue('Invalid feature.type: {feature.type}'))
+    )
+}
+
+load_all_overlap_results <- function(
+    specific.feature.type,
+    specific.annotation=NULL,
+    # specific.feature.type='binwise'; specific.annotation='CTCF'
+    ...){
+    # specific.feature.type='TAD.boundaries'; specific.annotation.type='CTCF'; 
+    specific.feature.type %>% 
+    fetch_overlap_file_locations() %>% 
+    parse_results_filelist(
+        suffix='.tsv',
+        filename.column.name='SampleID',
+    ) %>% 
+    add_column(feature.type=specific.feature.type) %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='-',
+        names=c('SampleID', NA)
+    ) %>%
+    {
+        if (!is.null(specific.annotation)) {
+            filter(., annotation == specific.annotation)
+        } else {
+            .
+        }
+    } %>% 
+        # {.} -> tmp; tmp
+        # filepath=tmp$filepath[[1]]
     mutate(
-        cCRE.overlaps=
+        overlaps=
             # pmap(
             future_pmap(
-                .,
-                load_cCRE_overlap_results,
+                .l=.,
+                .f=
+                    function(filepath, annotation, ...){
+                        filepath %>% 
+                        {
+                            if (annotation == 'CTCF') {
+                                load_and_summarize_CTCF_overlaps(filepath=.)
+                            } else {
+                                load_and_summarize_cCRE_overlaps(filepath=.)
+                            }
+                        }
+                    },
+                # ...,
                 .progress=TRUE
             )
     ) %>%
-        # {.} -> tmp; tmp
-        # tmp %>% select(SampleID, loops)
-    unnest(cCRE.overlaps) %>% 
-    select(
-        -c(
-            filepath
+    unnest(overlaps) %>% 
+    # only keep columns with at least 2 unique values
+    # i.e. exclude all columsn that are only NA
+    # select(where(~ n_distinct(.) > 1)) %>% 
+    select(-c(filepath))
+}
+
+load_specific_overlap_results <- function(
+    force.redo=FALSE,
+    feature.type,
+    annotation,
+    ...){
+    # feature.type='TAD.boundaries'; annotation.type='CTCF'; force.redo=FALSE
+    check_cached_results(
+        results_file=
+            file.path(
+                COALLATED_FUNCTIONAL_ENRICHMENT_DIR,
+                glue('annotation_{annotation}'),
+                glue('All-{feature.type}-overlaps.tsv')
+            ),
+        force_redo=force.redo,
+        results_fnc=load_all_overlap_results,
+        suffix='-overlaps.tsv',
+        specific.feature.type=feature.type,
+        specific.annotation=annotation
+    )
+}
+
+post_process_overlap_results <- function(
+    results.df,
+    annotations.df){
+    results.df %>% 
+    {
+        if ('SampleID' %in% colnames(.)){
+            separate_wider_delim(
+                .,
+                SampleID,
+                delim='.',
+                names=c('Edit', 'Celltype', 'Genotype'),
+                cols_remove=FALSE
+            )
+        } else {
+            .
+        }
+    } %>% 
+    left_join(
+        annotations.df,
+        by=join_by(chr, annotation.type == annotation.type)
+    ) %>% 
+    mutate(
+        overlaps.per_Kb=n.overlaps / (length / 1000),
+        frac.overlaps.per_Kb=overlaps.per_Kb / total.annotations
+    )
+}
+
+###################################################
+# Post Process Overlap Results
+###################################################
+pivot_CTCF_enrichment_metrics <- function(results.df){
+    results.df %>% 
+    pivot_longer(
+        starts_with('CTCF.'),
+        names_to='metric',
+        names_prefix='CTCF.',
+        values_to='value'
+    ) %>% 
+    separate_wider_delim(
+        metric,
+        delim='.',
+        names=c('metric', 'stat')
+    ) %>% 
+    filter(
+        stat %in% c(
+            'min',
+            # 'q25',
+            'mean',
+            'median',
+            # 'q75',
+            'max',
+            'total'
         )
     )
 }
