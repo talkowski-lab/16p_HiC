@@ -10,17 +10,36 @@ library(ggridges)
 library(GGally)
 library(scales)
 library(furrr)
+library(ggpointdensity)
+library(viridis)
 
 ###################################################
 # Transform data for plotting
 ###################################################
 calc_pct <- function(
     count.df,
-    cols_exclude=c()){
+    cols_exclude=c(),
+    col_pct=NULL){
+    # count.df=n.TADCompare.df; cols_exclude=c('chr', 'DifferenceType', 'Enriched.Condition'); col_pct=NULL
     # calculate relative frequency from count data
     count.df %>% 
-    group_by(across(-c(cols_exclude, 'n'))) %>% 
-    summarize(n=sum(n)) %>% 
+    {
+        if ('n' %in% colnames(.)){
+            group_by(., across(-c(cols_exclude, 'n'))) %>% 
+            summarize(n=sum(n))
+        } else {
+            group_by(., across(-c(cols_exclude))) %>% 
+            count()
+        }
+    } %>% 
+    {
+        if (!is.null(col_pct)) {
+            ungroup(.) %>%
+            group_by(across(-c(col_pct, 'n')))
+        } else {
+            .
+        }
+    } %>% 
     mutate(total=sum(n)) %>% 
     ungroup() %>% 
     mutate(pct=n / total) %>% 
@@ -127,7 +146,10 @@ scale_axis <- function(
     ...){
     # check if data is discrete
     scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping[[scale.axis]]), figure@data)
-    if (!is.numeric(scale.data)) { scale.mode <- 'discrete' }
+    if (is.character(scale.data)) { scale.mode <- 'discrete' }
+    if (is.factor(scale.data)) { scale.mode <- 'discrete' }
+    # print(scale.axis)
+    # print(scale.mode)
     rm(scale.data)
     # figure out which axis function to call
     axis_fnc <- 
@@ -349,7 +371,7 @@ post_process_plot <- function(
         n.breaks=x.n.breaks,
         limits=x.limits,
         expand=x.expand
-    ) %>% 
+    ) %>%
     # Set y-axis scaling (log, Mb, percent etc.)
     scale_axis(
         scale.axis='y',
