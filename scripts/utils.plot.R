@@ -956,6 +956,95 @@ plot_jitter <- function(
     )
 }
 
+plot_lineplot <- function(
+    plot.df,
+    x.var='',
+    y.var='',
+    group.var='',
+    color.var=NULL, 
+    linetype.var=NULL,
+    alpha=0.5,
+    size=0.5,
+    scales='fixed',
+    ...){
+    # Set fill group if specified
+    {
+        ggplot(
+            plot.df,
+            aes(
+                x=.data[[x.var]],
+                y=.data[[y.var]],
+                group=.data[[group.var]],
+                color=.data[[color.var]],
+                linetype=.data[[linetype.var]],
+                shape=.data[[linetype.var]]
+            )
+        )
+    } %>% 
+    # make it a scatter plot
+    { 
+        . + 
+        geom_point(
+            alpha=alpha,
+            size=size
+        ) +
+        geom_line()
+    } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(
+        scales=scales,
+        ...
+    )
+}
+
+plot_pointdensity <- function(
+    plot.df,
+    x.var='',
+    y.var='',
+    shape.var=NULL,
+    adjust=0.5,
+    size=0.5,
+    scales='fixed',
+    ...){
+    # Set fill group if specified
+    {
+        if (!is.null(shape.var)) {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]],
+                    shape=.data[[shape.var]]
+                )
+            )
+        } else {
+            ggplot(
+                plot.df,
+                aes(
+                    x=.data[[x.var]],
+                    y=.data[[y.var]]
+                )
+            )
+        }
+    } %>% 
+    # make it a scatter plot
+    { 
+        . + 
+        geom_pointdensity(
+            adjust=adjust,
+            size=size
+        ) +
+        scale_color_viridis()
+    } %>% 
+    # Handle faceting + scaling + theme options
+    post_process_plot(
+        scales=scales,
+        color.scale.mode='',
+        fill.scale.mode='',
+        ...
+    )
+}
+
 plot_contours <- function(
     plot.df,
     x.var='',
