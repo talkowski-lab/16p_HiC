@@ -218,8 +218,7 @@ load_all_DESeq2_results <- function(force.redo=FALSE){
         results_file=DESEQ2_RESULTS_FILE,
         force_redo=force.redo,
         results_fnc=
-            function() {
-                suffix='-DESeq2.results.tsv'
+            function(suffix='-DESeq2.tsv') {
                 # List all results files
                 DESEQ2_DATA_DIR %>% 
                 list.files(
@@ -229,26 +228,14 @@ load_all_DESeq2_results <- function(force.redo=FALSE){
                 ) %>% 
                 tibble(filepath=.) %>%
                 mutate(info=str_remove(basename(filepath), suffix)) %>% 
+                filter(!grepl('iPSC', info)) %>% 
                 # Tidy pairwise metadata
                 separate_wider_delim(
                     info,
-                    delim='-',
+                    # delim='-',
+                    delim='_vs_',
                     names=c('Sample.Group.Numerator', 'Sample.Group.Denominator'),
                 ) %>%
-                mutate(
-                    comparison=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
-                    tidy.metadata=
-                        tidy_pair_metadata(
-                            sampleID.pairs.df=
-                                select(
-                                    .data=., 
-                                    all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator')),
-                                ),
-                            suffixes=c('Numerator', 'Denominator'),
-                            SampleID.fields=c(NA, 'Celltype', 'Genotype'),
-                        )
-                ) %>%
-                unnest(tidy.metadata) %>% 
                 # load DEG results
                 mutate(
                     results=
@@ -268,8 +255,8 @@ load_all_DESeq2_results <- function(force.redo=FALSE){
                     -c(
                         filepath,
                         Sample.Group.Numerator, Sample.Group.Denominator,
-                        row.idx,
-                        strand,
+                        row_index,
+                        # strand,
                         geneid,
                         stat
                     )
