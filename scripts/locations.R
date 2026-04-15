@@ -4,7 +4,6 @@ library(glue)
 # Set Root Dirs
 ###################################################
 SAMPLE_METADATA_FILE <- file.path(BASE_DIR, SAMPLE_METADATA_FILENAME)
-REF_DIR              <- file.path(BASE_DIR, 'reference.files')
 RESULTS_DIR          <- file.path(BASE_DIR, 'results')
 
 ###################################################
@@ -25,12 +24,15 @@ COOLERS_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
 ###################################################
 ENCODE_CCRE_DIR               <- '/data/talkowski/tools/ref/ENCODE/cCRE/v4'
 ENCODE_CCRE_ANNOTATIONS_FILE  <- file.path(REF_DIR, 'ENCODE.v4.cCRE.anontations.tsv')
+ENCODE_CCRE_COUNTS_FILE       <- file.path(REF_DIR, 'ENCODE.v4.cCRE.counts.tsv')
 CTCF_SITE_FILE                <- file.path(REF_DIR, 'CTCF.annotations.tsv')
+CTCF_COUNTS_FILE              <- file.path(REF_DIR, 'CTCF.annotation.counts.tsv')
 GENE_DESERT_REGIONS_FILE      <- file.path(REF_DIR, 'hg38_gene_deserts.tsv')
 GENOME_GTF_FILE               <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
 # list of files listing bin-wise data + bed files for use with external tools
 GENE_CONSTRAINTS_FILE         <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
 GENOME_BINS_FILES_DIR         <- file.path(REF_DIR, 'genome.bins')
+ABC_SCORES_IN_NEURONS_FILE    <- '/data/talkowski/Samples/cohesin_project/Integration/refData/H1_Derived_Neuronal_Progenitor_Cultured_Cells-Roadmap_abc_scores.tsv'
 # FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
 # ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
 
@@ -38,17 +40,22 @@ GENOME_BINS_FILES_DIR         <- file.path(REF_DIR, 'genome.bins')
 # BED files
 ###################################################
 BED_FILES_DIR                 <- file.path(RESULTS_DIR, 'bed_files')
-CCRES_BED_DIR                 <- file.path(BED_FILES_DIR, 'cCREs')
+ANNOTATIONS_BED_DIR           <- file.path(BED_FILES_DIR, 'annotations')
 TAD_BED_FILES_DIR             <- file.path(BED_FILES_DIR, 'TADs')
 LOOP_BED_FILES_DIR            <- file.path(BED_FILES_DIR, 'loops')
 COMPARTMENT_BED_FILES_DIR     <- file.path(BED_FILES_DIR, 'compartments')
 MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
 
 ###################################################
-# Functional Enrichment DIR
+# Functional Enrichment results
 ###################################################
-FUNCTIONAL_ENRICHMENTS_DIR    <- file.path(RESULTS_DIR, 'functional.enrichments')
-ALL_CCRE_ENRICHMENT_CMDS_FILE <- file.path(FUNCTIONAL_ENRICHMENTS_DIR, 'all.cCRE.bedtools.intersect.cmds.txt')
+FUNCTIONAL_ENRICHMENT_DIR           <- file.path(RESULTS_DIR, 'functional.enrichments')
+COALLATED_FUNCTIONAL_ENRICHMENT_DIR <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'summarized.results')
+BINWISE_FUNCTIONAL_ENRICHMENT_DIR   <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'binwise')
+TAD_ENRICHMENTS_DIR                 <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'TADs')
+LOOP_ENRICHMENTS_DIR                <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'loops')
+COMPARTMENTS_ENRICHMENTS_DIR        <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'compartments')
+MULTIHICCOMPARE_ENRICHMENTS_DIR     <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'multiHiCCompare')
 
 ###################################################
 # RNASeq
