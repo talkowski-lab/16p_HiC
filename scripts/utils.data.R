@@ -297,7 +297,9 @@ get_info_from_MatrixIDs <- function(
         c(
             'Edit',
             'Celltype',
-            'Genotype'
+            'Genotype',
+            'CloneID',
+            'TechRepID'
         ),
     SampleID.delim=fixed('.'),
     field.suffix='',
@@ -439,7 +441,7 @@ rename_chrs <- function(
         factor(levels=CHROMOSOMES)
     } else if (is.character(chrs) & to_label){
         case_when(
-            chrs == 'Genome.Wide'        ~ 'Genome.Wide',
+            # chrs == 'Genome.Wide'        ~ 'Genome.Wide',
             chrs == 'X'                  ~ 'chrX',
             chrs == 'Y'                  ~ 'chrY',
             chrs %in% as.character(1:22) ~ paste0('chr', chrs),
@@ -447,7 +449,8 @@ rename_chrs <- function(
             TRUE                         ~ NA
         ) %>%
         as.character() %>% 
-        factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
+        factor(levels=c(CHROMOSOMES))
+        # factor(levels=c(CHROMOSOMES, 'Genome.Wide'))
     } else {
         stop('Invalid input to rename_chrs()')
     }
@@ -631,13 +634,7 @@ list_mcool_files <- function(
     tibble(filepath=.) %>% 
     # parse sample metadata
     mutate(MatrixID=str_remove(basename(filepath), '.mcool')) %>% 
-    get_info_from_MatrixIDs(
-        MatrixID.col='MatrixID',
-        SampleID.col='SampleID',
-        col_prefix='',
-        keep_id=FALSE,
-        nest_col=NA,
-    ) %>% 
+    get_info_from_MatrixIDs(include_merged_col=TRUE) %>% 
     {
         if (only_use_included_samples){
             filter(., SampleID %in% list_included_samples() | grepl('.Merged.Merged', SampleID))
@@ -1093,17 +1090,14 @@ enumerate_pairwise_comparisons <- function(
     pair_grouping_cols=c(),
     SampleID.fields=NULL,
     sampleID_col='SampleID',
-    suffixes=c('P1', 'P2'),
     delim='.',
+    suffixes=c('P1', 'P2'),
     ...){
-    # data.df=nested.loops.df; sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS %>% dplyr::rename('SampleID.P1'=Sample.Group.Numerator, 'SampleID.P2'=Sample.Group.Denominator); pair_grouping_cols=c('weight', 'resolution', 'kernel', 'chr'); sampleID_col='SampleID'; suffixes=c('.P1', '.P2')
-    sampleID_col.P1 <- glue('{sampleID_col}{suffixes[[1]]}') # SampleID.P1
-    sampleID_col.P2 <- glue('{sampleID_col}{suffixes[[2]]}') # SampleID.P2
     data.df %>% 
     # get all possible pairs of rows of data.df 
     join_all_rows(
         cols_to_match=pair_grouping_cols,
-        suffix=suffixes
+        suffix=paste0(delim, suffixes)
     ) %>% 
     # only keep explicitly specified comparisons
     {
@@ -1120,22 +1114,29 @@ enumerate_pairwise_comparisons <- function(
     # format sample pair metadata
     {
         if(!is.null(SampleID.fields)) {
-            mutate(
-                .,
-                tidy.metadata=
-                    tidy_pair_metadata(
-                        sampleID.pairs.df=
-                            select(
-                                .data=., 
-                                all_of(c(sampleID_col.P1, sampleID_col.P2))
-                            ),
-                        SampleID.fields=SampleID.fields,
-                        suffixes=suffixes,
-                        delim=delim,
-                        ...
-                    )
-            ) %>%
-            unnest(tidy.metadata)
+            extract_all_sample_pair_metadata(
+                data.df=.,
+                SampleID.fields=SampleID.fields,
+                SampleID.cols=paste0(sampleID_col, delim, suffixes),
+                SampleID.delim=delim,
+                suffix=suffixes
+            )
+            # mutate(
+            #     .,
+            #     tidy.metadata=
+            #         tidy_pair_metadata(
+            #             sampleID.pairs.df=
+            #                 select(
+            #                     .data=., 
+            #                     all_of(c(sampleID_col.P1, sampleID_col.P2))
+            #                 ),
+            #             SampleID.fields=SampleID.fields,
+            #             suffixes=suffixes,
+            #             delim=delim,
+            #             ...
+            #         )
+            # ) %>%
+            # unnest(tidy.metadata)
         } else {
             .
         }

@@ -256,6 +256,7 @@ load_hiTAD_TADs <- function(
 list_all_hiTAD_TADs <- function(){
     HITAD_TAD_RESULTS_DIR %>% 
     parse_results_filelist(suffix='.tsv') %>%
+    # hiTAD only expects balanced matrices as input 
     filter(weight == 'balanced') %>% 
     add_column(method='hiTAD') %>% 
     separate_wider_delim(
@@ -625,15 +626,15 @@ load_all_TAD_results_for_TADCompare <- function(
         # mutate(length=end - start) %>% 
         nest(TADs=c(chr, start, end, TAD.length)) %>% 
         dplyr::rename(
-            'TAD.method'=method,
-            'chr'=chr.copy
+            'chr'=chr.copy,
+            'TAD.method'=method
         )
     # default TADCompare method estimates TADs itself, include nothing
     spectralTAD.TADs.df <- 
         expand_grid(
-            SampleID=unique(all.TADs.df$SampleID),
+            Sample.Group=unique(all.TADs.df$Sample.Group),
             chr=CHROMOSOMES,
-            resolution=unique(all.TADS.df$resolution)
+            resolution=unique(all.TADs.df$resolution)
         ) %>% 
         add_column(
             TADs=NULL, # will be estimated by TADCompare
@@ -642,7 +643,7 @@ load_all_TAD_results_for_TADCompare <- function(
         )
     # Bind everything together
     bind_rows(
-        all.TADS.df,
+        all.TADs.df,
         spectralTAD.TADs.df
     ) %>%
     unite(

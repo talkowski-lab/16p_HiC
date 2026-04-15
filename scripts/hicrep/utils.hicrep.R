@@ -22,7 +22,19 @@ get_smoothing_param <- function(resolution){
     )
 }
 
-list_all_hicrep_results_files <- function(samples_to_keep=NULL){
+load_hicrep_results <- function(
+    filepath,
+    ...){
+    read_tsv(
+        filepath,
+        skip=2,
+        progress=FALSE,
+        show_col_types=FALSE,
+        col_names=c('SCC')
+    )
+}
+
+list_all_hicrep_results_files <- function(){
     # List all results files that have been generated
     HICREP_RESULTS_DIR %>% 
     parse_results_filelist(
@@ -40,15 +52,6 @@ list_all_hicrep_results_files <- function(samples_to_keep=NULL){
                 'SampleID.P2'
             )
     ) %>% 
-    # keep only specified samples
-    {
-        if (!is.null(samples_to_keep)) {
-            filter(., SampleInfo.P1.SampleID %in% samples_to_keep) %>% 
-            filter(SampleInfo.P2.SampleID %in% samples_to_keep)
-        } else {
-            .
-        }
-    } %>% 
     # standardize sample order
     mutate(
         SampleID.Numerator=
@@ -64,47 +67,17 @@ list_all_hicrep_results_files <- function(samples_to_keep=NULL){
             )
     ) %>% 
     select(-c(SampleID.P1, SampleID.P2)) %>% 
-    rename(
-        'SampleID.P1'=SampleID.Numerator,
-        'SampleID.P2'=SampleID.Denominator
-    ) %>%
     # Now extract sample metadata from IDs and 
-    # format metadata per pair of samples for easy grouping+plotting
-    # tidy sample metadata
-    mutate(
-        tidy.metadata=
-            tidy_pair_metadata(
-                sampleID.pairs.df=
-                    select(
-                        .data=., 
-                        all_of(c('SampleID.P1', 'SampleID.P2')),
-                    ),
-                suffixes=c('P1', 'P2'),
-                SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID'),
-                # SampleID.fields=c('Edit', 'Celltype', 'Genotype', NA, NA),
-                keep_separate_metadata_fields=TRUE
-            )
-    ) %>%
-    unnest(tidy.metadata)
+    extract_all_sample_pair_metadata(
+        SampleID.cols=c('SampleID.Numerator', 'SampleID.Denominator'),
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID'),
+        suffixes=c('Numerator', 'Denominator')
+    )
 }
 
-load_hicrep_results <- function(
-    filepath,
-    ...){
-    read_tsv(
-        filepath,
-        skip=2,
-        progress=FALSE,
-        show_col_types=FALSE,
-        col_names=c('hicrep.score')
-    ) %>% 
-    # every line is a score per chromosome in order
-    add_column(chr=factor(CHROMOSOMES, levels=CHROMOSOMES))
-}
-
-load_all_hicrep_results <- function(samples_to_keep=NULL){
+load_all_hicrep_results <- function(){
     # Load all files generated from ./scripts/run.hicrep.sh
-    list_all_hicrep_results_files(samples_to_keep=samples_to_keep) %>% 
+    list_all_hicrep_results_files() %>% 
     # Load hicrep scores for each comparison
     mutate(
         hicrep.results=
@@ -124,10 +97,10 @@ post_proces_hicrep_results <- function(results.df){
     mutate(
         isMerged=
             case_when(
-                 str_detect(SampleID.P1, 'Merged') &  str_detect(SampleID.P2, 'Merged') ~ 'Merged vs Merged',
-                !str_detect(SampleID.P1, 'Merged') &  str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Merged',
-                 str_detect(SampleID.P1, 'Merged') & !str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Merged',
-                !str_detect(SampleID.P1, 'Merged') & !str_detect(SampleID.P2, 'Merged') ~ 'Individual vs Individual',
+                CloneID.Numerator == 'Merged'     & CloneID.Denominator == 'Merged'     ~ 'Merged vs Merged',
+                CloneID.Numerator == 'Individual' & CloneID.Denominator == 'Merged'     ~ 'Individual vs Merged',
+                CloneID.Numerator == 'Merged'     & CloneID.Denominator == 'Individual' ~ 'Individual vs Merged',
+                CloneID.Numerator == 'Individual' & CloneID.Denominator == 'Individual' ~ 'Individual vs Individual',
                 TRUE ~ NA
             ) %>%
             factor(
@@ -145,22 +118,15 @@ post_proces_hicrep_results <- function(results.df){
         is.downsampled.fct=
             ifelse(is.downsampled, 'Downsampled', 'Original') %>%
             factor(levels=c('Downsampled', 'Original')),
-        # Edit=glue('{Edit.P1} vs {Edit.P2}'),
-        within.Edit=ifelse(Edit.P1 == Edit.P2, 'Same Edit', 'Different Edit'),
-        # Celltype=glue('{Celltype.P1} vs {Celltype.P2}'),
-        within.Celltype=ifelse(Celltype.P1 == Celltype.P2, 'Same Celltype', 'Different Celltype'),
-        # Genotype=glue('{Genotype.P1} vs {Genotype.P2}'),
-        within.Genotype=ifelse(Genotype.P1 == Genotype.P2, 'Same Genotype', 'Different Genotype'),
-        Sample.Group.P1=glue('{Edit.P1}.{Genotype.P1}'),
-        Sample.Group.P2=glue('{Edit.P2}.{Genotype.P2}'),
-        #     glue('{Edit.P1}.{Genotype.P1} vs {Edit.P2}.{Genotype.P2}') %>%
-        #     fct_reorder2(Sample.Group.P1, Sample.Group.P2),
+        within.Edit=    ifelse(Edit.Numerator     == Edit.Denominator,     'Same Edit',     'Different Edit'),
+        within.Celltype=ifelse(Celltype.Numerator == Celltype.Denominator, 'Same Celltype', 'Different Celltype'),
+        within.Genotype=ifelse(Genotype.Numerator == Genotype.Denominator, 'Same Genotype', 'Different Genotype'),
         Genotype.Group=
             case_when(
-                Genotype.P1 == 'WT' & Genotype.P2 == 'WT' ~ 'WT vs WT',
-                Genotype.P1 != 'WT' & Genotype.P2 == 'WT' ~ ' * vs WT',
-                Genotype.P1 == 'WT' & Genotype.P2 != 'WT' ~ ' * vs WT',
-                TRUE                                      ~ 'Other'
+                Genotype.Numerator == 'WT' & Genotype.Denominator == 'WT' ~ 'WT vs WT',
+                Genotype.Numerator == 'WT' & Genotype.Denominator != 'WT' ~ ' * vs WT',
+                Genotype.Numerator != 'WT' & Genotype.Denominator == 'WT' ~ ' * vs WT',
+                TRUE                                                      ~ 'Other'
             ) %>%
             factor(levels=c(' * vs WT', 'WT vs WT', 'Other'))
     )

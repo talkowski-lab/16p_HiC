@@ -4,7 +4,7 @@
 library(here)
 here::i_am('scripts/TADs/run.TADCompare.R')
 BASE_DIR <- here()
-# BASE_DIR <- '/data/talkowski/Samples/WAPL_NIPBL/HiC'
+# BASE_DIR <- '/data/talkowski/Samples/cohesin_project/HiC'
 suppressPackageStartupMessages({
     library(hictkR)
     source(file.path(BASE_DIR,   'scripts/constants.R'))
@@ -44,36 +44,30 @@ TADs.df <-
 ###################################################
 # Generate TADCompare results from merged matrices
 ###################################################
-# List all pairs of matrices to compare
-comparisons.list <- 
-    ALL_SAMPLE_GROUP_COMPARISONS %>% 
-    rename_with(~ str_replace(.x, 'Sample.Group', 'SampleID')) %>% 
-    mutate(
-        across(
-            everything(),
-            ~ paste0(.x, '.Merged.Merged')
-        )
-    )
 # List of pairs of merged matrices to compare
 comparisons.df <- 
     # List merged matrices
     list_mcool_files() %>%
-    filter(isMerged) %>% 
-    select(SampleID, filepath) %>%
+    mutate(Sample.Group=glue('{Edit}.{Celltype}.{Genotype}')) %>% 
+    filter(isMerged == 'Merged') %>% 
+    select(Sample.Group, filepath) %>% 
     # add the TAD boundaries to compare between matrices
     left_join(
         TADs.df,
-        by=join_by(SampleID)
+        relationship='many-to-many',
+        by=join_by(Sample.Group)
     ) %>% 
     # Specify which comparisons to evaluate
     enumerate_pairwise_comparisons(
-        sample.group.comparisons=comparisons.list,
+        # sample.group.comparisons=comparisons.list,
+        sample.group.comparisons=ALL_SAMPLE_GROUP_COMPARISONS,
         pair_grouping_cols=c('resolution', 'chr', 'TAD.method', 'TAD.params'),
-        sampleID_col='SampleID',
-        suffixes=c('.Numerator', '.Denominator'),
-        SampleID.fields=c(NA, 'Celltype', 'Genotype', NA, NA),
-        include_merged_col=FALSE
+        sampleID_col='Sample.Group',
+        suffixes=c('Numerator', 'Denominator'),
+        delim='.',
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype')
     )
+    # select()
 # used by calls to future_pmap() in functions below
 message(glue('using {parsed.args$threads} core to parallelize'))
 plan(multisession, workers=parsed.args$threads)

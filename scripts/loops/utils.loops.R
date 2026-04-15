@@ -19,7 +19,7 @@ load_cooltools_dots <- function(
 list_all_cooltools_dots_results <- function(resolutions=NULL){
     LOOP_RESULTS_DIR %>% 
     parse_results_filelist(suffix='-dots.tsv') %>%
-    filter(method == 'cooltools') %>% 
+    # filter(method == 'cooltools') %>% 
     {
         if (!is.null(resolutions)) {
             filter(., resolution %in% resolutions)
@@ -44,7 +44,6 @@ load_all_cooltools_dots <- function(resolutions=NULL){
         # {.} -> tmp; tmp
         # tmp %>% select(SampleID, loops)
     unnest(loops) %>% 
-    dplyr::rename(chr=chrom1) %>% 
     rename_with(
         ~ stri_replace_all(
             .x, 
@@ -52,25 +51,13 @@ load_all_cooltools_dots <- function(resolutions=NULL){
             '$2.$1'
         )
     ) %>% 
-    select(
-        -c(
-            method,
-            cstart1,
-            cstart2,
-            region,
-            region1,
-            region2,
-            end1,
-            end2,
-            chrom2,
-            filepath
-        )
-    )
+    select(-c(filepath))
 }
 
 post_process_cooltools_dots_results <- function(results.df) {
     results.df %>%
     dplyr::rename(
+        'chr'=chrom1,
         'anchor.left'=start1,
         'anchor.right'=start2
     ) %>% 
@@ -91,36 +78,34 @@ post_process_cooltools_dots_results <- function(results.df) {
         names_from=statistic,
         values_from=value
     ) %>%
-    dplyr::rename('enrichment'=value) %>% 
     mutate(
         SampleID=str_replace_all(SampleID, '.Merged.Merged', ''),
         log10.qval=-log10(qval),
         length=anchor.right - anchor.left
     ) %>% 
+    dplyr::rename('enrichment'=value) %>% 
     dplyr::select(
-        c(
-            "type",
-            "weight",
-            "resolution",
-            # "Edit",
-            # "Celltype",
-            # "Genotype",
-            # "CloneID",
-            # "TechRepID",
-            # "ReadFilter",
-            # "isMerged",
-            "SampleID",
-            "chr",
-            "anchor.left",
-            "anchor.right",
-            "count",
-            # "c_label",
-            # "c_size",
-            "length",
-            "kernel",
-            "enrichment",
-            "log10.qval"
-        )
+        type,
+        weight,
+        resolution,
+        Edit,
+        Celltype,
+        Genotype,
+        # CloneID,
+        # TechRepID,
+        # ReadFilter,
+        # isMerged,
+        SampleID,
+        chr,
+        anchor.left,
+        anchor.right,
+        count,
+        # c_label,
+        # c_size,
+        length,
+        kernel,
+        enrichment,
+        log10.qval
     )
 }
 
@@ -136,7 +121,7 @@ filter_loop_results <- function(
 
 ###################################################
 # IDR2D Analysis
-################################################### tidy_IDR2D_sided_results <- function(
+###################################################
 tidy_IDR2D_sided_results <- function(
     results.obj,
     metric_colname,
@@ -351,7 +336,6 @@ load_IDR2D_results <- function(filepath, ...){
 
 list_all_IDR2D_results <- function(
     resolutions=NULL,
-    suffixes=c('.P1', '.P2'),
     ...){
     LOOPS_IDR2D_DIR %>% 
     parse_results_filelist(
@@ -368,7 +352,12 @@ list_all_IDR2D_results <- function(
     separate_wider_delim(
         Sample.Group.Pair,
         delim='_vs_',
-        names=paste0('SampleID', suffixes)
+        names=c('SampleID.Numerator', 'SampleID.Denominator')
+    ) %>% 
+    extract_all_sample_pair_metadata(
+        SampleID.cols=c('SampleID.Numerator', 'SampleID.Denominator'),
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
+        suffixes=c('Numerator', 'Denominator')
     )
 }
 
@@ -384,20 +373,12 @@ load_all_IDR2D_results <- function(resolutions=NULL){
             )
     ) %>%
     unnest(idr2d) %>% 
-    extract_all_sample_pair_metadata(
-        SampleID.cols=c('SampleID.P1', 'SampleID.P2'),
-        SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
-        suffixes=c('Numerator', 'Denominator')
-    ) %>% 
     select(-c(filepath))
 }
 
 post_process_IDR2D_results <- function(results.df){
     results.df %>% 
     mutate(
-        comparison=
-            glue('{SampleID.P1} vs {SampleID.P2}') %>% 
-            fct_reorder2(SampleID.P1, SampleID.P2),
         max.gap.bins.int=max.gap / resolution,
         max.gap=
             fct_reorder(
@@ -433,9 +414,20 @@ post_process_IDR2D_results <- function(results.df){
             # resolve.method,
             # weight,
             # kernel,
+           # max.gap,
+           # max.gap.bins.int,
+            # max.gap.bins,
             loop.type,
             region
         )
+    ) %>%
+    relocate(
+        type, weight, kernel,
+        resolution,
+        # metric, resolve.method, max.gap, max.gap.bins, max.gap.bins.int
+        metric, resolve.method, max.gap,
+        chr, anchor.left, anchor.right,
+        diff.value, diff.rank, IDR, is.loop.shared
     )
 }
 
@@ -652,13 +644,23 @@ summarize_loop_nesting_results <- function(results.df, resolution, ...) {
     relocate(chr, nest.start, nest.end, nesting.lvl)
 }
 
-load_all_loop_nesting_results <- function(){
-    # results.df <- 
+list_all_loop_nesting_results <- function(){
     ALL_LOOP_NESTING_RESULTS_DIR %>% 
     parse_results_filelist(
         filename.column.name='SampleID',
         suffix='-loops.nesting.track.tsv'
-    ) %>%
+    ) %>% 
+    separate_wider_delim(
+        SampleID,
+        delim='.',
+        names=c('Edit', 'Celltype', 'Genotype'),
+        cols_remove=FALSE
+    )
+}
+
+load_all_loop_nesting_results <- function(){
+    # results.df <- 
+    list_all_loop_nesting_results() %>% 
     mutate(
         nesting.results=
         # future_pmap(
@@ -691,18 +693,11 @@ post_process_loop_nesting_result <- function(results.df){
         tmp,
         delim='.',
         names=c(NA, 'stat', 'loop.feature')
-    ) %>% 
-    separate_wider_delim(
-        SampleID,
-        delim='.',
-        names=c('Edit', 'Celltype', 'Genotype'),
-        cols_remove=FALSE
     )
 }
 
 load_all_loop_nesting_count_result <- function(){
-    ALL_LOOP_NESTING_RESULTS_DIR %>% 
-    parse_results_filelist(suffix='-loop.nesting.track.tsv') %>%
+    list_all_loop_nesting_results() %>% 
     mutate(
         nesting.results=
         # future_pmap(

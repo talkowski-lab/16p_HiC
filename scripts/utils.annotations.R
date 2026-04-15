@@ -13,6 +13,7 @@
 load_sample_metadata <- function(filter=TRUE){
     SAMPLE_METADATA_FILE %>%
     read_tsv(show_col_types=FALSE) %>%
+    mutate(isMerged=CloneID == 'Merged') %>% 
     {
         if(filter) {
             filter(., Included)
