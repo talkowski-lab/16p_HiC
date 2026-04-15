@@ -14,6 +14,42 @@ library(future)
 ###################################################
 # Pairsing and Caching
 ###################################################
+install_packages <- function(){
+    install.packages(
+        c(
+            'ggplot2',
+            'ggpubr',
+            'ggh4x',
+            'ggridges',
+            'GGally',
+            'scales',
+            'ggpointdensity',
+            'viridis',
+            'ggstatsplot',
+            'tidyverse',
+            'stringi',
+            'glue',
+            'here',
+            'magrittr',
+            'dplyr',
+            'optparse',
+            'cluster',
+            'furrr',
+            'future',
+            'tictoc',
+            'devtools',
+            'PRIMME',
+            'Matrix',
+            'HiCcompare',
+            'BiocManager'
+        )
+    )
+    BiocManager::install(c('TADCompare'))
+    BiocManager::install("multiHiCcompare")
+    pak::pak("jasonwong-lab/gghic")
+    pak::pak("paulsengroup/hictkR")
+    }
+
 check_cached_results <- function(
     results_file,
     force_redo=FALSE,
