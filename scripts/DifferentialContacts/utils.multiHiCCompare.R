@@ -343,7 +343,7 @@ list_all_multiHiCCompare_results <- function(
     ...){
     # resolutions=NULL; sample.group.comparisons=NULL; file_suffix='-multiHiCCompare.tsv'
     if (is.null(sample.group.comparisons)){
-        sample.group.comparison.colnames <- c('Sample.Group.Numerator','Sample.Group.Denominator')
+        sample.group.comparison.colnames <- c('SampleID.Numerator','SampleID.Denominator')
     } else {
         sample.group.comparison.colnames <- colnames(sample.group.comparisons)
     }
@@ -361,9 +361,10 @@ list_all_multiHiCCompare_results <- function(
         delim='_vs_',
         names=sample.group.comparison.colnames
     ) %>% 
-    mutate(
-        Sample.Group=glue('{Sample.Group.Numerator} vs {Sample.Group.Denominator}'),
-        resolution=scale_numbers(resolution, force_numeric=TRUE)
+    extract_all_sample_pair_metadata(
+        SampleID.cols=c('SampleID.Numerator', 'SampleID.Denominator'),
+        SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
+        suffixes=c('Numerator', 'Denominator')
     ) %>% 
     # Filter relevant results sets
     {
@@ -398,9 +399,6 @@ load_all_multiHiCCompare_results <- function(
         resolutions=resolutions,
         sample.group.comparisons=sample.group.comparisons
     ) %>% 
-    filter(A.min == 5) %>% 
-    filter(zero.p == 0.8) %>% 
-    select(-c(A.min, zero.p)) %>% 
     # filter(resolution == 50000) %>% 
     # Load all results + correct pvalues genome wide per Sample.Group
     group_by(across(-c(filepath, region))) %>% 
@@ -421,10 +419,12 @@ load_all_multiHiCCompare_results <- function(
             )
     ) %>% 
     unnest(results) %>% 
-    select(-c(D, filepaths)) %>%
-    mutate(distance.bp=region2 - region1) %>% 
+    select(-c(filepaths)) %>%
+    dplyr::rename('distance.bp'=D) %>% 
     mutate(
-    # calculate log of all pvalues + add columns
+        merged=ifelse(merged, 'Merged', 'Individual'),
+        chr=rename_chrs(chr, to_label=TRUE),
+        # calculate log of all pvalues + add columns
         across(
             starts_with('p.'),
             .f=~ -log10(.x),
@@ -437,34 +437,16 @@ load_all_multiHiCCompare_results <- function(
         chr, region1, region2,
         sep='#',
         remove=FALSE
-    ) %>% 
-    # tidy sample metadata
-    mutate(
-        tidy.metadata=
-            tidy_pair_metadata(
-                sampleID.pairs.df=
-                    select(
-                        .data=., 
-                        all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
-                    ),
-                suffixes=c('Numerator', 'Denominator'),
-                SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
-                keep_separate_metadata_fields=TRUE
-            )
-    ) %>%
-    unnest(tidy.metadata)
+    )
 }
 
 post_process_multiHiCCompare_results <- function(results.df){
     results.df %>% 
-    mutate(
-        merged=ifelse(merged, 'Merged', 'Individual'),
-        Edit.Numerator=as.factor(Edit.Numerator),
-        Sample.Group=fct_reorder(Sample.Group, as.integer(Edit.Numerator)),
-        chr=rename_chrs(chr, to_label=TRUE)
-    ) %>% 
+    filter(A.min == 5) %>% 
+    filter(zero.p == 0.8) %>% 
     select(
         -c(
+            A.min, zero.p,
             p.value, p.adj,
             log.p.value, log.p.adj,
             logCPM
@@ -529,30 +511,12 @@ count_contacts_by_significance <- function(
             )
     ) %>% 
     unnest(results) %>% 
-    select(-c(filepaths)) %>% 
-    # format sample pair metadata from SampleIDs
-    mutate(
-        tidy.metadata=
-            tidy_pair_metadata(
-                sampleID.pairs.df=
-                    select(
-                        .data=., 
-                        all_of(c('Sample.Group.Numerator', 'Sample.Group.Denominator'))
-                    ),
-                SampleID.fields=c('Edit', 'Celltype', 'Genotype'),
-                suffixes=c('Numerator', 'Denominator'),
-                keep_separate_metadata_fields=TRUE
-            )
-    ) %>%
-    unnest(tidy.metadata)
+    select(-c(filepaths))
 }
 
 post_process_counts_by_significance <- function(results.df){
     results.df %>% 
     mutate(
-        Edit.Numerator=as.factor(Edit.Numerator),
-        merged=ifelse(merged, 'Merged', 'Individual'),
-        chr=rename_chrs(chr, to_label=TRUE),
         sig.lvl=
             factor(
                 sig.lvl,
