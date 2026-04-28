@@ -1,6 +1,9 @@
+###################################################
+# Dependencis
+###################################################
 library(stringi)
 library(furrr)
-library(idr2d)
+# library(idr2d)
 # library(plyranges)
 
 ###################################################
@@ -217,13 +220,7 @@ format_TAD_anchors_for_bed_files <- function(TADs.df){
     TADs.df %>% 
     # The end is actually the end of the last bin, transformt so its the start of the last bin inside the TAD
     mutate(end=end - resolution) %>% 
-    pivot_TADs_to_boundaries() %>% 
-    select(-c(TAD.index)) %>% 
-    mutate(boundary.end=boundary + resolution) %>% 
-    dplyr::rename(
-        "boundary.start"=boundary,
-        "boundary.score"=score
-    )
+    pivot_TADs_to_boundaries()
 }
 
 generate_all_TAD_bed_files <- function(force_redo=FALSE){
@@ -775,7 +772,7 @@ load_and_summarize_cCRE_overlaps <- function(filepath){
 fetch_overlap_file_locations <- function(feature.type){
     # print(feature.type)
     case_when(
-        feature.type == 'binwise'                ~ BINWISE_FUNCTIONAL_ENRICHMENT_DIR,
+        feature.type == 'binwise'                ~ BINWISE_ENRICHMENT_DIR,
         feature.type == 'TAD.spans'              ~ TAD_ENRICHMENTS_DIR,
         feature.type == 'TAD.boundaries'         ~ TAD_ENRICHMENTS_DIR,
         feature.type == 'loop.anchors'           ~ LOOP_ENRICHMENTS_DIR,
@@ -792,7 +789,6 @@ fetch_overlap_file_locations <- function(feature.type){
 load_all_overlap_results <- function(
     specific.feature.type,
     specific.annotation=NULL,
-    # specific.feature.type='binwise'; specific.annotation='CTCF'
     ...){
     # specific.feature.type='TAD.boundaries'; specific.annotation.type='CTCF'; 
     specific.feature.type %>% 
@@ -837,6 +833,24 @@ load_all_overlap_results <- function(
             )
     ) %>%
     unnest(overlaps) %>% 
+    dplyr::rename('chr'=chrom) %>% 
+    {
+        if (specific.annotation == 'CTCF') {
+            dplyr::rename(
+                .,
+                'motif'=annotation.type,
+                'CTCF.overlaps.n'=n.overlaps
+            )
+        } else if (specific.annotation == 'cCRE') {
+            dplyr::rename(
+                .,
+                'cCRE.type'=annotation.type,
+                'cCRE.overlaps.n'=n.overlaps
+            )
+        } else {
+            .
+        }
+    } %>% 
     # only keep columns with at least 2 unique values
     # i.e. exclude all columsn that are only NA
     # select(where(~ n_distinct(.) > 1)) %>% 
@@ -852,7 +866,7 @@ load_specific_overlap_results <- function(
     check_cached_results(
         results_file=
             file.path(
-                COALLATED_FUNCTIONAL_ENRICHMENT_DIR,
+                COALLATED_ENRICHMENTS_DIR,
                 glue('annotation_{annotation}'),
                 glue('All-{feature.type}-overlaps.tsv')
             ),
@@ -894,88 +908,381 @@ post_process_overlap_results <- function(
 ###################################################
 # Post Process Overlap Results
 ###################################################
-pivot_CTCF_enrichment_metrics <- function(results.df){
+pivot_CTCF_enrichment_metrics <- function(
+    results.df,
+    statlist=NULL){
     results.df %>% 
+    # Pivot CTCF summary stats to tidy-format
+    {
+        if ('n.overlaps' %in% colnames(.)) {
+            dplyr::rename(., 'CTCF.overlaps.n'=n.overlaps)
+        } else {
+            .
+        }
+    } %>% 
     pivot_longer(
-        starts_with('CTCF.'),
-        names_to='metric',
-        names_prefix='CTCF.',
-        values_to='value'
+         starts_with('CTCF.'),
+         names_prefix='CTCF.',
+         names_to='sumstat',
+         values_to='value'
     ) %>% 
     separate_wider_delim(
-        metric,
-        delim='.',
-        names=c('metric', 'stat')
+        sumstat,
+        delim=fixed('.'),
+        names=c('metric', 'stat'),
+        cols_remove=FALSE
+    ) %>%
+    {
+        if (!is.null(statlist)) {
+            filter(., stat %in% statlist)
+        } else {
+            .
+        }
+    }
+}
+
+assign_nearest_feature_to_bins <- function(bins.df, features.df){
+    bins.df %>% 
+    # match bins to closest downstream feature 
+    left_join(
+        features.df,
+        relationship='many-to-many',
+        by=join_by(chr, closest(start >= feature.end))
     ) %>% 
-    filter(
-        stat %in% c(
-            'min',
-            # 'q25',
-            'mean',
-            'median',
-            # 'q75',
-            'max',
-            'total'
+    # match bins to closest upstream feature
+    left_join(
+        features.df,
+        relationship='many-to-many',
+        suffix=c('.ds', '.us'),
+        by=join_by(chr, closest(end <= feature.start))
+    ) %>% 
+    # check if any bins match feature exactly
+    left_join(
+        features.df %>%
+        rename_with(.cols=-c(chr), .fn=~ str_replace(.x, '$', '.match')) %>% 
+        add_column(isExactMatch=TRUE),
+        relationship='many-to-many',
+        by=join_by(chr, start == feature.start.match, end == feature.end.match)
+    ) %>% 
+    mutate(isExactMatch=ifelse(!is.na(isExactMatch), isExactMatch, FALSE)) %>% 
+    # pick the closer TAD boundary for each bin
+    mutate(
+        # for all bins within each TAD, get distance to nearest feature (start or end)
+        dist.to.feature.ds=ifelse(is.na(feature.start.ds), Inf, abs(feature.start.ds - start)),
+        dist.to.feature.us=ifelse(is.na(feature.end.us),   Inf, abs(feature.end.us - end)),
+        dist.to.nearest=
+            case_when(
+                isExactMatch                             ~  0,
+                dist.to.feature.ds <= dist.to.feature.us ~ -dist.to.feature.ds,
+                dist.to.feature.ds >  dist.to.feature.us ~  dist.to.feature.us
+            ),
+        nearest.boundary=
+            case_when(
+                isExactMatch                             ~ 'match',
+                dist.to.feature.ds <= dist.to.feature.us ~ 'ds',
+                dist.to.feature.ds >  dist.to.feature.us ~ 'us'
+            ),
+        # Create new column with only the data for the closest feature (upstream or downstream)
+        across(
+            ends_with('.match'), 
+            ~ case_when(
+                # if ds bin is closest get *.ds column data
+                nearest.boundary == 'match' ~ .x,
+                nearest.boundary == 'ds'    ~ get(str_replace(cur_column(), '.match', '.ds')), 
+                nearest.boundary == 'us'    ~ get(str_replace(cur_column(), '.match', '.us'))
+            ),
+            .names="{str_remove(.col, '.match$')}"
+        )
+    ) %>% 
+    # Re-categorize bins "close" to HiC Features as HiC Features for testing
+    mutate(
+        isHiCFeature=
+            case_when(
+                abs(dist.to.nearest / resolution) <= HiCFeatureRadius.bins ~ 'Feature',
+                abs(dist.to.nearest / resolution) >  HiCFeatureRadius.bins ~ 'Not Feature' 
+            ) %>% 
+            # force isHiCFeature == TRUE  to be x group in t.test
+            # so "greater" is testing if TAD > non-TAD in terms of CTCF sites overlaps
+            # i.e. is the mean number of CTCF sites in/near TAD boundaries > than
+            # all bins within that TAD but not near either boundary
+            factor(levels=c('Feature', 'Not Feature'))
+    ) %>% 
+    select(
+        -c(
+            nearest.boundary,
+            ends_with(c('.match', '.ds', '.us'))
         )
     )
 }
 
-###################################################
-# Expression Integration Analysis
-###################################################
-calc_expr_loop_ztest <- function(
-    idr2d.results.df,
-    expression.df,
+compute_CTCF_features_fisher_tests <- function(
+    CTCF.df,
+    resolution,
+    HiCFeatureRadius.bins,
+    n.CTCF.min.thresh,
     ...){
-    idr2d.results.df %>% 
-    inner_join(
-        expression.df,
-        by=
-            join_by(
-                SampleID.P1 == SampleID,
-                chr,
-                between(y$start, x$anchor.left, x$anchor.right),
-                between(y$end,   x$anchor.left, x$anchor.right)
-            )
+    # Count overlap of bins with enough CTCF sites & bins close enough to HiC Features
+    contingency.table <- 
+        CTCF.df %>% 
+        group_by(isHiCFeature) %>% 
+        summarize(
+            n.bins.wo.CTCF=sum(n.overlaps <  n.CTCF.min.thresh),
+            n.bins.w.CTCF=sum(n.overlaps  >= n.CTCF.min.thresh)
+        ) %>%
+        select(n.bins.w.CTCF, n.bins.wo.CTCF) %>%
+        as.matrix()
+    # Calculate enrichment stat for test
+    bins.overlap      <- contingency.table[1,1]
+    bins.w.feature    <- bins.overlap + contingency.table[1,2]
+    bins.w.CTCF       <- bins.overlap + contingency.table[2,1]
+    bins.total        <- sum(contingency.table)
+    # Calculate enrichment stat for test
+    expected          <- bins.w.CTCF * (bins.w.feature / bins.total)
+    variance_term_1   <- (bins.total - bins.w.CTCF) / (bins.total - 1)
+    variance_term_2   <- (bins.total - bins.w.feature) / (bins.total - 1)
+    std_dev           <- sqrt(expected * variance_term_1 * variance_term_2)
+    enrichment.zscore <- (bins.overlap - expected) / std_dev
+    # Calculate fisher pvalue 
+    fisher.test.row <- 
+        contingency.table %>% 
+        fisher.test(alternative='greater') %>% 
+        tidy()
+    # tidy data into single row tibble
+    list(
+        contingency.A=contingency.table[1,1],
+        contingency.B=contingency.table[1,2],
+        contingency.C=contingency.table[2,1],
+        contingency.D=contingency.table[2,2],
+        enrichment.zscore=enrichment.zscore,
+        metric='overlaps',
+        stat='n',
+        test='fisher'
     ) %>% 
-    inner_join(
-        expression.df,
-        suffix=c('.P1', '.P2'),
-        by=
-            join_by(
-                SampleID.P2 == SampleID,
-                chr,
-                start, end,
-                symbol, EnsemblID
-            )
+    as_tibble() %>% 
+    bind_cols(fisher.test.row)
+}
+
+compute_CTCF_features_t_tests <- function(CTCF.df) {
+    CTCF.df %>% 
+    # pivot metrics so can do 1 test per metric+stat (i.e. per row)
+    pivot_CTCF_enrichment_metrics() %>% 
+    group_by(metric, stat) %>% 
+    summarize(
+        # welch's t-test of the mean CTCF metric is > near  TAD boundaries or not
+        # results.t.test=
+            t.test(
+                value ~ isHiCFeature,
+                alternative='greater' # only care if TADs are enriched for CTCFs, not depleted
+            ) %>%
+            tidy()
     ) %>%
-    # for each gene compute pvalue if mean expression is different between conditions
-    add_column(
-        n.rna.replicates.P1=6,
-        n.rna.replicates.P2=6
-    ) %>% 
-    mutate(
-        TPM.se.P1=TPM.sd.P1**2 / n.rna.replicates.P1,
-        TPM.se.P2=TPM.sd.P2**2 / n.rna.replicates.P2,
-        expr.Z=(TPM.mean.P2 - TPM.mean.P1) / sqrt(TPM.se.P1 + TPM.se.P2),
-        expr.p=2 * (1 - pnorm(abs(expr.Z)))
-    ) %>%
-    # adjust p-values genome-wide
-    group_by(
-        weight, resolution, kernel,
-        resolve.method, metric,
-        SampleID.P1, SampleID.P2
-    ) %>% 
-    mutate(expr.p.adjust=p.adjust(expr.p, method='BH')) %>% 
     ungroup() %>% 
-    select(
-        -c(
-            n.rna.replicates.P1, n.rna.replicates.P2,
-            TPM.se.P1, TPM.se.P2,
-            # TPM.sd.P1, TPM.sd.P2,
-            # TPM.mean.P1, TPM.mean.P2,
-            expr.Z, expr.p
+    # unnest(results.t.test) %>% 
+    add_column(test='t.test')
+}
+
+compute_CTCF_features_corr_tests <- function(CTCF.df) {
+    CTCF.df %>% 
+    pivot_CTCF_enrichment_metrics() %>% 
+    group_by(metric, stat) %>% 
+    # calcualte test results for each CTCF metric + stat combo
+    summarize(
+        # are TADs more enriched for CTCF signal closer or farther from boundaries
+        results.pearson=
+            cor.test(
+                x=dist.to.nearest,
+                y=value,
+                method='pearson',
+                exact=FALSE,
+                alternative='greater' # want closer to TAD ~ more CTCF signal, so +ve signal only
+            ) %>% list(),
+        results.spearman=
+            cor.test(
+                x=dist.to.nearest,
+                y=value,
+                method='spearman',
+                exact=FALSE,
+                alternative='greater' # want closer to TAD ~ more CTCF signal, so +ve signal only
+        ) %>% list(),
+    ) %>%
+    ungroup() %>% 
+    pivot_longer(
+        starts_with('results.'),
+        names_prefix='results.',
+        names_to='test',
+        values_to='test.results'
+    ) %>% 
+    rowwise() %>% 
+    mutate(test.results=tidy(test.results)) %>% 
+    unnest(test.results)
+}
+
+calculate_CTCF_enrichment_tests <- function(
+    bins.df,
+    features.df,
+    test.type,
+    ...){
+    # paste0('row.idx=1; ', paste(colnames(tmp), '=tmp$', colnames(tmp), '[[row.idx]]', sep='', collapse='; '))
+    # row.idx=1; annotation=tmp$annotation[[row.idx]]; feature.type=tmp$feature.type[[row.idx]]; motif=tmp$motif[[row.idx]]; method=tmp$method[[row.idx]]; Sample.Group=tmp$Sample.Group[[row.idx]]; resolution=tmp$resolution[[row.idx]]; bins.df=tmp$bins.df[[row.idx]]; features.df=tmp$features.df[[row.idx]]; HiCFeatureRadius.bins=tmp$HiCFeatureRadius.bins[[row.idx]]; n.CTCF.min.thresh=tmp$n.CTCF.min.thresh[[row.idx]]
+    # Re-classify bins as being "HiC Features" if they are close enoughy i.e. 
+    # within HiCFeatureRadius.bins bins of the actual feature
+    assign_nearest_feature_to_bins(
+        bins.df,
+        features.df
+    ) %>%
+    {
+        # calculate fisher's exact test pvalue of whether bins that are at/near TAD boundaries
+        # are more likely to have > n.CTCF.min.thresh CTCF sites overlapping them than bins
+        # that are at least HiCFeatureRadius.bins bins away from a TAD boundary
+        if (test.type == 'fisher') {
+            compute_CTCF_features_fisher_tests(
+                CTCF.df=.,
+                ...
+            ) %>%
+            select(-c(method, alternative))
+        } else if (test.type == 't.test') {
+            # Directly test if summary stats over CTCF site qvalues/scores are different closer to Features
+            compute_CTCF_features_t_tests(CTCF.df=.) %>% 
+            select(-c(estimate1, estimate2, parameter, statistic, method, alternative))
+        # Test if distance to feature is correlated with CTCF stats
+        } else if (test.type == 'corr.test') {
+            compute_CTCF_features_corr_tests(CTCF.df=.)
+        } else {
+            stop(glue('invalid test type: {test.type}'))
+        }
+    } %>% 
+    dplyr::rename_with(.cols=-c('test'), .fn=~str_replace(., '^', 'test.'))
+}
+
+calculate_all_feature_CTCF_enrichments <- function(
+    overlaps.df,
+    p.corr.group.cols=c(),
+    ...){
+    # overlaps.df=TAD.CTCF.overlaps.df;
+    # overlaps.df=TAD.CTCF.overlaps.df %>% cross_join(expand_grid(HiCFeatureRadius.bins=c(0, 1, 2, 3), n.CTCF.min.thresh=c(1, 5, 10, 20, 30, 40) ));
+    overlaps.df %>% 
+            # {.} -> tmp; tmp
+    # calculate enrichment test results across all conditions + params + hyper-params
+    mutate(
+        test.results=
+            pmap(
+            # future_pmap(
+                .l=.,
+                .f=calculate_CTCF_enrichment_tests,
+                ...,
+                .progress=TRUE
+            )
+    )  %>% 
+    unnest(test.results) %>% 
+    select(-c(bins.df, features.df)) %>% 
+    # correct tests across resolutions + TAD calling methods + tests
+    group_by(
+        across(
+            all_of(
+                intersect(
+                    colnames(.), 
+                    c(
+                        'test',
+                        'test.metric',
+                        'test.stat',
+                        p.corr.group.cols
+                    )
+                )
+            )
         )
+    ) %>% 
+    mutate(p.adj=p.adjust(test.p.value, method='BH')) %>% 
+    ungroup() %>%
+    # calculate log pvalues for plotting
+    mutate(
+        log.p.value=-log10(test.p.value),
+        log.p.adj=-log10(p.adj)
     )
+}
+
+post_process_CTCF_test_results <- function(sig.expr=NULL){
+    test.df %>% 
+    {
+        if (!is.null(sig.expr)) {
+            mutate(., is.Enriched=ifelse(!! rlang::parse_expr(sig.expr), sig.expr, 'N.S.'))
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('motif' %in% colnames(.)) {
+            mutate(., motif=str_remove(motif, '_CORE_vertebrates'))
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('HiCFeatureRadius.bins' %in% colnames(.)) {
+            mutate(
+                .,
+                HiCFeatureRadius.bins.fct=
+                    glue('<= {HiCFeatureRadius.bins} away') %>% 
+                    fct_reorder(HiCFeatureRadius.bins)
+            )
+        } else {
+            .
+        }
+    } %>% 
+    {
+        if ('n.CTCF.min.thresh' %in% colnames(.)) {
+            mutate(
+                .,
+                n.CTCF.min.thresh.fct=
+                    glue('>= {n.CTCF.min.thresh} CTCFs') %>% 
+                    fct_reorder(n.CTCF.min.thresh)
+            )
+        } else {
+            .
+        }
+    } %>% 
+    rename(
+        'metric'=test.metric,
+        'stat'=test.stat
+    )
+}
+
+###################################################
+# Misc
+###################################################
+nest_data_for_plotting <- function(
+    results.df,
+    plot.file.suffix,
+    nest_cols=NULL){
+    # results.df=TAD.boundary.CTCFs.df; nest_cols=c('method', 'TAD.params', 'resolution'); plot.file.suffix='-overlap.enrichment.pdf'
+    nest_cols <- 
+        c(
+            'feature.type',
+            'annotation',
+            nest_cols
+        )
+    # print(nest_cols)
+    dir_glue_str <- 
+        paste0(
+            nest_cols,
+            '_',
+            '{', nest_cols, '}',
+            collapse='/'
+        )
+    # print(dir_glue_str)
+    results.df %>% 
+    nest(plot.df=-all_of(nest_cols)) %>% 
+    mutate(
+        plot_dir=
+            file.path(
+                PLOT_DIR,
+                glue(dir_glue_str)
+            ),
+        results_file=
+            file.path(
+                plot_dir,
+                glue('{annotation}-{feature.type}-{plot.file.suffix}')
+            )
+    ) %>%
+    select(plot.df, results_file)
 }
 
