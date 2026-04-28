@@ -1,3 +1,6 @@
+###################################################
+# Dependencies
+###################################################
 # library(tidyverse)
 library(stringi)
 library(glue)
@@ -8,22 +11,32 @@ library(TADCompare)
 # Utilities
 ###################################################
 convert_boundaries_to_TADs <- function(
-    boundaries,
+    bins.df,
+    include.tails=FALSE,
     start.col.name='start',
     end.col.name='end',
     ...){
-    # boundaries=tmp$boundaries[[1]]; start.col.name='start'; end.col.name='end'
+    # bins.df=tmp2$bins.df[[1]]
     # convert list of TAD boundaries to start/end format
-    # every bnoundary is a start+end excpet for the first and last ones
-    tibble(
-        TAD.start=boundaries %>% deframe() %>% {.[1:length(.)-1]},
-        TAD.end=boundaries %>% deframe() %>% {.[2:length(.)]}
-    ) %>%
-    add_row(TAD.start=NA, TAD.end=NA) %>% 
-    dplyr::rename(
-       !!start.col.name := TAD.start,
-       !!end.col.name := TAD.end
-    )
+    # every boundary is a start+end excpet for the first and last ones
+    bins.df %>% 
+    filter(is.boundary) %>%
+    pull(bin.start) %>%
+    {
+        if (include.tails) {
+            c(
+                bins.df %>% pull(bin.start) %>% min(), # first bin on chr
+                .,                                     # all annotated boundaries
+                bins.df %>% pull(bin.start) %>% max()  # last bin on chr
+            )
+        } else {
+            .
+        }
+    } %>% 
+    tibble(boundaries=.) %>%
+    rename(!!start.col.name := boundaries) %>% 
+    mutate(!!end.col.name := lead(!!sym(start.col.name))) %>% 
+    filter(!is.na(start), !is.na(end))
 }
 
 convert_TADs_to_boundaries <- function(
@@ -52,15 +65,15 @@ compute_TAD_stats <- function(
         TAD.end.score=sum(ifelse(end == bin.end, bin.score, 0)),
         across(
             .cols=c(bin.score),
-            .fn=
+            .fns=
                 list(
-                    'min'=min,
-                    'q25'=partial(stats::quantile, probs=0.25, na.rm=TRUE),
-                    'mean'=mean,
-                    'median'=median,
-                    'q75'=partial(stats::quantile, probs=0.75, na.rm=TRUE),
-                    'max'=max,
-                    'total'=sum
+                    'min'=   partial(min,    na.rm=TRUE),
+                    'q25'=   partial(stats::quantile, probs=0.25, na.rm=TRUE),
+                    'mean'=  partial(mean,   na.rm=TRUE),
+                    'median'=partial(median, na.rm=TRUE),
+                    'q75'=   partial(stats::quantile, probs=0.75, na.rm=TRUE),
+                    'max'=   partial(max,    na.rm=TRUE),
+                    'total'= partial(sum,    na.rm=TRUE)
                 ),
             .names="TAD.inner.{.fn}"
         )
@@ -321,8 +334,9 @@ load_hiTAD_TADs <- function(
                 within(y$bin.start, y$bin.end, x$start, x$end)
             )
     ) %>% 
+    add_column(TAD.metric='ADI') %>% 
     # for each TAD compute summary stats over the bin-wise scores
-    group_by(chr, start, end) %>% 
+    group_by(TAD.metric, chr, start, end) %>% 
     compute_TAD_stats(resolution=resolution)
 }
 
@@ -331,7 +345,7 @@ list_all_hiTAD_TADs <- function(){
     parse_results_filelist(suffix='.tsv') %>%
     # hiTAD only expects balanced matrices as input 
     filter(weight == 'balanced') %>% 
-    add_column(method='hiTAD') %>% 
+    add_column(TAD.method='hiTAD') %>% 
     separate_wider_delim(
         MatrixID,
         delim='-',
@@ -342,9 +356,8 @@ list_all_hiTAD_TADs <- function(){
         names_glue="{feature.type}.filepath",
         values_from=filepath
     ) %>% 
-    get_info_from_MatrixIDs(
-        MatrixID.fields=c('Edit', 'Celltype', 'Genotype', 'CloneID', 'TechRepID', NA, NA, NA)
-    )
+    get_info_from_MatrixIDs(include_fields=FALSE) %>%
+    select(-c(SampleID))
 }
 
 load_all_hiTAD_TADs <- function(){
@@ -366,15 +379,7 @@ post_process_hiTAD_TAD_results <- function(results.df){
     results.df %>% 
     # Subset to only relevant parameters
     filter(weight == 'balanced') %>% 
-    dplyr::select(
-        -c(
-            weight,
-            # threshold, mfvp,
-            # z.thresh, window.size, gap.thresh,
-            Edit, Celltype, Genotype, 
-            CloneID, TechRepID,
-        )
-    )
+    dplyr::select(-c(weight))
 }
 
 ###################################################
@@ -661,21 +666,46 @@ load_all_TAD_results <- function(force_redo_sub=FALSE){
             results_fnc=load_all_hiTAD_TADs
         ) %>% 
         post_process_hiTAD_TAD_results() %>%
-        dplyr::rename('Sample.Group'=SampleID) %>% 
         add_column(TAD.params=NULL)
-    # Load ConsensusTAD results
-    consensusTAD.TADs.df <- 
+    # Load cooltools TAD results
+    cooltools.TADs.df <- 
         check_cached_results(
-            results_file=CONSENSUSTAD_TAD_RESULTS_FILE,
+            results_file=COOLTOOLS_TAD_RESULTS_FILE,
             force_redo=force_redo_sub,
             # force_redo=TRUE,
-            results_fnc=load_all_ConsensusTAD_TADs
+            results_fnc=load_all_cooltools_TADs
         ) %>% 
-        post_process_ConsensusTAD_TAD_results()
+        post_process_cooltools_TAD_results()
+    # Load ConsensusTAD results
+    # consensusTAD.TADs.df <- 
+    #     check_cached_results(
+    #         results_file=CONSENSUSTAD_TAD_RESULTS_FILE,
+    #         force_redo=force_redo_sub,
+    #         # force_redo=TRUE,
+    #         results_fnc=load_all_ConsensusTAD_TADs
+    #     ) %>% 
+    #     post_process_ConsensusTAD_TAD_results()
     # Bind evertything together
     bind_rows(
         hiTAD.TADs.df,
-        consensusTAD.TADs.df
+        cooltools.TADs.df
+        # consensusTAD.TADs.df
+    )
+}
+
+post_process_all_TAD_results <- function(results.df){
+    results.df %>% 
+    filter(TAD.length < 10 * 1e6) %>% 
+    mutate(
+        TAD.size.band=
+            case_when(
+                length > 5e6 ~ '>  5Mb',
+                length > 2e6 ~ '>  2Mb',
+                length > 1e6 ~ '>  1Mb',
+                length > 5e5 ~ '>  500Kb',
+                TRUE         ~ '<= 500Kb'
+            ) %>%
+            factor(levels=c('<= 500Kb', '>  500Kb', '>  1Mb', '>  2Mb', '>  5Mb'))
     )
 }
 
@@ -757,6 +787,13 @@ pivot_TADs_to_boundaries <- function(results.df){
     pivot_wider(
         names_from=value.type,
         values_from=value
+    ) %>% 
+    dplyr::rename(
+        "boundary.start"=boundary,
+        "boundary.score"=score
+    )
+}
+
 ###################################################
 # Generate TADCompare results
 ###################################################

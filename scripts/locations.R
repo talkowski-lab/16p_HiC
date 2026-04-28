@@ -10,6 +10,7 @@ RESULTS_DIR          <- file.path(BASE_DIR, 'results')
 # distiller-nf  
 ###################################################
 # distiller-nf input
+REF_DIR                 <- file.path(BASE_DIR, 'reference.files')
 GENOME_REF_DIR          <- file.path(REF_DIR, 'genome.reference')
 GENOME_REF_NAME         <- 'GRCh38_no_alt_analysis_set_GCA_000001405.15'
 CHROMOSOME_SIZES_FILE   <- file.path(GENOME_REF_DIR, glue('{GENOME_REF_NAME}.chrom.sizes'))
@@ -35,6 +36,11 @@ GENOME_BINS_FILES_DIR         <- file.path(REF_DIR, 'genome.bins')
 ABC_SCORES_IN_NEURONS_FILE    <- '/data/talkowski/Samples/cohesin_project/Integration/refData/H1_Derived_Neuronal_Progenitor_Cultured_Cells-Roadmap_abc_scores.tsv'
 # FUNCTIONAL_ANNOTATIONS_DIR <- '/data/talkowski/xuefang/data/gnomad_V3/module08/step16_reannotate/noncoding_analyses/nc_elements/encode3'
 # ABC_ANNOTATIONS_FILE       <- file.path(FUNCTIONAL_ANNOTATIONS_DIR, '../abc', 'AllPredictions.AvgHiC.ABC0.015.minus150.ForABCPaperV3.txt.gz')
+###################################################
+# H1D metrics
+###################################################
+# H1D_METRICS_DIR         <- file.path(RESULTS_DIR, 'H1D.metrics')
+# H1D_METRICS_RESULTS_DIR <- file.path(H1D_METRICS_DIR, 'results')
 
 ###################################################
 # BED files
@@ -50,8 +56,10 @@ MULTIHICCOMPARE_BED_FILES_DIR <- file.path(BED_FILES_DIR, 'multiHiCCompare')
 # Functional Enrichment results
 ###################################################
 FUNCTIONAL_ENRICHMENT_DIR           <- file.path(RESULTS_DIR, 'functional.enrichments')
-COALLATED_FUNCTIONAL_ENRICHMENT_DIR <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'summarized.results')
-BINWISE_FUNCTIONAL_ENRICHMENT_DIR   <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'binwise')
+COALLATED_ENRICHMENTS_DIR           <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'summarized.results')
+TAD_CTCF_FISHER_ENRICHMENTS_FILE    <- file.path(COALLATED_ENRICHMENTS_DIR, 'TAD-CTCF-fisher-test.results.tsv')
+TAD_CTCF_TTEST_ENRICHMENTS_FILE     <- file.path(COALLATED_ENRICHMENTS_DIR, 'TAD-CTCF-t.test-test.results.tsv')
+BINWISE_ENRICHMENT_DIR              <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'binwise')
 TAD_ENRICHMENTS_DIR                 <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'TADs')
 LOOP_ENRICHMENTS_DIR                <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'loops')
 COMPARTMENTS_ENRICHMENTS_DIR        <- file.path(FUNCTIONAL_ENRICHMENT_DIR, 'compartments')
@@ -94,6 +102,8 @@ TAD_DIR                        <- file.path(RESULTS_DIR, 'TADs')
 TAD_RESULTS_DIR                <- file.path(TAD_DIR, 'results_TADs')
 HITAD_TAD_RESULTS_DIR          <- file.path(TAD_RESULTS_DIR, 'method_hiTAD')
 HITAD_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.TADs.tsv')
+COOLTOOLS_TAD_RESULTS_DIR          <- file.path(TAD_RESULTS_DIR, 'method_cooltools')
+COOLTOOLS_TAD_RESULTS_FILE         <- file.path(TAD_DIR, 'all.cooltools.TADs.tsv')
 # HITAD_DI_RESULTS_FILE         <- file.path(TAD_DIR, 'all.hiTAD.DI.annotations.tsv')
 # HITAD_MOC_FILE                <- file.path(TAD_DIR, 'all.hiTAD.TAD.MoCs.tsv')
 CONSENSUSTAD_TAD_RESULTS_DIR   <- file.path(TAD_RESULTS_DIR, 'method_ConsensusTAD')
