@@ -1,37 +1,4 @@
 ###################################################
-# Dependencies
-###################################################
-# library(TRADEtools)
-# needed for CTCF stuff
-# library(AnnotationHub)
-# library(GenomicRanges)
-# library(plyranges)
-
-###################################################
-# Load Specific Data
-###################################################
-load_sample_metadata <- function(filter=TRUE){
-    SAMPLE_METADATA_FILE %>%
-    read_tsv(show_col_types=FALSE) %>%
-    mutate(isMerged=CloneID == 'Merged') %>% 
-    {
-        if(filter) {
-            filter(., Included)
-        } else {
-            .
-        }
-    }
-}
-
-load_chr_sizes <- function(){
-    CHROMOSOME_SIZES_FILE %>% 
-    read_tsv(
-        show_col_types=FALSE,
-        col_names=c('chr', 'chr.size.bp')
-    )
-}
-
-###################################################
 # Gene Expression Data
 ###################################################
 load_gene_expression_data <- function(force.redo=FALSE){
@@ -266,6 +233,4 @@ load_all_DESeq2_results <- function(force.redo=FALSE){
     standardize_data_cols()
 }
 
-###################################################
-# Genome Feature Annotations
-###################################################
+

@@ -569,6 +569,30 @@ standardize_data_cols <- function(
 }
 
 ###################################################
+# Load Specific Data
+###################################################
+load_sample_metadata <- function(filter=TRUE){
+    SAMPLE_METADATA_FILE %>%
+    read_tsv(show_col_types=FALSE) %>%
+    mutate(isMerged=CloneID == 'Merged') %>% 
+    {
+        if(filter) {
+            filter(., Included)
+        } else {
+            .
+        }
+    }
+}
+
+load_chr_sizes <- function(){
+    CHROMOSOME_SIZES_FILE %>% 
+    read_tsv(
+        show_col_types=FALSE,
+        col_names=c('chr', 'chr.size.bp')
+    )
+}
+
+###################################################
 # Load mcool files
 ###################################################
 list_included_samples <- function(){
