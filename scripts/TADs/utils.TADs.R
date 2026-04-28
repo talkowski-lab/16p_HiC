@@ -72,6 +72,9 @@ compute_TAD_stats <- function(
     ungroup()
 }
 
+calculate_MoC <- function(
+    TADs.P1,
+    TADs.P2,
 ###################################################
 # Cooltools 
 ###################################################
@@ -79,6 +82,28 @@ load_cooltools_file <- function(
     filepath,
     boundaries_only=FALSE,
     ...){
+    # TADs.P1, TADs.P2 are both tibbles with 
+    # the following 3 columns: start, end, length
+    # add indices to track all pairs of TADs
+    # MoC normalization constant
+    nTADs.P1 <- nrow(TADs.P1)
+    nTADs.P2 <- nrow(TADs.P2)
+    norm_const <- 1 / (sqrt(nTADs.P1 * nTADs.P2) - 1)
+    # nTADs.P1; nTADs.P2; norm_const;
+    # Now find all overlapping pairs of TADs
+    inner_join(
+        TADs.P1 %>% mutate(idx=row_number()),
+        TADs.P2 %>% mutate(idx=row_number()),
+        suffix=c('.P1', '.P2'),
+        by=join_by(overlaps(x$start, x$end, y$start, y$end))
+    ) %>% 
+    # https://link.springer.com/article/10.1186/s13059-018-1596-9#Sec9
+    # "Assessment of TAD calller performance"
+    rowwise() %>% 
+    mutate( 
+        # F_ij^2 / (P_i * Q_j), 1 pair of TADs per row
+        intersection=min(end.P1, end.P2) - max(start.P1, start.P2),
+        moc.inner=((intersection**2) / (TAD.length.P1 * TAD.length.P2))
     # filepath=tmp$filepath[[1]]; boundaries_only=TRUE
     filepath %>% 
     read_tsv(
@@ -90,6 +115,33 @@ load_cooltools_file <- function(
         names_to='TAD.stat',
         values_to='value'
     ) %>%
+    # group_by(idx.P1) %>% slice_max(moc.inner) %>%  ungroup() %>% 
+    # group_by(idx.P2) %>% slice_max(moc.inner) %>% 
+    # When multiple TADs overlap, count only the most overlapping match
+    # group_by(idx.P1) %>%
+    # slice_max(moc.inner)
+    ungroup() %>% 
+    summarize(
+        n.Overlaps=n(),
+        n.TADs.P1=length(unique(idx.P1)),
+        n.TADs.P2=length(unique(idx.P2)),
+        MoC=(sum(moc.inner) - 1) / (sqrt(n.TADs.P1 * n.TADs.P2) - 1)
+        # MoC=(sum(moc.inner) - 1) * norm_const
+    )
+}
+
+calculate_all_MoCs <- function(
+    nested.TADs.df,
+    suffixes=NULL,
+    delim='.',
+    ...){
+    # paste(colnames(tmp), '=tmp$', colnames(tmp), '[[row.index]]', sep='', collapse='; ')
+    # suffixes=c('Numerator', 'Denominator'); delim='.'
+    nested.TADs.df %>% 
+    enumerate_pairwise_comparisons(
+        delim=delim,
+        suffixes=c('P1', 'P2'),
+        ...
     # Need to reverse since some stat names have _ in them
     mutate(TAD.stat=stri_reverse(TAD.stat)) %>% 
     separate_wider_delim(
@@ -107,13 +159,34 @@ load_cooltools_file <- function(
             stri_reverse
         )
     ) %>% 
+    # Finally compute all MoCs for all listed pairs of annotations
+    mutate(
+        MoCs=
+            # pmap(
+            future_pmap(
+                .l=.,
+                .f=calculate_MoC,
+                .progress=TRUE
+            )
     pivot_wider(
         names_from=stat,
         values_from=value
     ) %>%
+    select(-c(TADs.P1, TADs.P2)) %>%
+    unnest(MoCs) %>%
     rename('is.boundary'=is_boundary) %>% 
     mutate(is.boundary=as.logical(is.boundary)) %>% 
     {
+        if (!is.null(suffixes) & length(suffixes) == 2) {
+            rename_with(
+                ., 
+                .cols=ends_with('P1'),
+                ~str_replace(.x, 'P1$', suffixes[[1]])
+            ) %>% 
+            rename_with(
+                .cols=ends_with('P2'),
+                ~str_replace(.x, 'P2$', suffixes[[2]])
+            )
         if (boundaries_only){
             filter(., is.boundary)
         } else {
