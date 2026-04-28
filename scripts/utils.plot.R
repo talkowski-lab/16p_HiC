@@ -116,18 +116,25 @@ make_ggtheme <- function(...){
 }
 
 build_axis_fnc <- function(
-    scale.axis,
+    figure,
     scale.mode,
+    scale.axis,
     limits){
+    # fetch axis data to check if data is discerete or not
+    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping[[scale.axis]]), figure@data)
+    # Determine axis type
     axis.type <- 
         case_when(
             scale.mode == 'pct'      ~ 'continuous',
             scale.mode == 'm'        ~ 'continuous',
             scale.mode == 'mb'       ~ 'continuous',
             scale.mode == 'log10'    ~ 'log10',
-            scale.mode == 'discrete' ~ 'discrete',
+            is.character(scale.data) ~ 'discrete',
+            is.factor(scale.data)    ~ 'discrete',
+            # scale.mode == 'binned'   ~ 'binned',
             scale.mode == ''         ~ 'continuous'
         )
+    # build axis scaling functiona name for ggplot2 and eval to return function object
     glue('scale_{scale.axis}_{axis.type}') %>%
     as.symbol() %>%
     eval()
@@ -144,16 +151,10 @@ scale_axis <- function(
     limits=NULL,
     expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
-    # check if data is discrete
-    scale.data <- rlang::eval_tidy(rlang::quo_squash(figure@mapping[[scale.axis]]), figure@data)
-    if (is.character(scale.data)) { scale.mode <- 'discrete' }
-    if (is.factor(scale.data)) { scale.mode <- 'discrete' }
-    # print(scale.axis)
-    # print(scale.mode)
-    rm(scale.data)
     # figure out which axis function to call
     axis_fnc <- 
         build_axis_fnc(
+            figure=figure,
             scale.axis=scale.axis,
             scale.mode=scale.mode,
             limits=limits
@@ -184,7 +185,7 @@ scale_axis <- function(
             ...
         )
     # Human scaling in bytes e.g. 1Kb, 1Mb, 1Gb. 
-    # Useful for genomic coordinates + sizes
+    # Useful for genomic coordinates + sizes 
     } else if (scale.mode == 'mb') {
         figure +
         axis_fnc(
@@ -198,8 +199,8 @@ scale_axis <- function(
                 ),
             ...
         )
-    # scale axis on log10, for large numbers
-    } else if (scale.mode == 'log10') {
+    # log scale + include minor ticks, uses base 10 by default
+    } else if (scale.mode == 'log') {
         figure +
         axis_fnc(
             expand=expand,
@@ -310,6 +311,7 @@ add_faceting <- function(
 
 post_process_plot <- function(
     figure,
+    plot.elements=NULL,
     theme.obj=NULL,
     scales='fixed',
     space='fixed',
@@ -346,7 +348,12 @@ post_process_plot <- function(
     fill.n.breaks=NULL,
     fill.limits=NULL,
     fill.expand=c(0.00, 0.00, 0.00, 0.00),
-    plot.elements=NULL,
+    # linetype.scale.mode='',
+    # linetype.log.base=10,
+    # linetype.axis.label.accuracy=0.1,
+    # linetype.n.breaks=NULL,
+    # linetype.limits=NULL,
+    # linetype.expand=c(0.00, 0.00, 0.00, 0.00),
     ...){
     figure %>% 
     add_faceting(
@@ -383,25 +390,56 @@ post_process_plot <- function(
         expand=y.expand
     ) %>% 
     # Set color scaling (log, Mb, percent etc.)
-    scale_axis(
-        scale.axis='color',
-        scale.mode=color.scale.mode,
-        log.base=color.log.base,
-        axis.label.accuracy=color.axis.label.accuracy,
-        n.breaks=color.n.breaks,
-        limits=color.limits,
-        expand=color.expand
-    ) %>% 
+    {
+        if ('color' %in% names(figure@mapping)) {
+            scale_axis(
+                figure=.,
+                scale.axis='color',
+                scale.mode=color.scale.mode,
+                log.base=color.log.base,
+                axis.label.accuracy=color.axis.label.accuracy,
+                n.breaks=color.n.breaks,
+                limits=color.limits,
+                expand=color.expand
+            )
+        } else {
+            .
+        }
+    } %>% 
     # Set fill scaling (log, Mb, percent etc.)
-    scale_axis(
-        scale.axis='fill',
-        scale.mode=fill.scale.mode,
-        log.base=fill.log.base,
-        axis.label.accuracy=fill.axis.label.accuracy,
-        n.breaks=fill.n.breaks,
-        limits=fill.limits,
-        expand=fill.expand
-    ) %>% 
+    {
+        if ('fill' %in% names(figure@mapping)) {
+            scale_axis(
+                figure=.,
+                scale.axis='fill',
+                scale.mode=fill.scale.mode,
+                log.base=fill.log.base,
+                axis.label.accuracy=fill.axis.label.accuracy,
+                n.breaks=fill.n.breaks,
+                limits=fill.limits,
+                expand=fill.expand
+            )
+        } else {
+            .
+        }
+    } %>% 
+    # Set linetype scaling (log, Mb, percent etc.)
+    # {
+    #     if ('linetype' %in% names(figure@mapping)) {
+    #         scale_axis(
+    #             figure=.,
+    #             scale.axis='linetype',
+    #             scale.mode=linetype.scale.mode,
+    #             log.base=linetype.log.base,
+    #             axis.label.accuracy=linetype.axis.label.accuracy,
+    #             n.breaks=linetype.n.breaks,
+    #             limits=linetype.limits,
+    #             expand=linetype.expand
+    #         )
+    #     } else {
+    #         .
+    #     }
+    # } %>% 
     # Add theme elements, as either an object or individual args
     {
         if (!is.null(theme.obj)) {
