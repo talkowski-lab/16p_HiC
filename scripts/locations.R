@@ -85,23 +85,16 @@ MULTIHICCOMPARE_SIG_RESULTS_FILE      <- file.path(MULTIHICCOMPARE_DIR, 'all.mul
 ################################################################################
 # Functional Genomic Element (FGE) Data + Results
 ################################################################################
-FGE_RAW_DIR <- file.path(FGE_DIR, 'raw.FGE.data')
-FGE_SIGNAL_DIR <- file.path(FGE_DIR, 'testing.results')  
-FGE_TEST_RESULTS_DIR <- file.path(FGE_DIR, 'binwise.FGE.signals')  
-# FGE Annotation data of FGE positions as bed files
-GENOME_BINS_FILES_DIR        <- file.path(REF_DIR, 'genome.bins')
-ENCODE_CCRE_DIR              <- '/data/talkowski/tools/ref/ENCODE/cCRE/v4'
-ENCODE_CCRE_ANNOTATIONS_FILE <- file.path(REF_DIR, 'ENCODE.v4.cCRE.anontations.tsv')
-# ENCODE_CCRE_COUNTS_FILE      <- file.path(REF_DIR, 'ENCODE.v4.cCRE.counts.tsv')
-CTCF_SITE_FILE               <- file.path(REF_DIR, 'CTCF.annotations.tsv')
-# CTCF_COUNTS_FILE             <- file.path(REF_DIR, 'CTCF.annotation.counts.tsv')
-GENE_DESERT_REGIONS_FILE     <- file.path(REF_DIR, 'hg38_gene_deserts.tsv')
-# GENOME_GTF_FILE              <- file.path(REF_DIR, 'gencode.v38.annotation.gtf.gz')
-GENE_CONSTRAINTS_FILE        <- file.path(REF_DIR, 'gene.constraints.CNVR.tsv')
+FGE_RAW_DIR                  <- file.path(REF_DIR, 'raw.FGE.data')
+ENCODE_CCRE_SITES_FILE       <- file.path(FGE_RAW_DIR, 'GRCh38-cCREs.bed')
+CTCF_SITE_FILE               <- file.path(FGE_RAW_DIR, 'CTCF.annotations.tsv')
+GENE_DESERT_REGIONS_FILE     <- file.path(FGE_RAW_DIR, 'hg38_gene_deserts.tsv')
+GENE_CONSTRAINTS_FILE        <- file.path(FGE_RAW_DIR, 'gene.constraints.CNVR.tsv')
+GENOME_GTF_FILE              <- file.path(FGE_RAW_DIR, 'gencode.v38.annotation.gtf.gz')
 # Processed FGE annotation data to calculate bin-wise singal results
 FGE_DIR                      <- file.path(RESULTS_DIR, 'FGE.Association.Testing')
-FGE_BINWISE_ANNOTATIONS_DIR  <- file.path(FGE_DIR, 'binwise.FGE.signals')
-# HiF ~ FGE Association test results locations
+# pre-computed bin-wise FGE signal results dir
+FGE_SIGNAL_DIR               <- file.path(FGE_DIR, 'binwise.FGE.signals')  
 FGE_RESULTS_DIR              <- file.path(FGE_DIR, 'results')
 FGE_FISHER_TEST_RESULTS_FILE <- file.path(FGE_DIR, 'all.fisher.test.results.tsv')
 FGE_TTEST_TEST_RESULTS_FILE  <- file.path(FGE_DIR, 'all.ttest.test.results.tsv')
