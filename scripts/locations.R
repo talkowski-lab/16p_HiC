@@ -77,7 +77,7 @@ ALL_LOOP_NESTING_RESULTS_FILE              <- file.path(LOOPS_DIR, 'all.cooltool
 COMPARTMENTS_DIR              <- file.path(RESULTS_DIR, 'compartments')
 COMPARTMENTS_RESULTS_DIR      <- file.path(COMPARTMENTS_DIR, 'results_compartments')
 ALL_COMPARTMENTS_RESULTS_FILE <- file.path(COMPARTMENTS_DIR, 'all.cooltools.compartments.tsv')
-COMPARTMENT_BED_FILES_DIR     <- file.path(BED_FILES_DIR, 'compartments')
+COMPARTMENT_BED_FILES_DIR     <- file.path(COMPARTMENTS_DIR, 'BED_FILES')
 
 ################################################################################
 # Differential Contact results from multiHiCCompare

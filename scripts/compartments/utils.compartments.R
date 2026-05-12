@@ -96,31 +96,59 @@ generate_all_cooltools_calling_cmds <- function(
 ###################################################
 # Load cooltools results
 ###################################################
-quantize_track <- function(
-    scores,
-    nbins=4){
-    cut(
-        x=scores,
-        breaks=
-            quantile(
-                E1,
-                probs=
-                    c(
-                        seq(0.0, 0.5, length.out=nbins+1),
-                        seq(0.5, 1.0, length.out=nbins+1),
-                    ) %>%
-                    unique()
-                na.rm=TRUE
+quantize_compartment_scores <- function(
+    scores.df,
+    n.compartment.lvls,
+    ...){
+    # scores.df=tmp2$scores.df[[1]]; n.compartment.lvls=tmp2$n.compartment.lvls[[1]]
+    scores.df %>%
+    pivot_longer(
+        -c(start, end),
+        names_to='score.source',
+        values_to='score'
+    ) %>% 
+    mutate(compartment.category=ifelse(score > 0, 'A', 'B')) %>% 
+    group_by(score.source) %>% 
+    mutate(
+        # bin.abs.zscore=(abs.score - mean(abs.score, na.rm=TRUE)) / sd(abs.score, na.rm=TRUE),
+        compartment.strength.lvl=
+            cut(
+                x=abs(score),
+                breaks=n.compartment.lvls,
+                labels=seq(1, n.compartment.lvls)
+            ) %>%
+            as.integer()
+    ) %>%
+    # ungroup() %>%
+    mutate(
+        comparment.switch=
+            case_when(
+                is.na(compartment.category) & is.na(lead(compartment.category)) ~ NA,
+                .default=glue('{compartment.category}->{lead(compartment.category, n=1L)}'),
             ),
-        labels=
-            c(
-              paste
+        bin.label=
+            case_when(
+                is.na(compartment.category) & is.na(compartment.strength.lvl) ~ NA,
+                .default=glue("{compartment.category}.{compartment.strength.lvl}")
+            ),
+        bin.transition=
+            case_when(
+                is.na(bin.label) & is.na(lead(bin.label)) ~ NA,
+                .default=glue('{bin.label}->{lead(bin.label, n=1L)}'),
+            ),
+        transition.category=
+            case_when(
+                compartment.strength.lvl <  lag(compartment.strength.lvl)       ~ 'weaker',
+                compartment.strength.lvl >  lag(compartment.strength.lvl)       ~ 'stronger',
+                compartment.category     != lead(compartment.category)          ~ 'switch',
+                is.na(compartment.category) | is.na(lead(compartment.category)) ~ NA
             )
     )
 }
 
 load_cooltools_compartment_results <- function(
     filepath,
+    n.compartment.lvls.list,
     ...){
     # filepath=tmp$filepath[[1]]
     filepath %>%
@@ -128,85 +156,29 @@ load_cooltools_compartment_results <- function(
         show_col_types=FALSE,
         progress=FALSE
     ) %>%
-        {.} -> e1.df; e1.df
-    e1.df %>% 
-    # classify bins by first eigenvector
+    dplyr::rename('chr'=chrom) %>% 
+    # select(chr, start, end, E1, E2, E3) %>% 
+    select(chr, start, end, E1) %>% 
+    nest(scores.df=-c(chr)) %>% 
+    cross_join(tibble(n.compartment.lvls=n.compartment.lvls.list)) %>% 
     mutate(
-        compartment.n2=
-            case_when(
-                E1 >  0   ~ 'A',
-                E1 <  0   ~ 'B',
-                E1 == 0   ~ '0',
-                is.na(E1) ~ NA,
-                TRUE      ~ as.character(E1)
-            )
-    ) %>%
-    group_by(chrom, compartment.n2) %>% 
-    mutate(
-        across(
-            .fn=,
-            .names=''
-        )
-    )
-        compartment.n6=
-            cut(
-                x=E1,
-                breaks=
-                    quantile(
-                        E1,
-
-                        probs=c(0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0),
-                        na.rm=TRUE
-                    ),
-                labels=
-                    c(
-                        'Strong A',
-                        'Med A',
-                        'Weak A',
-                        # 'Near 0',
-                        'Weak B',
-                        'Med B',
-                        'Strong B'
-                    )
-            )
-        compartment.n20=
-            cut(
-                x=E1,
-                breaks=
-                    quantile(
-                        E1,
-                        probs=seq(0, 1, 0.05),
-                        na.rm=TRUE
-                    ),
-                labels=
-                    c(
-                    )
+        compartment.labels=
+            pmap(
+                .l=.,
+                .f=quantize_compartment_scores
             )
     ) %>% 
-    arrange(chrom, start, end) %>% 
-    group_by(chrom) %>% 
-    mutate(
-        across(
-            .cols=starts_with('compartment.'),
-            .fn=\(x, ...) glue('{x}->{lead(x, n=1L)}'), # need the ... for dplyr reasons idk
-            .names='switch.{str_remove(.col, "^compartment.")}'
-        )
-    ) %>% 
-    ungroup() %>% 
-        count(compartment.n6, switch.n6) %>% print(n=Inf)
-    select(
-        chrom, start, end,
-        E1,
-        starts_with('compartment.', 'switch.')
-    ) %>% 
-    filter(!is.na(E1)) %>% 
-    dplyr::rename('chr'=chrom)
+    select(-c(scores.df)) %>% 
+    unnest(compartment.labels)
 }
 
-load_all_cooltools_compartment_results <- function(resolutions=NULL){
+load_all_cooltools_compartment_results <- function(
+    resolutions=NULL,
+    n.compartment.lvls.list=c(5)){
+    # force_redo=parsed.args$force.redo; resolutions=parsed.args$resolutions; n.compartment.lvls.list=c(5, 10)
     COMPARTMENTS_RESULTS_DIR %>%
     parse_results_filelist(
-        filename.column.name='SampleID',
+        filepath.column.name='MatrixID',
         suffix='-.cis.vecs.tsv'
     ) %>%  
     {
@@ -221,6 +193,7 @@ load_all_cooltools_compartment_results <- function(resolutions=NULL){
             future_pmap(
                  .l=.,
                  .f=load_cooltools_compartment_results,
+                 n.compartment.lvls.list=n.compartment.lvls.list,
                  .progress=TRUE
             )
     ) %>%
@@ -229,39 +202,9 @@ load_all_cooltools_compartment_results <- function(resolutions=NULL){
 }
 
 post_process_cooltools_compartment_results <- function(results.df){
-    results.df %>%
-    mutate(
-        compartment.binary=
-            factor(
-                compartment.binary,
-                levels=
-                    c(
-                        'A',
-                        'B'
-                    )
-            ),
-        compartment.quantile=
-            factor(
-                compartment.quantile,
-                levels=
-                    c(
-                        'Strong A',
-                        '  Weak A',
-                        '  Near 0',
-                        '  Weak B',
-                        'Strong B'
-                    )
-            ),
-        compartment.switch=
-            factor(
-                compartment.switch,
-                levels=
-                    c(
-                        'A->A'
-                        'B->B'
-                        'A->B'
-                        'B->A'
-                    )
+    results.df
+}
+
             )
     )
 }
