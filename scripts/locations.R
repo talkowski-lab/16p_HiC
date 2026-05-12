@@ -5,6 +5,11 @@ REF_DIR              <- file.path(BASE_DIR, 'reference.files')
 SCRIPT_DIR           <- file.path(BASE_DIR, 'scripts')
 RESULTS_DIR          <- file.path(BASE_DIR, 'results')
 SAMPLE_METADATA_FILE <- file.path(BASE_DIR, SAMPLE_METADATA_FILENAME) 
+GENOME_BINS_FILES_DIR  <- file.path(REF_DIR, 'genome.bins')
+GENOME_TRACK_FILES_DIR <- file.path(REF_DIR, 'genome.tracks')
+GENOME_NAME            <- 'hg38'
+GRCH38_DIR             <- file.path(BASE_DIR, 'GRCh38.Reference')
+CHROMSIZES_FILE        <- file.path(GRCH38_DIR, 'GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes')
 
 ################################################################################
 # Sample QC Results
