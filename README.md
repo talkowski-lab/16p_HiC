@@ -48,14 +48,14 @@ Files for reproducibility
 ```
 $ tree -L 2 reference.files/ distiller-nf/
 ├── distiller-nf/
-└── reference.files/
+└── dependencies.files/
     ├── conda.envs
-    │   ├── cooltools.env.yml
-    │   ├── distiller.env.yml
-    │   ├── HiCRep.env.yml
-    │   ├── multiqc.env.yml
-    │   ├── qc3C.env.yml
-    │   └── TADLib.env.yml
+    │   ├── cooltools.yml
+    │   ├── distiller.yml
+    │   ├── HiCRep.yml
+    │   ├── multiqc.yml
+    │   ├── TADs.yml
+    │   └── R.yml
     ├── packages
     │   ├── functionsdchic_1.0.tar.gz
     │   └── hashmap_0.2.2.tar.gz
@@ -77,16 +77,15 @@ All SampleIDs are follow the same format format `Project.CellType.Genotype.BioRe
 ```
 $ tree /data/talkowski/Samples/16p_HiC/
 ./
-├── reference.files/
-│   └── genome.reference
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.amb
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.ann
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.bwt
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.fai
-│       ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.pac
-│       └── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.sa
+├── GRCh38.reference
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.chrom.sizes
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.amb
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.ann
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.bwt
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.fai
+│   ├── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.pac
+│   └── GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.sa
 ├── HiC.16p.sample.metadata.tsv                                       # metadata for all HiC samples
 ├── fastq/                                                            # Raw reads for HiC samples
 │   ├── 22LCC2LT4_3_2148261314_16pDELA3NSCHiC_S1_L003_R1_001.fastq.gz
@@ -104,14 +103,9 @@ Annotations of genomic features, used for association analyses
 ```
 $ tree -L 1 /data/talkowski/Samples/16p_HiC/reference.files/
 reference.files/
-├── gencode.v38.annotation.gtf.gz    # Gene position + info annotations
-├── hg38_gene_deserts.tsv            # locations of gene deserts
-├── hg38.segdups.bed.gz              # locations of Segmental Duplications
-├── hg38.segdups.bed.gz.tbi
-├── CTCF.annotations.tsv             # Annotated CTCF sites
-├── ENCODE.v4.cCRE.anontations.tsv   # ENCODE cCREs annotations
-├── gene.constraints.CNVR.tsv        # Constraint metrics for each gene
-└── genome.tracks/                   # Several set metrics, computed bin-wise across the genome
+├── raw.FGE.data/           # downloaded functional genomic element annotations used for FGE analysis
+├── genome.bins/            # coordinates of genomic bins at various resolutions
+└── genome.tracks/          # binwise metrics computed across the genome by cooltools
     └── track.type_genecov/
 ```
 
@@ -169,36 +163,36 @@ results/
 │   ├── all.DESeq2.results.tsv
 │   ├── all.expression.data.tsv
 │   ├── all.TRADE.results.tsv
-│   ├── DESeq2
-│   └── expression
+│   ├── DESeq2/
+│   └── expression/
 ├── sample.QC
-│   ├── coverage
-│   ├── expected.coverage
+│   ├── coverage/
+│   ├── expected.coverage/
 │   ├── minimum.viable.resolutions.tsv
-│   ├── multiqc.reports
+│   ├── multiqc.reports/
 │   └── resolution.coverage.summaries.tsv
 ├── hicrep
 │   ├── all.hicrep.cmds.txt
 │   ├── all.hicrep.scores.tsv
 │   └── results
 ├── weiner.replication
-│   └── plots
+│   └── plots/
 ├── loops
 │   ├── all.cooltools.loops.tsv
 │   ├── filtered.cooltools.loops.tsv
 │   ├── all.cooltools.IDR2D.results.tsv
 │   ├── filtered.cooltools.IDR2D.results.tsv
-│   ├── results_IDR2D
-│   └── results_loops
+│   ├── results_IDR2D/
+│   └── results_loops/
 ├── multiHiCCompare
 │   ├── all.multiHiCCompare.n.results.tsv
 │   ├── all.multiHiCCompare.results.tsv
 │   └── results/
 ├── compartments
 │   ├── all.cooltools.compartments.tsv
-│   └── results_compartments
+│   └── results_compartments/
 └── gghic.plots 
-    └── plots
+    └── plots/
 ```
 
 ### Notebooks
@@ -211,15 +205,10 @@ $ tree -L 1 /data/talkowski/Samples/16p_HiC/notebooks/ -P '*.html'
 ├── matrix.coverage.html
 ├── hicrep.html
 ├── weiner.replication.html
-│   └── find /data/talkowski/Samples/16p_HiC/results/gghic.plots/plots/ -type f -name '*.pdf'
 ├── TADs.html
-├── TADCompare.html
 ├── loops.html
 ├── loop.reproducibility.html
-├── loop.integration.html
-├── multiHiCCompare.html
-└── HiC.heatmaps.html
-    └── find /data/talkowski/Samples/16p_HiC/results/weiner.replication/plots/ -type f -name '*.pdf'
+└──multiHiCCompare.html
 ```
 
 ## Methods
@@ -229,10 +218,6 @@ $ tree -L 1 /data/talkowski/Samples/16p_HiC/notebooks/ -P '*.html'
 Each sample as a `.yml` file (in `./sample.configs`) specifiying the params for `distiller-nf` to run the sample with. We separte each sample into its own file so we can run them in parallel, but the only difference between files are the input fastq files, all pipeline parameters are the same. 
 We use 64 cores total, with 128 maxCPUs set in the nextflow config. 
 This fully processes a sample (`.fastq -> .mcool`) with ~400M reads in ~9h.
-
-### Running qc3C profiling
-
-Use the tool `qc3C` [github](https://github.com/cerebis/qc3C) in bam mode to profile quality metrics for our HiC samples.
 
 ### Generate MultiQC reports
 
@@ -369,81 +354,6 @@ Different filler text
 
 ## Reproducing Results
 
-### Dependencies
-
-There are several dependencies, including shell tools, python and R libraries
-Shell Tools from conda environments
-```bash
-# cooler + cooltools
-conda env create -f cooltools.env.yml
-# distiller-nf + dependencies
-conda env create -f distiller.env.yml
-# python HiCRep
-conda env create -f HiCRep.env.yml
-# multiQC
-conda env create -f multiqc.env.yml
-# hiTAD
-conda env create -f TADLib.env.yml
-```
-R dependencies
-```r
-# Basic data handling dependencies + plotting stuff
-install.packages(
-    c(
-        'ComplexUpset',
-        'cowplot',
-        'GGally',
-        'ggh4x',
-        'ggnewscale',
-        'ggplot2',
-        'ggpubr',
-        'patchwork',
-        'scales',
-        'viridis',
-
-        'dplyr',
-        'glue',
-        'magrittr',
-        'purrr',
-        'stringi',
-        'tibble',
-        'tidyverse',
-
-        'furrr',
-        'future',
-
-        'here',
-        'optparse',
-        'tictoc',
-        'knitr',
-        'kableExtra',
-        'gtable',
-    )
-)
-
-# Bioconductor based dependencies + biologically specific tools
-install.packages(
-    c(
-        'plyranges',
-        'idr2d',
-        'hictkR'
-    )
-)
-devtools::install_github("jasonwong-lab/gghic")
-devtools::install_github("ajaynadig/TRADEtools")
-BiocManager::install(
-    c(
-        'AnnotationHub',
-        'BiocParallel',
-        'GenomicRanges',
-        'InteractionSet',
-        'HiContacts',
-        'TADCompare',
-        'multiHiCcompare'
-    )
-)
-```
-
 ### Generate Results
 
 Generate `.mcool` files from `.fastq` files using the `distiller-nf` pipeline
@@ -535,25 +445,7 @@ knit() {
             )
     )"
 }
-```
-We also want to separately generate figures for notebooks that will be inserted into notebooks later
-```bash
-Rscript ./scripts/plot.gghic/plot.annotated.HiC.heatmaps.R
-Rscript ./scripts/weiner.replication/make.replication.figures.R
-```
-Now we can compute each notebooks
-```bash
-knit Matrix.QC.Rmd
-knit Matrix.Coverage.Rmd
-knit HiCRep.Rmd
-knit Weiner.Replication.Rmd
-knit TADs.Rmd
-knit TADCompare.Rmd
-knit Loops.Rmd
-knit Loop.Reproducibility.Rmd
-knit Loop.Integration.Rmd
-knit multiHiCCompare.Rmd
-knit HiC.Heatmaps.Rmd
+$ knit notebook.Rmd 
 ```
 
 ### File Summary One-liners

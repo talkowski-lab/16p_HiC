@@ -47,13 +47,6 @@ work*
 /*.tar.gz
 
 # Annotation files
-reference.files/gencode.v38.annotation.gtf.gz
-reference.files/gene.constraints.CNVR.tsv
-reference.files/CTCF.annotations.tsv
-reference.files/ENCODE.v4.cCRE.anontations.tsv
-reference.files/hg38.segdups.bed.gz
-reference.files/hg38.segdups.bed.gz.tbi
-reference.files/hg38_gene_deserts.tsv
 reference.files/genome.bins
 reference.files/genome.tracks
 reference.files/packages/
@@ -61,5 +54,8 @@ public.data/PMID_30545851
 public.data/PMID_37090552/Gluta_GSE228118/GSE228118_Gluta_HiC_merged_loops.bed12
 public.data/PMID_37090552/Gluta_GSE228118
 public.data/PMID_37090552
-/reference.files
 /dependencies.files/packages
+/GRCh38.Reference
+/reference.files/raw.FGE.data
+/reference.files/homo_sapiens_GRCh38_92.gene_annotations.strand.info.txt
+/reference.files/regional_gene_cor.tar.gz
