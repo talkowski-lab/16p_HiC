@@ -5,18 +5,24 @@
 Commands to generate TAD + TAD Comparison data
 ```bash
 # generate commands to run shell tools for TAD calling
-Rscript ./scripts/TADs/make.TADCaller.cmds.R -t 8 # use 8 threads
+mamba activtte r
+Rscript ./scripts/TADs/make.TAD.calling.cmds.R -t $(nproc)
 # now run those generated commands with GNU parallel
-parallel -j 1 --eta --bar ::::: ./results/TADs/all.TAD.calling.cmds.txt
+mamba activtte TADs
+parallel -j 1 --eta --bar :::: ./results/TADs/all.TAD.calling.cmds.txt
 # Generate Consensus TAD results from set of individual matrices with spectralTAD
+mamba activtte r
 Rscript ./scripts/TADs/run.ConsensusTADs.R
 # Coallate TAD results into single, structured output files
-Rscript ./scripts/TADs/coallate.TAD.results.R
+mamba activtte r
+Rscript ./scripts/TADs/coallate.all.TAD.results.R
 # Compute TAD MoCs for all sets of TADs
+mamba activtte r
 Rscript ./scripst/TADs/calculate.TAD.MoCs.R
 # Run TADCompare to generated differential TAD results
 # requires 120Gb for the largest matrix comparison (i.e. chr1 @5Kb)
-Rscript ./scripts/TADs/run.TADCompare.R -t 8 
+mamba activtte r
+Rscript ./scripts/TADs/run.TADCompare.R -t $(nproc)
 ```
 
 ## Output File Descriptions
@@ -35,7 +41,7 @@ The TAD results files are as follows:
 └── all.TADCompare.n.results.tsv
 ```
 
-### TAD Annotation
+### TADs
 
 We generate the TAD annotations we use 3 different programs:
 
@@ -71,9 +77,11 @@ Columns are:
 | TAD.inner.max    |  3.175     | 2.929     |  |
 | TAD.inner.total  |  -27.4471  | -27.7422  |  |
 
-### TAD MoC Data
+### TAD Boundaries
 
-### TADCompare Data
+### TAD MoC 
+
+### TADCompare 
 
 For 2 different TAD annotation sets (start/end pairs) of the same region (e.g. chr16) we can calculate the similarity of the 2 sets by computing the Measure of Concordance as defined in [this paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-018-1596-9#Sec21). 
 
