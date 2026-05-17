@@ -52,7 +52,11 @@ $ tree -L 2 dependencies.files
 ```
 mamba environments can be installed via:
 ```bash 
-$ mamba create --name ${ENV_NAME} --file ${ENV_NAME}.yml
+$ find ./dependencies.files/ -type f -name '*.yml' -exec mamba env create -f {} \;
+```
+Install r packages as follows:
+```bash
+$ Rscript dependencies.files/install.R.packages.R
 ```
 
 ### Results Files
