@@ -2,7 +2,7 @@
 # Dependencies
 ################################################################################
 library(here)
-here::i_am('scripts/FGE.Association.Testing/generate.FGE.signal.track.cmds.R')
+here::i_am('scripts/FGE.Association.Testing/generate.binwise.FGE.signal.tracks.R')
 BASE_DIR <- here()
 suppressPackageStartupMessages({
     source(file.path(BASE_DIR,   'scripts/constants.R'))
@@ -21,8 +21,8 @@ parsed.args <-
         args=c('resolutions', 'threads', 'force'),
         has.positional=FALSE
     )
-parsed.args$resolutions <- c(100, 50, 25) * 1e3
-parsed.args$threads <- 1
+# parsed.args$resolutions <- c(100, 50, 25) * 1e3
+# parsed.args$threads <- 1
 if (parsed.args$threads > 1){
     # plan(multisession, workers=N_WORKERS_FOR_PARLLELIZATION)
     options(future.globals.maxSize=1.23 * 1024**3)
@@ -38,7 +38,7 @@ if (parsed.args$threads > 1){
 genomic.bins.df <- 
     GENOME_BINS_FILES_DIR %>% 
     parse_results_filelist(suffix='.tsv') %>%
-    select(-c(MatrixID)) %>% 
+    select(-c(filename)) %>% 
     filter(resolution %in% parsed.args$resolutions) %>% 
     mutate(
         bins.df=
@@ -58,8 +58,8 @@ all.raw.FGE.data.df <-
     # Other TF binding sites
     # bind_rows(
     #     load_TF_binding_sites() %>% 
-    #     nest(sites.df=-c(TF.geneID)) %>% 
-    #     dplyr::rename('FGE.subtype'=TF.geneID) %>% 
+    #     nest(sites.df=-c(TF.Symbol)) %>% 
+    #     dplyr::rename('FGE.subtype'=TF.Symbol) %>% 
     #     dplyr::rename('FGE.type'='TFBS')
     # ) %>% 
     # ENCODE cCREs

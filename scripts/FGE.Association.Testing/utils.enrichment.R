@@ -77,8 +77,74 @@ load_ENCODE_cCREs <- function(){
     select(-c(cCREID.2))
 }
 # TF binding sites for various TFs
-load_TF_binding_sites <- function(){
-    stop('Not implemented')
+load_TF_binding_sites <- function(force.redo=FALSE){
+    # stop('Not implemented')
+    relevant.TF.symbols <- 
+        c(
+            'TFAP2A',
+            'SMARCA4',
+            'TP53BP1',
+            'SMARCA2',
+            'SOX2',
+            'KDM6A',
+            'SOX3',
+            'FOSL2',
+            # 'CTCF',
+            'EZH2',
+            'MBD4',
+            'RAD21',
+            'EP300',
+            'ZEB1',
+            'TAF1',
+            'MECP2'
+        )
+    check_cached_results(
+        results_file=FILTERED_TF_SITES_FILE,
+        force_redo=force.redo,
+        results_fnc=
+            function(){
+                RAW_TF_SITES_FILE %>%
+                read_tsv(show_col_types=FALSE) %>%
+                dplyr::rename(
+                    'chr'='#CHROM',
+                    'start'=START,
+                    'end'=END,
+                    'ID'=id,
+                    'TF.ClassID'=tfClassId,
+                    'TF.Symbol'=tfTitle,
+                    'UniprotID'=uniprotId
+                ) %>%
+                filter(grepl('wildtype|WT|Genotype: control', treatment.set)) %>% 
+                filter(!grepl('cancer|vehicle', treatment.set)) %>% 
+                filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% 
+                filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% 
+                # count(TF.Symbol) %>% arrange(desc(n))
+                filter(TF.Symbol %in% relevant.TF.symbols) %>%
+                {.} -> TFs.df
+            }
+    )
+    # TFs.df %>% filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% count(cell.set) %>% arrange(desc(n))
+    # TFs.df %>% filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% count(cell.set) %>% arrange(desc(n))
+    # TFs.df %>% filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% distinct(cell.set) %>% arrange(cell.set) %>% print(n=Inf)
+    # TFs.df %>% count(treatment.set) %>% arrange(desc(n))
+    TFs.df %>% count(peak-caller.set) %>% arrange(desc(n))
+    TFs.df %>% count(TF.Symbol) %>% arrange(desc(n))
+    TFs.df %>% 
+        # filter(grepl('control|wildtype|none|untreated', treatment.set)) %>% 
+        filter(grepl('wildtype|WT|Genotype: control', treatment.set)) %>% 
+        filter(!grepl('cancer|vehicle', treatment.set)) %>% 
+        filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% 
+        filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% 
+        # count(TF.Symbol) %>% arrange(desc(n))
+        filter(TF.Symbol %in% relevant.TF.symbols) %>%
+        distinct(cell.set) %>% print(n=Inf)
+        distinct(treatment.set) %>% print(n=Inf)
+    # All FDR DEGs in at least 1 comparison in RNA-Seq + TFBS in WT neural cell
+    load_all_DESeq2_results() %>% 
+        filter(symbol %in% relevant.TF.symbols) %>%
+        filter(pvalue < 0.05) %>% count(symbol) %>% print(n=Inf)
+        filter(padj < 0.1) %>% count(symbol) %>% print(n=Inf)
+        count(padj < 0.1, pvalue < 0.05, comparison)
 }
 
 ################################################################################
