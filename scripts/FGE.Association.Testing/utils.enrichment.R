@@ -118,33 +118,31 @@ load_TF_binding_sites <- function(force.redo=FALSE){
                 filter(!grepl('cancer|vehicle', treatment.set)) %>% 
                 filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% 
                 filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% 
-                # count(TF.Symbol) %>% arrange(desc(n))
-                filter(TF.Symbol %in% relevant.TF.symbols) %>%
-                {.} -> TFs.df
+                filter(TF.Symbol %in% relevant.TF.symbols) # %>% {.} -> TFs.df
             }
     )
     # TFs.df %>% filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% count(cell.set) %>% arrange(desc(n))
     # TFs.df %>% filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% count(cell.set) %>% arrange(desc(n))
     # TFs.df %>% filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% distinct(cell.set) %>% arrange(cell.set) %>% print(n=Inf)
     # TFs.df %>% count(treatment.set) %>% arrange(desc(n))
-    TFs.df %>% count(peak-caller.set) %>% arrange(desc(n))
-    TFs.df %>% count(TF.Symbol) %>% arrange(desc(n))
-    TFs.df %>% 
-        # filter(grepl('control|wildtype|none|untreated', treatment.set)) %>% 
-        filter(grepl('wildtype|WT|Genotype: control', treatment.set)) %>% 
-        filter(!grepl('cancer|vehicle', treatment.set)) %>% 
-        filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% 
-        filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% 
-        # count(TF.Symbol) %>% arrange(desc(n))
-        filter(TF.Symbol %in% relevant.TF.symbols) %>%
-        distinct(cell.set) %>% print(n=Inf)
-        distinct(treatment.set) %>% print(n=Inf)
-    # All FDR DEGs in at least 1 comparison in RNA-Seq + TFBS in WT neural cell
-    load_all_DESeq2_results() %>% 
-        filter(symbol %in% relevant.TF.symbols) %>%
-        filter(pvalue < 0.05) %>% count(symbol) %>% print(n=Inf)
-        filter(padj < 0.1) %>% count(symbol) %>% print(n=Inf)
-        count(padj < 0.1, pvalue < 0.05, comparison)
+    # TFs.df %>% count(peak-caller.set) %>% arrange(desc(n))
+    # TFs.df %>% count(TF.Symbol) %>% arrange(desc(n))
+    # TFs.df %>% 
+    #     # filter(grepl('control|wildtype|none|untreated', treatment.set)) %>% 
+    #     filter(grepl('wildtype|WT|Genotype: control', treatment.set)) %>% 
+    #     filter(!grepl('cancer|vehicle', treatment.set)) %>% 
+    #     filter(grepl('neuron|neural|brain|NSC|iN', cell.set)) %>% 
+    #     filter(!grepl('kidney|leukemia|lung|astoid|astoma|carcinoma', cell.set)) %>% 
+    #     # count(TF.Symbol) %>% arrange(desc(n))
+    #     filter(TF.Symbol %in% relevant.TF.symbols) %>%
+    #     distinct(cell.set) %>% print(n=Inf)
+    #     distinct(treatment.set) %>% print(n=Inf)
+    # # All FDR DEGs in at least 1 comparison in RNA-Seq + TFBS in WT neural cell
+    # load_all_DESeq2_results() %>% 
+    #     filter(symbol %in% relevant.TF.symbols) %>%
+    #     filter(pvalue < 0.05) %>% count(symbol) %>% print(n=Inf)
+    #     filter(padj < 0.1) %>% count(symbol) %>% print(n=Inf)
+    #     count(padj < 0.1, pvalue < 0.05, comparison)
 }
 
 ################################################################################

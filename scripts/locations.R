@@ -10,6 +10,7 @@ MCOOL_DIR             <- file.path(RESULTS_DIR, 'coolers_library')
 # Reference files
 ################################################################################
 REF_DIR                <- file.path(BASE_DIR, 'reference.files')
+GENE_ANNOTATIONS_FILE  <- file.path(REF_DIR, 'homo_sapiens_GRCh38_92.gene_annotations.strand.info.txt') 
 GENOME_BINS_FILES_DIR  <- file.path(REF_DIR, 'genome.bins')
 GENOME_TRACK_FILES_DIR <- file.path(REF_DIR, 'genome.tracks')
 GENOME_NAME            <- 'hg38'
@@ -98,6 +99,8 @@ MULTIHICCOMPARE_SIG_RESULTS_FILE      <- file.path(DIFFERENTIAL_CONTACTS_DIR, 'a
 # Functional Genomic Element (FGE) Data + Results
 ################################################################################
 FGE_RAW_DIR                  <- file.path(REF_DIR, 'raw.FGE.data')
+RAW_TF_SITES_FILE            <- file.path(FGE_RAW_DIR, 'Homo_sapiens_meta_clusters.interval')
+FILTERED_TF_SITES_FILE       <- file.path(FGE_RAW_DIR, 'filtered.Homo_sapiens_meta_clusters.interval')
 ENCODE_CCRE_SITES_FILE       <- file.path(FGE_RAW_DIR, 'GRCh38-cCREs.bed')
 CTCF_SITE_FILE               <- file.path(FGE_RAW_DIR, 'CTCF.annotations.tsv')
 GENE_DESERT_REGIONS_FILE     <- file.path(FGE_RAW_DIR, 'hg38_gene_deserts.tsv')
